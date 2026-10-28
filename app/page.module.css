@@ -1,0 +1,19 @@
+.chartCard {
+  padding: 16px 12px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.caption {
+  margin-top: 12px;
+  padding-inline: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+@media (min-width: 720px) {
+  .chartCard {
+    padding: 24px 24px 18px;
+  }
+}

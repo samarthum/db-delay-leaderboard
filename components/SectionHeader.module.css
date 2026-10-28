@@ -1,0 +1,25 @@
+.header {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--db-red);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--db-red);
+}
+
+@media (min-width: 720px) {
+  .header {
+    margin-bottom: 32px;
+  }
+}

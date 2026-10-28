@@ -1,0 +1,49 @@
+.root {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.switch {
+  justify-self: start;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: #ebe6db;
+}
+
+.seg {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.seg[aria-pressed="true"] {
+  background: var(--board);
+  color: #fff;
+}
+
+.seg:focus-visible {
+  outline-offset: 1px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hint {
+    display: none;
+  }
+}

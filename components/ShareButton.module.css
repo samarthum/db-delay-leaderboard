@@ -1,0 +1,54 @@
+.share {
+  display: grid;
+  gap: 8px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 17px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.primary {
+  border: 0;
+  background: var(--db-red);
+  color: #fff;
+}
+
+.primary:hover {
+  background: var(--db-red-dark);
+}
+
+.secondary {
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+
+.secondary:hover {
+  background: var(--ink);
+  color: #fff;
+}
+
+.status {
+  min-height: 1.5em;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--good);
+  overflow-wrap: anywhere;
+}

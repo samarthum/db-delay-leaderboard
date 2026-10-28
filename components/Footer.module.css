@@ -1,0 +1,54 @@
+.footer {
+  margin-top: 24px;
+  padding-block: 40px 48px;
+  background: var(--board);
+  color: #c3c8d2;
+  border-top: 6px solid var(--db-red);
+}
+
+.inner {
+  display: grid;
+  gap: 12px;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--amber);
+}
+
+.credits {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.credits a {
+  display: inline-block;
+  padding-block: 10px;
+  margin-block: -10px;
+  color: #fff;
+  text-underline-offset: 3px;
+}
+
+.credits a:hover {
+  color: var(--amber);
+}
+
+.updated {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #a9afbb;
+}
