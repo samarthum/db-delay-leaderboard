@@ -1,0 +1,32 @@
+{
+  "name": "db-delay-leaderboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deutsche Bahn's most delayed long-distance trains, ranked.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "node scripts/og.mjs",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "data": "python scripts/compute.py"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "maplibre-gl": "6.16.0",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "satori": "0.63.2"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "playwright": "1.64.1",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20.9"
+  }
+}
