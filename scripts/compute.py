@@ -30,6 +30,8 @@ STATIONS_CSV = "https://raw.githubusercontent.com/trainline-eu/stations/master/s
 FILE_RE = re.compile(r"(?:^|/)data-(\d{4}-\d{2})\.parquet$")
 PUBLISHED_MONTHS = 12
 WORST_MONTH_MIN_RUNS = 10
+MAX_CANCEL_BEST_BEHAVED = 5.0
+WORST_RUN_MIN_STOPS = 3
 
 PARAMS = {
     "trainTypes": ["ICE", "IC", "EC", "ECE", "RJ", "RJX", "NJ", "EN", "FLX", "TGV", "WB"],
@@ -289,16 +291,36 @@ def pool_stats(con):
         avg(pct) p_avg, stddev_samp(pct) p_sd, median(pct) p_med, quantile_cont(pct, 0.9) p_p90,
         avg(sched_min) filter (where pct is not null) sched,
         100 * avg(all_canc::int) full_canc, 100 * avg(any_canc::int) any_canc,
-        count(distinct origin || ' → ' || dest) variants
+        count(distinct origin || ' → ' || dest) variants,
+        md5(string_agg(strftime(start_plan, '%Y-%m-%dT%H:%M') || '|' || coalesce(origin, '') || '|' || coalesce(dest, ''), ';'
+          order by start_plan, origin, dest)) sig
       from r group by train
       having count(*) filter (where valid) >= {PARAMS['minRunsForPool']}
     ) s left join routes using (train)
     """)
 
 
+def collapse_aliases(pool):
+    """One entry per physical train.
+
+    Coupled or through-running portions show up under several numbers with the same runs (same
+    planned start times and routes; recorded delays can differ by a minute). Keep the shortest
+    number (IC 417 over EN 40417), then type and number as tie-breakers, and list the rest as aliases.
+    """
+    groups = {}
+    for t in pool:
+        groups.setdefault(t["sig"], []).append(t)
+    out = []
+    for members in groups.values():
+        members.sort(key=lambda t: (len(str(t["number"])), t["type"], str(t["number"])))
+        out.append({**members[0], "aliases": [m["train"] for m in members[1:]]})
+    return sorted(out, key=lambda t: t["train"])
+
+
 def summary(t, rank_min, rank_pct):
     return {
         "slug": slugify(t["train"]), "train": t["train"], "type": t["type"], "number": t["number"],
+        "alsoRunsAs": t["aliases"],
         "origin": t["origin"], "dest": t["dest"], "routeVariants": t["variants"], "runs": t["runs"],
         "measured": t["measured"], "measuredPct": t["measured_pct"],
         "minutes": {"avg": rnd(t["m_avg"]), "sd": rnd(t["m_sd"]), "median": rnd(t["m_med"]), "p90": rnd(t["m_p90"])},
@@ -408,8 +430,12 @@ def extra_train(t):
 
 
 def worst_run_overall(con, detail_slugs):
-    w = rows(con, """select train, delay, start_plan::date::varchar AS date, origin, dest from r where valid
-                     order by delay desc, start_plan, run_id limit 1""")
+    # origin == dest or a one-stop run is a data artefact, not a journey worth naming.
+    w = rows(con, f"""select r.train, delay, start_plan::date::varchar AS date, origin, dest from r
+                      join (select run_id, count(*) n from stops group by run_id) k using (run_id)
+                      where valid and origin is not null and dest is not null and origin <> dest
+                        and k.n >= {WORST_RUN_MIN_STOPS} and regexp_matches(r.train, '^[A-Z]+ [0-9]+$')
+                      order by delay desc, start_plan, r.run_id limit 1""")
     if not w:
         return None
     w = w[0]
@@ -451,7 +477,9 @@ def compute(args):
     p = {**PARAMS, "clampMinMinutes": args.clamp_min, "clampMaxMinutes": args.clamp_max}
     build_tables(con, sources, window["months"], args.stations_csv, p, args.pct_cap)
 
-    pool = pool_stats(con)
+    raw_pool = pool_stats(con)
+    pool = collapse_aliases(raw_pool)
+    log(f"pool {len(raw_pool)} train numbers -> {len(pool)} physical trains")
     top_n, more_n = PARAMS["topN"], PARAMS["moreN"]
     by_min = sorted(pool, key=lambda t: (-t["m_avg"], t["train"]))[:more_n]
     # Some pool trains have almost no runs long enough for % stats (EC 97: 2 of 325), so the
@@ -476,7 +504,8 @@ def compute(args):
         worst_month = {"slug": slugify(train), "train": train, "month": month, "avg": rnd(avg), "runs": n}
 
     extras = {
-        "bestBehaved": extra_train(min(pool, key=lambda t: (t["m_avg"], t["train"]))),
+        "bestBehaved": extra_train(min((t for t in pool if t["full_canc"] < MAX_CANCEL_BEST_BEHAVED),
+                                       key=lambda t: (t["m_avg"], t["train"]))),
         "mostCancelled": extra_train(min(pool, key=lambda t: (-t["full_canc"], t["train"]))),
         "worstTrainMonth": worst_month,
         "worstRun": worst_run_overall(con, detail_slugs),

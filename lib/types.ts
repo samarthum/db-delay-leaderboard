@@ -81,6 +81,8 @@ export interface TrainSummary {
   train: string;
   type: string;
   number: string;
+  /** Other train numbers with identical measured runs (the same physical train), e.g. ["EN 40417"]. */
+  alsoRunsAs: string[];
   /** Most common first stop in the data. */
   origin: string;
   /** Most common final destination (international trains are measured at the last German stop). */
