@@ -1,8 +1,8 @@
 .footer {
   margin-top: 24px;
   padding-block: 40px 48px;
-  background: var(--board);
-  color: #c3c8d2;
+  background: var(--board-2);
+  color: var(--ink-2);
   border-top: 6px solid var(--db-red);
 }
 
@@ -18,13 +18,13 @@
   line-height: 1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--ink);
 }
 
 .tag {
   font-family: var(--font-mono);
   font-size: 14px;
-  color: var(--amber);
+  color: var(--db-red-dark);
 }
 
 .credits {
@@ -38,17 +38,17 @@
   display: inline-block;
   padding-block: 10px;
   margin-block: -10px;
-  color: #fff;
+  color: var(--ink);
   text-underline-offset: 3px;
 }
 
 .credits a:hover {
-  color: var(--amber);
+  color: var(--db-red-dark);
 }
 
 .updated {
   margin-top: 8px;
   font-family: var(--font-mono);
   font-size: 13px;
-  color: #a9afbb;
+  color: var(--muted);
 }

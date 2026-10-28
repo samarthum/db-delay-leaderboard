@@ -6,7 +6,8 @@
   max-width: 420px;
   padding: 4px;
   border-radius: 999px;
-  background: var(--board);
+  background: var(--card);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
 
@@ -17,7 +18,7 @@
   left: 4px;
   width: calc(50% - 4px);
   border-radius: 999px;
-  background: var(--db-red);
+  background: var(--db-red-dark);
   transition: transform 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 
@@ -33,7 +34,7 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: #c3c8d2;
+  color: var(--ink-2);
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 19px;
@@ -49,10 +50,10 @@
 }
 
 .tab:hover:not([aria-selected="true"]) {
-  color: #fff;
+  color: var(--ink);
 }
 
 .tab:focus-visible {
-  outline: 3px solid var(--amber);
+  outline: 3px solid var(--ink);
   outline-offset: -3px;
 }

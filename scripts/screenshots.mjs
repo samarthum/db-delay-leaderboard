@@ -8,7 +8,7 @@ import path from "node:path";
 const root = path.resolve("out");
 const shotsDir = path.resolve(process.argv[2] ?? "shots");
 const train = process.argv[3] ?? "nj-40490";
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain", ".xml": "application/xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain", ".xml": "application/xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
 
 const server = createServer(async (req, res) => {
   let p = path.join(root, decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -30,9 +30,9 @@ const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--ena
 async function settle(page) {
   await page.waitForLoadState("networkidle");
   await page.evaluate(async () => {
-    for (let y = 0; y < document.body.scrollHeight; y += 600) {
+    for (let y = 0; y < document.body.scrollHeight; y += 300) {
       window.scrollTo(0, y);
-      await new Promise((r) => setTimeout(r, 120));
+      await new Promise((r) => setTimeout(r, 220));
     }
     window.scrollTo(0, 0);
   });
@@ -78,12 +78,15 @@ for (const [label, viewport, dsf] of [["mobile", { width: 390, height: 844 }, 2]
   await page.goto(`${base}/`);
   await settle(page);
   overflow.push(["home", await overflowReport(page)]);
-  await full(`${label}-home-full.png`);
+  // The map goes first: a full-page capture stalls the software renderer past the map's load timeout.
+  await mapShot(page, `${label}-map.png`);
   if (label === "mobile") {
     await page.locator("#leaderboard").screenshot({ path: path.join(shotsDir, "mobile-leaderboard.png") });
+    await page.locator("#monthly").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(2500);
     await page.locator("#monthly").screenshot({ path: path.join(shotsDir, "mobile-monthly.png") });
   }
-  await mapShot(page, `${label}-map.png`);
+  await full(`${label}-home-full.png`);
   await page.evaluate(() => window.scrollTo(0, 0));
   await percentMode(page);
   await full(`${label}-home-percent.png`);

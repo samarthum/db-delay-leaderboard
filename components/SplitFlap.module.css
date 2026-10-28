@@ -1,9 +1,9 @@
 .root {
   --w: 28px;
   --gap: max(2px, calc(var(--w) * 0.08));
-  --ink-flap: #f6f1e3;
-  --flap-top: #2e3341;
-  --flap-bottom: #252935;
+  --ink-flap: var(--ink);
+  --flap-top: #fbf9f3;
+  --flap-bottom: #ece8dc;
   display: inline-flex;
   gap: var(--gap);
   max-width: 100%;
@@ -28,8 +28,8 @@
   --w: clamp(36px, 12vw, 84px);
 }
 
-.amber {
-  --ink-flap: var(--amber);
+.accent {
+  --ink-flap: var(--db-red-dark);
 }
 
 .tile {
@@ -42,9 +42,9 @@
   border-radius: calc(var(--w) * 0.12);
   background: linear-gradient(to bottom, var(--flap-top) 0 50%, var(--flap-bottom) 50% 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px #cdc7b8,
+    0 2px 3px rgba(31, 36, 48, 0.14);
   perspective: calc(var(--w) * 6);
   overflow: hidden;
 }
@@ -53,7 +53,7 @@
   width: calc(var(--w) * 0.5);
 }
 
-/* The split: a dark seam with tiny hinge notches at both edges. */
+/* The split: a seam with tiny hinge notches at both edges. */
 .tile::before {
   content: "";
   position: absolute;
@@ -61,8 +61,8 @@
   top: calc(50% - 1px);
   height: 2px;
   z-index: 2;
-  background: linear-gradient(90deg, #08090c 0 7%, rgba(8, 9, 12, 0.7) 7% 93%, #08090c 93% 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: linear-gradient(90deg, rgba(31, 36, 48, 0.55) 0 7%, rgba(31, 36, 48, 0.28) 7% 93%, rgba(31, 36, 48, 0.55) 93% 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* A blank top flap that falls over the split twice before the character lands. */

@@ -98,7 +98,7 @@ export function Extras({ extras, pageSlugs }: ExtrasProps) {
           ) : null}
 
           {worstRun ? (
-            <li className={`${styles.card} ${styles.dark}`}>
+            <li className={`${styles.card} ${styles.accent}`}>
               <p className={styles.label}>The single worst run</p>
               <p className={styles.figure}>
                 {fmtDuration(worstRun.delayMin)}

@@ -9,11 +9,9 @@
   --line: #e1ddd3;
   --bg: #f6f4ee;
   --card: #ffffff;
-  --board: #1c202a;
-  --board-2: #272c38;
-  --board-line: #3a4050;
-  --amber: #ffc83d;
-  --amber-ink: #3a2a00;
+  --board: #ffffff;
+  --board-2: #f1eee5;
+  --board-line: #d9d4c7;
   --good: #1f8a4c;
 
   --font-display: var(--font-barlow-condensed), "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
@@ -154,10 +152,15 @@ svg {
   border: 0;
 }
 
-/* Dark "departure board" panel used for headline numbers. */
+/* A table ignores width and overflow, so its nowrap text would widen the page. */
+table.visually-hidden {
+  display: block;
+}
+
+/* Light "departure board" panel used for headline numbers. */
 .board {
   background: var(--board);
-  color: #f4f1e8;
+  color: var(--ink);
   border-radius: var(--radius);
 }
 

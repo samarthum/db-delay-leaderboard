@@ -61,8 +61,8 @@ function shareText(t: TrainDetail): string {
       : t.rank.percent === 1
         ? "Deutsche Bahn's most delayed train relative to journey time."
         : t.rank.minutes !== null
-          ? `#${t.rank.minutes} on the DB Delay Leaderboard.`
-          : `#${t.rank.percent} on the DB Delay Leaderboard (by % of the journey).`;
+          ? `#${t.rank.minutes} on German Punctuality.`
+          : `#${t.rank.percent} on German Punctuality (by % of the journey).`;
   return `${t.train} runs ${fmtMin(t.minutes.avg)} min late on average (${fmtPct(t.percent.avg)} of the journey). ${lead} Your connection is not guaranteed.`;
 }
 
@@ -143,6 +143,11 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
               {t.origin} <span aria-hidden="true">→</span>
               <span className="visually-hidden"> to </span> {t.dest}
             </p>
+            {t.alsoRunsAs.length > 0 ? (
+              <p className={styles.routeNote}>
+                Also runs as {t.alsoRunsAs.join(", ")}: the same trains under several numbers, counted once.
+              </p>
+            ) : null}
             <p className={styles.routeNote}>
               {t.routeVariants === 1
                 ? "Same route on every run."
@@ -152,7 +157,7 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
 
             <div className={styles.figures}>
               <div className={styles.figure}>
-                <SplitFlap text={fmtMin(t.minutes.avg)} size="xl" tone="amber" label={`${fmt1(t.minutes.avg)} minutes`} />
+                <SplitFlap text={fmtMin(t.minutes.avg)} size="xl" tone="accent" label={`${fmt1(t.minutes.avg)} minutes`} />
                 <p className={styles.figureLabel}>
                   <span className={styles.figureUnit}>min</span>
                   <span className={styles.chip}>late on average</span>
@@ -172,7 +177,7 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
           </header>
 
           <div className={styles.shareRow}>
-            <ShareButton title={`${t.train} · DB Delay Leaderboard`} text={shareText(t)} url={url} />
+            <ShareButton title={`${t.train} · German Punctuality`} text={shareText(t)} url={url} />
           </div>
 
           <section className={styles.section} aria-labelledby="numbers">

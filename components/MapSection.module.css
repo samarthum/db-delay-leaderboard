@@ -41,8 +41,8 @@
   margin-right: 8px;
   padding: 2px 8px;
   border-radius: 6px;
-  background: var(--board);
-  color: var(--amber);
+  background: var(--db-red-soft);
+  color: var(--db-red-dark);
   font-family: var(--font-mono);
   font-size: 12.5px;
   letter-spacing: 0.06em;
@@ -74,7 +74,7 @@
 }
 
 .segmented button[aria-pressed="true"] {
-  background: var(--db-red);
+  background: var(--db-red-dark);
   color: #fff;
 }
 
@@ -124,8 +124,8 @@
   margin: 0;
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(28, 32, 42, 0.88);
-  color: #f4f1e8;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
   font-size: 14px;
   line-height: 1.35;
 }
@@ -175,7 +175,7 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--board);
+  background: var(--ink);
   color: #fff;
   font-weight: 700;
   font-size: 15px;

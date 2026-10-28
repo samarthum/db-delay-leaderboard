@@ -56,13 +56,13 @@ export function homeMetadata(): Metadata {
   const s = getStats();
   const top = s.rankings.minutes[0];
   const span = windowSpan();
-  const title = `Deutsche Bahn's most delayed trains, ${span}`;
+  const title = `${SITE_NAME}: Deutsche Bahn's most delayed trains`;
   return pageMetadata({
-    title: { absolute: `${title} | ${SITE_NAME}` },
+    title: { absolute: title },
     socialTitle: title,
     description:
       `${top.train} (${routeOf(top)}) runs ${fmtMin(top.minutes.avg)} minutes late on average at its last German stop. ` +
-      `Every DB long-distance train ranked by delay, from ${fmtInt(s.overall.measuredRuns)} measured runs. ${TAGLINE}`,
+      `Every DB long-distance train ranked by delay, ${span}, from ${fmtInt(s.overall.measuredRuns)} measured runs. ${TAGLINE}`,
     path: "/",
     image: "home",
     imageAlt: `${top.train}, Deutsche Bahn's most delayed long-distance train ${span}: ${fmtMin(top.minutes.avg)} minutes late on average.`,

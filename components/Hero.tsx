@@ -34,7 +34,7 @@ export function Hero({ stats }: { stats: Stats }) {
             <SplitFlap
               text={fmtMin(top.minutes.avg)}
               size="xl"
-              tone="amber"
+              tone="accent"
               label={`${fmt1(top.minutes.avg)} minutes`}
             />
             <p className={styles.figureUnit}>

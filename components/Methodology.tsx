@@ -1,5 +1,6 @@
 import type { Stats } from "@/lib/types";
 import { fmtInt, monthLabel, windowLabel } from "@/lib/format";
+import { getMonthly } from "@/lib/data";
 import { DATA_SOURCE_URL } from "@/lib/site";
 import { SectionHeader } from "./SectionHeader";
 import { fmtDate } from "./pageFormat";
@@ -20,6 +21,10 @@ function Item({ q, children, open }: { q: string; children: React.ReactNode; ope
 export function Methodology({ stats }: { stats: Stats }) {
   const { params: p, overall: o, window: w } = stats;
   const types = p.trainTypes.join(", ");
+  const nudges = getMonthly().months.map((m) => m.avgDelayMin - m.avgDelayMinUnclamped);
+  const merged = [...stats.rankings.percent, ...stats.rankings.minutes].find((t) => t.alsoRunsAs.length > 0);
+  const nudgeLo = Math.min(...nudges).toFixed(1);
+  const nudgeHi = Math.max(...nudges).toFixed(1);
 
   return (
     <section id="methodology" className="section" aria-labelledby="methodology-title">
@@ -51,7 +56,8 @@ export function Methodology({ stats }: { stats: Stats }) {
               Runs with a final delay below {p.clampMinMinutes} min or above {fmtInt(p.clampMaxMinutes)}{" "}
               min are dropped from the delay statistics. That removed {fmtInt(o.droppedByClamp)} runs,
               which look more like data errors than real journeys. {fmtInt(o.measuredRuns)} runs remain
-              measured.
+              measured. Dropping them nudges the monthly averages {nudgeLo} to {nudgeHi} min{" "}
+              <em>above</em> the raw, unclamped figures.
             </p>
           </Item>
 
@@ -68,7 +74,11 @@ export function Methodology({ stats }: { stats: Stats }) {
           <Item q="Which trains get ranked?">
             <p>
               Only trains with at least {p.minRunsForPool} measured runs:{" "}
-              {fmtInt(o.poolSize)} of {fmtInt(o.trains)} trains. The % ranking additionally needs{" "}
+              {fmtInt(o.poolSize)} of {fmtInt(o.trains)} train numbers. Numbers that share a route
+              and every planned start time are one physical train
+              {merged ? ` (${merged.train} also runs as ${merged.alsoRunsAs.join(", ")})` : ""}: they are
+              merged under the shortest number and shown as &ldquo;also runs as&rdquo;, and the pool
+              counts each physical train once. The % ranking additionally needs{" "}
               {p.minRunsForPool} runs that count for the % statistics. Each ranking shows its own top{" "}
               {p.topN} (and ranks up to {p.moreN} behind the expander). Ties are broken alphabetically.
             </p>

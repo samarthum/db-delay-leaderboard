@@ -28,7 +28,7 @@
 }
 
 .seg[aria-pressed="true"] {
-  background: var(--board);
+  background: var(--ink);
   color: #fff;
 }
 

@@ -25,12 +25,13 @@ const C = {
   muted: "#5f6675",
   line: "#e1ddd3",
   red: "#ec0016",
-  board: "#1c202a",
-  boardLine: "#3a4050",
-  tile: "#2b303c",
-  flap: "#f4f1e8",
-  flapMuted: "#c9c6bd",
-  amber: "#ffc83d",
+  board: "#ffffff",
+  boardLine: "#d9d4c7",
+  tile: "#f1eee5",
+  tileEdge: "#cdc7b8",
+  flap: "#1f2430",
+  flapMuted: "#454c5b",
+  redDark: "#b8000f",
 };
 const SANS = "Barlow";
 const COND = "Barlow Condensed";
@@ -140,7 +141,7 @@ function footer() {
       h("div", {
         style: { display: "flex", width: 22, height: 22, borderRadius: 6, background: C.red, marginRight: 12 },
       }),
-      "DB Delay Leaderboard",
+      "German Punctuality",
     ),
     h("div", { style: { fontSize: 22, fontWeight: 500, color: C.muted } }, "Your connection is not guaranteed."),
   );
@@ -244,6 +245,7 @@ function tile(ch, w) {
         alignItems: "center",
         justifyContent: "center",
         background: C.tile,
+        border: `2px solid ${C.tileEdge}`,
         borderRadius: 12,
         margin: "0 6px",
       },
@@ -258,10 +260,10 @@ function tile(ch, w) {
         display: "flex",
         position: "absolute",
         left: 0,
-        top: Math.round(tileH / 2) - 2,
-        width: w,
+        top: Math.round(tileH / 2) - 4,
+        width: "100%",
         height: 4,
-        background: C.board,
+        background: C.tileEdge,
       },
     }),
   );
@@ -279,6 +281,7 @@ function board(t) {
         alignItems: "center",
         width: 460,
         background: C.board,
+        border: `2px solid ${C.boardLine}`,
         borderRadius: 24,
         padding: "32px 30px 28px",
       },
@@ -305,7 +308,7 @@ function board(t) {
       { style: { display: "flex", alignItems: "center" } },
       h(
         "div",
-        { style: { fontFamily: COND, fontWeight: 800, fontSize: 68, lineHeight: 1, color: C.amber, marginRight: 16 } },
+        { style: { fontFamily: COND, fontWeight: 800, fontSize: 68, lineHeight: 1, color: C.redDark, marginRight: 16 } },
         fmtPct(t.percent.avg),
       ),
       h(

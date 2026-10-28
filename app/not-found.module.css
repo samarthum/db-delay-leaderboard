@@ -18,7 +18,7 @@
   font-weight: 700;
   font-size: 44px;
   letter-spacing: 0.12em;
-  color: var(--amber);
+  color: var(--db-red-dark);
 }
 
 .title {
@@ -28,12 +28,12 @@
   font-size: 46px;
   line-height: 1;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--ink);
 }
 
 .text {
   margin-top: 12px;
-  color: #c3c8d2;
+  color: var(--ink-2);
 }
 
 .link {
@@ -44,8 +44,8 @@
   margin-top: 20px;
   padding: 0 20px;
   border-radius: 999px;
-  background: var(--amber);
-  color: var(--amber-ink);
+  background: var(--db-red-dark);
+  color: #fff;
   font-weight: 700;
   text-decoration: none;
 }

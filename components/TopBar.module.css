@@ -1,6 +1,6 @@
 .bar {
   background: var(--board);
-  color: #f4f1e8;
+  color: var(--ink);
   border-bottom: 3px solid var(--db-red);
 }
 
@@ -30,8 +30,8 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--amber);
-  box-shadow: 0 0 0 3px rgba(255, 200, 61, 0.2);
+  background: var(--db-red);
+  box-shadow: 0 0 0 3px rgba(236, 0, 22, 0.18);
 }
 
 .links {
@@ -50,11 +50,11 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   text-decoration: none;
-  color: #cfd3dc;
+  color: var(--ink-2);
 }
 
 .links a:hover {
-  color: var(--amber);
+  color: var(--db-red-dark);
 }
 
 .wide {

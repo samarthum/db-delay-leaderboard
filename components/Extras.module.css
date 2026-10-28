@@ -17,10 +17,10 @@
   border-top-color: var(--good);
 }
 
-.dark {
-  background: var(--board);
-  color: #f4f1e8;
-  border-top-color: var(--amber);
+.accent {
+  background: var(--db-red-soft);
+  color: var(--ink);
+  border-top-color: var(--db-red-dark);
 }
 
 .label {
@@ -36,8 +36,8 @@
   color: var(--good);
 }
 
-.dark .label {
-  color: var(--amber);
+.accent .label {
+  color: var(--db-red-dark);
 }
 
 .figure {
@@ -55,8 +55,8 @@
   color: var(--muted);
 }
 
-.dark .unit {
-  color: #c3c8d2;
+.accent .unit {
+  color: var(--ink-2);
 }
 
 .name {
@@ -76,8 +76,8 @@
   text-decoration-color: var(--db-red);
 }
 
-.dark .trainLink {
-  text-decoration-color: var(--amber);
+.accent .trainLink {
+  text-decoration-color: var(--db-red-dark);
 }
 
 .route {
@@ -85,8 +85,8 @@
   color: var(--ink-2);
 }
 
-.dark .route {
-  color: #e8e4d8;
+.accent .route {
+  color: var(--ink-2);
 }
 
 .quip {
@@ -95,8 +95,8 @@
   color: var(--muted);
 }
 
-.dark .quip {
-  color: #c3c8d2;
+.accent .quip {
+  color: var(--ink-2);
 }
 
 @media (min-width: 720px) {

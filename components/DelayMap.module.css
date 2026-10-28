@@ -4,6 +4,11 @@
   font-family: var(--font-body);
 }
 
+/* maplibre-gl.css loads after this module and sets position: relative on the same element. */
+.map:global(.maplibregl-map) {
+  position: absolute;
+}
+
 .map :global(.maplibregl-ctrl-group button) {
   width: 44px;
   height: 44px;

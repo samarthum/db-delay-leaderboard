@@ -80,6 +80,9 @@ export function TrainCard({ train: t, mode, rank, index }: TrainCardProps) {
           {t.origin} <span aria-hidden="true">→</span>
           <span className="visually-hidden"> to </span> {t.dest}
         </p>
+        {t.alsoRunsAs.length > 0 ? (
+          <p className={styles.trip}>Also runs as {t.alsoRunsAs.join(", ")}</p>
+        ) : null}
         {mode === "percent" ? (
           <p className={styles.trip}>{fmtDuration(t.avgScheduledMin)} scheduled on average</p>
         ) : null}
