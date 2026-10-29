@@ -16,3 +16,4 @@ test-results
 .DS_Store
 .cache
 public/og
+public/search

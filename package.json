@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/og.mjs",
+    "prebuild": "node scripts/og.mjs && node scripts/copy-search.mjs",
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "data": "python scripts/compute.py"
