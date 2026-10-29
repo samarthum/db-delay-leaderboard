@@ -15,7 +15,6 @@ const FONTS = [
   { file: "BarlowCondensed-ExtraBold.ttf", name: "Barlow Condensed", weight: 800 },
   { file: "Barlow-Medium.ttf", name: "Barlow", weight: 500 },
   { file: "Barlow-SemiBold.ttf", name: "Barlow", weight: 600 },
-  { file: "RobotoMono-Bold.ttf", name: "Roboto Mono", weight: 700 },
 ];
 
 const C = {
@@ -35,13 +34,10 @@ const C = {
 };
 const SANS = "Barlow";
 const COND = "Barlow Condensed";
-const MONO = "Roboto Mono";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthLabel = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
-const fmtInt = (n) => Math.round(n).toLocaleString("en-US");
 const fmtMin = (n) => String(Math.round(n));
-const fmt1 = (n) => n.toFixed(1);
 const fmtPct = (n) => {
   const r = Math.round(n);
   return `${r >= 0 ? "+" : "−"}${Math.abs(r)}%`;
@@ -143,7 +139,6 @@ function footer() {
       }),
       "German Punctuality",
     ),
-    h("div", { style: { fontSize: 22, fontWeight: 500, color: C.muted } }, "Your connection is not guaranteed."),
   );
 }
 
@@ -199,37 +194,6 @@ function trainName(name) {
     },
     name,
   );
-}
-
-function note(text) {
-  return h("div", { style: { fontSize: 20, fontWeight: 500, color: C.muted, marginTop: 6 } }, text);
-}
-
-function chip(label, value) {
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        background: C.card,
-        border: `2px solid ${C.line}`,
-        borderRadius: 14,
-        padding: "10px 18px",
-        marginRight: 12,
-      },
-    },
-    h(
-      "div",
-      { style: { fontSize: 16, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: C.muted } },
-      label,
-    ),
-    h("div", { style: { fontFamily: MONO, fontWeight: 700, fontSize: 28, marginTop: 2 } }, value),
-  );
-}
-
-function chips(items) {
-  return h("div", { style: { display: "flex", marginTop: 22 } }, items.map(([l, v]) => chip(l, v)));
 }
 
 function tile(ch, w) {
@@ -325,8 +289,8 @@ function board(t) {
             color: C.flapMuted,
           },
         },
-        h("div", {}, "of the scheduled"),
-        h("div", {}, "journey time"),
+        h("div", {}, "of the"),
+        h("div", {}, "trip time"),
       ),
     ),
   );
@@ -358,7 +322,7 @@ function pill(text, filled) {
 function homeCard(stats, span) {
   const t = stats.rankings.minutes[0];
   return frame(
-    `Deutsche Bahn · Long-distance · ${span}`,
+    `Deutsche Bahn · ${span}`,
     [
       h(
         "div",
@@ -379,12 +343,6 @@ function homeCard(stats, span) {
         ),
         trainName(t.train),
         route(t),
-        note("Average delay at the last German stop"),
-        chips([
-          ["Runs measured", fmtInt(t.measured)],
-          ["Median", `${fmtMin(t.minutes.median)} min`],
-          ["p90", `${fmtMin(t.minutes.p90)} min`],
-        ]),
       ),
       board(t),
     ],
@@ -393,11 +351,11 @@ function homeCard(stats, span) {
 
 function trainCard(t, span) {
   const badges = [
-    t.rank.minutes != null && pill(`#${t.rank.minutes} by minutes`, true),
-    t.rank.percent != null && pill(`#${t.rank.percent} by %`, t.rank.minutes == null),
+    t.rank.minutes != null && pill(`No. ${t.rank.minutes} by minutes`, true),
+    t.rank.percent != null && pill(`No. ${t.rank.percent} by % of trip`, t.rank.minutes == null),
   ].filter(Boolean);
   return frame(
-    `Deutsche Bahn · Long-distance · ${span}`,
+    `Deutsche Bahn · ${span}`,
     [
       h(
         "div",
@@ -405,12 +363,6 @@ function trainCard(t, span) {
         badges.length > 0 && h("div", { style: { display: "flex", marginBottom: 10 } }, badges),
         trainName(t.train),
         route(t),
-        note(`Average delay at the last German stop · ${fmtInt(t.measured)} runs measured`),
-        chips([
-          ["Median", `${fmtMin(t.minutes.median)} min`],
-          ["p90", `${fmtMin(t.minutes.p90)} min`],
-          ["Fully cancelled", `${fmt1(t.fullCancelPct)}%`],
-        ]),
       ),
       board(t),
     ],

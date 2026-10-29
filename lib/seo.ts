@@ -4,8 +4,6 @@ import { getStats } from "./data";
 import { fmtInt, fmtMin, fmtPct, monthLabel } from "./format";
 import { OG_SIZE, SITE_NAME, absoluteUrl, ogImagePath } from "./site";
 
-const TAGLINE = "Your connection is not guaranteed.";
-
 function windowSpan(): string {
   const w = getStats().window;
   return `${monthLabel(w.firstMonth)} – ${monthLabel(w.lastMonth)}`;
@@ -61,8 +59,8 @@ export function homeMetadata(): Metadata {
     title: { absolute: title },
     socialTitle: title,
     description:
-      `${top.train} (${routeOf(top)}) runs ${fmtMin(top.minutes.avg)} minutes late on average at its last German stop. ` +
-      `Every DB long-distance train ranked by delay, ${span}, from ${fmtInt(s.overall.measuredRuns)} measured runs. ${TAGLINE}`,
+      `${top.train} (${routeOf(top)}) is ${fmtMin(top.minutes.avg)} minutes late on average. ` +
+      `Every Deutsche Bahn long-distance train, ranked by how late it arrives. ${span}, ${fmtInt(s.overall.measuredRuns)} trips.`,
     path: "/",
     image: "home",
     imageAlt: `${top.train}, Deutsche Bahn's most delayed long-distance train ${span}: ${fmtMin(top.minutes.avg)} minutes late on average.`,
@@ -73,18 +71,18 @@ export function trainMetadata(t: TrainSummary): Metadata {
   const title = `${t.train}: ${fmtMin(t.minutes.avg)} min late on average`;
   const rank =
     t.rank.minutes != null
-      ? `#${t.rank.minutes} most delayed DB long-distance train. `
+      ? `No. ${t.rank.minutes} of Germany's most delayed long-distance trains. `
       : t.rank.percent != null
-        ? `#${t.rank.percent} most delayed DB long-distance train relative to journey time. `
+        ? `No. ${t.rank.percent} for delay compared to trip length. `
         : "";
   return pageMetadata({
     title,
     socialTitle: title,
     description:
-      `${rank}${t.train} (${routeOf(t)}) arrives ${fmtMin(t.minutes.avg)} min late on average at its last German stop, ` +
-      `${fmtPct(t.percent.avg)} on its scheduled journey time. ${fmtInt(t.measured)} runs measured, ${windowSpan()}.`,
+      `${rank}${t.train} (${routeOf(t)}) is ${fmtMin(t.minutes.avg)} min late on average, ` +
+      `${fmtPct(t.percent.avg)} of the trip time. ${windowSpan()}, ${fmtInt(t.measured)} trips.`,
     path: `/train/${t.slug}/`,
     image: t.slug,
-    imageAlt: `${t.train}, ${routeOf(t)}: ${fmtMin(t.minutes.avg)} minutes late on average, ${fmtPct(t.percent.avg)} of the scheduled journey time.`,
+    imageAlt: `${t.train}, ${routeOf(t)}: ${fmtMin(t.minutes.avg)} minutes late on average, ${fmtPct(t.percent.avg)} of the trip time.`,
   });
 }
