@@ -132,16 +132,6 @@
   color: var(--ink);
 }
 
-.count {
-  min-width: 3ch;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  text-align: right;
-}
-
 .caption {
   font-size: 14px;
   color: var(--ink-2);

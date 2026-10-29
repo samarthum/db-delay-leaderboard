@@ -13,7 +13,7 @@ export interface HistogramProps {
 type Band = "onTime" | "late" | "veryLate";
 
 const BAND_ORDER: Band[] = ["onTime", "late", "veryLate"];
-const BAND_TITLE: Record<Band, string> = { onTime: "On time-ish", late: "Late", veryLate: "Really late" };
+const BAND_TITLE: Record<Band, string> = { onTime: "On time", late: "Late", veryLate: "Very late" };
 
 /** Bands follow the bin bounds, not the labels: under 5 min, 5 to 60, 60 and up. */
 function bandOf(b: HistBin): Band {
@@ -57,8 +57,8 @@ export function Histogram({ bins, caption }: HistogramProps) {
     <Reveal as="figure" className={styles.root}>
       <div aria-hidden="true">
         <div className={styles.head}>
-          <span>Min late</span>
-          <span>Share · runs</span>
+          <span>Minutes late</span>
+          <span>Trips</span>
         </div>
         {groups.map((g) => (
           <div key={g.band} className={styles.group} data-band={g.band}>
@@ -81,7 +81,6 @@ export function Histogram({ bins, caption }: HistogramProps) {
                     </span>
                     <span className={styles.nums}>
                       <span className={styles.share}>{fmt1(b.share)}%</span>
-                      <span className={styles.count}>{fmtInt(b.count)}</span>
                     </span>
                   </li>
                 );

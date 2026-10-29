@@ -12,7 +12,7 @@ import { Histogram } from "@/components/Histogram";
 import { TrainMonthChart } from "@/components/TrainMonthChart";
 import { RouteStrip } from "@/components/RouteStrip";
 import { ShareButton } from "@/components/ShareButton";
-import { fmtDate, fmtDuration, fmtSigned1, fmtStat } from "@/components/pageFormat";
+import { fmtDate, fmtDuration, fmtSigned1, fmtStat, trainKind } from "@/components/pageFormat";
 import styles from "./train.module.css";
 
 type Params = { slug: string };
@@ -34,9 +34,9 @@ function shareOf(bins: HistBin[], from: number): number {
 
 function histogramHeadline(bins: HistBin[]): string {
   const hour = shareOf(bins, 60);
-  if (hour >= 10) return `${fmt1(hour)}% of measured runs arrived an hour or more late.`;
+  if (hour >= 10) return `${fmt1(hour)}% of trips were an hour or more late`;
   const late = shareOf(bins, 15);
-  return `${fmt1(late)}% of measured runs arrived 15 minutes or more late.`;
+  return `${fmt1(late)}% of trips were 15 minutes or more late`;
 }
 
 function onTimeShare(bins: HistBin[]): number {
@@ -55,15 +55,13 @@ function biggestJump(t: TrainDetail) {
 }
 
 function shareText(t: TrainDetail): string {
-  const lead =
+  const rank =
     t.rank.minutes === 1
-      ? "Deutsche Bahn's most delayed train."
-      : t.rank.percent === 1
-        ? "Deutsche Bahn's most delayed train relative to journey time."
-        : t.rank.minutes !== null
-          ? `#${t.rank.minutes} on German Punctuality.`
-          : `#${t.rank.percent} on German Punctuality (by % of the journey).`;
-  return `${t.train} runs ${fmtMin(t.minutes.avg)} min late on average (${fmtPct(t.percent.avg)} of the journey). ${lead} Your connection is not guaranteed.`;
+      ? "The most delayed long-distance train in Germany."
+      : t.rank.minutes !== null
+        ? `No. ${t.rank.minutes} of Germany's most delayed long-distance trains.`
+        : `No. ${t.rank.percent} for delay compared to trip length.`;
+  return `${t.train} from ${t.origin} to ${t.dest} is ${fmtMin(t.minutes.avg)} min late on average. ${rank}`;
 }
 
 export default async function TrainPage({ params }: { params: Promise<Params> }) {
@@ -78,14 +76,13 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
   const navIndex = navList.findIndex((x) => x.slug === slug);
   const prev = navIndex > 0 ? navList[navIndex - 1] : null;
   const next = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
-  const navUnit = navMode === "minutes" ? "by minutes" : "by %";
+  const navUnit = navMode === "minutes" ? "by minutes" : "by % of trip";
 
   const measuredMonths = t.monthly.filter((m) => m.avg !== null);
   const worstMonth = measuredMonths.reduce<(typeof measuredMonths)[number] | null>(
     (a, b) => (a === null || (b.avg ?? 0) > (a.avg ?? 0) ? b : a),
     null,
   );
-  const networkWorst = worstMonth ? monthly.months.find((m) => m.month === worstMonth.month) : undefined;
   const jump = biggestJump(t);
   const onTime = onTimeShare(t.histogram);
 
@@ -94,13 +91,13 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
       title: "Minutes late",
       rows: [
         ["Average", `${fmtSigned1(t.minutes.avg)} min`],
-        ["Median", `${fmtStat(t.minutes.median)} min`],
-        ["P90 (1 in 10 runs is worse)", `${fmtStat(t.minutes.p90)} min`],
-        ["Std dev", `${fmt1(t.minutes.sd)} min`],
+        ["Median (half were later)", `${fmtStat(t.minutes.median)} min`],
+        ["P90 (1 in 10 were later)", `${fmtStat(t.minutes.p90)} min`],
+        ["Std dev (how much it varies)", `${fmt1(t.minutes.sd)} min`],
       ],
     },
     {
-      title: "% of the journey",
+      title: "% of trip",
       rows: [
         ["Average", fmtPct(t.percent.avg)],
         ["Median", `${fmtStat(t.percent.median)}%`],
@@ -109,13 +106,13 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
       ],
     },
     {
-      title: "Runs",
+      title: "Trips",
       rows: [
-        ["Runs in the window", fmtInt(t.runs)],
-        ["Measured runs", fmtInt(t.measured)],
-        ["Counted for %", fmtInt(t.measuredPct)],
-        ["Avg scheduled journey", fmtDuration(t.avgScheduledMin)],
-        ["Fully cancelled", `${fmt1(t.fullCancelPct)}%`],
+        ["Trips in the data", fmtInt(t.runs)],
+        ["Trips measured", fmtInt(t.measured)],
+        ["Trips counted for %", fmtInt(t.measuredPct)],
+        ["Planned trip time", fmtDuration(t.avgScheduledMin)],
+        ["Cancelled", `${fmt1(t.fullCancelPct)}%`],
         ["Partly cancelled", `${fmt1(t.partialCancelPct)}%`],
       ],
     },
@@ -132,9 +129,9 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
 
           <header className={`board ${styles.board}`}>
             <p className={styles.kicker}>
-              <span className={styles.typeChip}>{t.type}</span>
-              {t.rank.minutes !== null ? <span className={styles.rankChip}>#{t.rank.minutes} by minutes</span> : null}
-              {t.rank.percent !== null ? <span className={styles.rankChip}>#{t.rank.percent} by %</span> : null}
+              <span className={styles.typeChip}>{trainKind(t.type)}</span>
+              {t.rank.minutes !== null ? <span className={styles.rankChip}>No. {t.rank.minutes} by minutes</span> : null}
+              {t.rank.percent !== null ? <span className={styles.rankChip}>No. {t.rank.percent} by % of trip</span> : null}
             </p>
             <h1 className={styles.title}>
               <SplitFlap text={t.train} size="lg" />
@@ -144,35 +141,19 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
               <span className="visually-hidden"> to </span> {t.dest}
             </p>
             {t.alsoRunsAs.length > 0 ? (
-              <p className={styles.routeNote}>
-                Also runs as {t.alsoRunsAs.join(", ")}: the same trains under several numbers, counted once.
-              </p>
+              <p className={styles.routeNote}>Also runs as {t.alsoRunsAs.join(", ")}.</p>
             ) : null}
-            <p className={styles.routeNote}>
-              {t.routeVariants === 1
-                ? "Same route on every run."
-                : `The most common of ${t.routeVariants} route variants.`}{" "}
-              Delay is measured at the last German stop for international trains.
-            </p>
 
-            <div className={styles.figures}>
-              <div className={styles.figure}>
-                <SplitFlap text={fmtMin(t.minutes.avg)} size="xl" tone="accent" label={`${fmt1(t.minutes.avg)} minutes`} />
-                <p className={styles.figureLabel}>
-                  <span className={styles.figureUnit}>min</span>
-                  <span className={styles.chip}>late on average</span>
-                </p>
-              </div>
-              <div className={styles.figure}>
-                <SplitFlap text={fmtPct(t.percent.avg)} size="xl" />
-                <p className={styles.figureLabel}>
-                  <span className={styles.chip}>of the scheduled journey</span>
-                </p>
-              </div>
+            <div className={styles.figure}>
+              <SplitFlap text={fmtMin(t.minutes.avg)} size="xl" tone="accent" label={`${fmt1(t.minutes.avg)} minutes`} />
+              <p className={styles.figureLabel}>
+                <span className={styles.figureUnit}>min</span>
+                <span>late on average</span>
+              </p>
             </div>
             <p className={styles.exact}>
-              {fmt1(t.minutes.avg)} min on an average scheduled journey of {fmtDuration(t.avgScheduledMin)},
-              over {fmtInt(t.measured)} measured runs.
+              That is {fmtPct(t.percent.avg)} of the trip time ({fmtDuration(t.avgScheduledMin)}). Based on{" "}
+              {fmtInt(t.measured)} trips.
             </p>
           </header>
 
@@ -180,11 +161,59 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
             <ShareButton title={`${t.train} · German Punctuality`} text={shareText(t)} url={url} />
           </div>
 
-          <section className={styles.section} aria-labelledby="numbers">
-            <p className="eyebrow">All the stats</p>
-            <h2 id="numbers" className={styles.h2}>
-              The numbers
+          {t.worstRun ? (
+            <section className={`${styles.section} ${styles.worst}`} aria-labelledby="worst-run">
+              <p className={styles.worstLabel}>Worst trip</p>
+              <h2 id="worst-run" className={styles.worstFigure}>
+                {fmtDuration(t.worstRun.delayMin)} late
+              </h2>
+              <p className={styles.worstText}>
+                On {fmtDate(t.worstRun.date)}, {t.worstRun.origin} → {t.worstRun.dest}.
+              </p>
+            </section>
+          ) : null}
+
+          <section className={styles.section} aria-labelledby="distribution">
+            <h2 id="distribution" className={styles.h2}>
+              {histogramHeadline(t.histogram)}
             </h2>
+            <p className={styles.sub}>{fmt1(onTime)}% were within 5 minutes of the timetable.</p>
+            <div className={styles.card}>
+              <Histogram bins={t.histogram} />
+            </div>
+          </section>
+
+          {t.stops.length > 0 ? (
+            <section className={styles.section} aria-labelledby="route">
+              <h2 id="route" className={styles.h2}>
+                {jump
+                  ? `The delay grows most between ${jump.from} and ${jump.to} (+${fmt1(jump.delta)} min)`
+                  : "Delay along the route"}
+              </h2>
+              <p className={styles.sub}>Average minutes late at each stop.</p>
+              <div className={styles.card}>
+                <RouteStrip stops={t.stops} />
+              </div>
+            </section>
+          ) : null}
+
+          <section className={styles.section} aria-labelledby="by-month">
+            <h2 id="by-month" className={styles.h2}>
+              {worstMonth && worstMonth.avg !== null
+                ? `Its worst month was ${monthLabel(worstMonth.month)}, at ${fmt1(worstMonth.avg)} min late on average`
+                : "Month by month"}
+            </h2>
+            <p className={styles.sub}>The dashed line is all long-distance trains.</p>
+            <div className={styles.card}>
+              <TrainMonthChart
+                monthly={t.monthly}
+                networkAvg={monthly.months.map((m) => ({ month: m.month, avg: m.avgDelayMin }))}
+              />
+            </div>
+          </section>
+
+          <details className={styles.numbers}>
+            <summary className={styles.numbersSummary}>All the numbers</summary>
             <div className={styles.groups}>
               {groups.map((g) => (
                 <div key={g.title} className={styles.group}>
@@ -200,79 +229,20 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
                 </div>
               ))}
             </div>
-          </section>
-
-          <section className={styles.section} aria-labelledby="distribution">
-            <p className="eyebrow">Delay distribution</p>
-            <h2 id="distribution" className={styles.h2}>
-              {histogramHeadline(t.histogram)}
-            </h2>
             <p className={styles.sub}>
-              {onTime < 50 ? "Only " : ""}
-              {fmt1(onTime)}% arrived within 5 minutes of schedule.
+              {t.routeVariants === 1
+                ? "It ran the same route every time."
+                : `It ran ${t.routeVariants} different routes. This page shows the most common one.`}{" "}
+              {t.stops.length > 0 ? `The stops come from ${fmtInt(t.stopsSequenceRuns)} of ${fmtInt(t.runs)} trips. ` : ""}
+              For trains that leave Germany, delay is measured at the last stop in Germany.
             </p>
-            <div className={styles.card}>
-              <Histogram bins={t.histogram} />
-            </div>
-          </section>
-
-          <section className={styles.section} aria-labelledby="by-month">
-            <p className="eyebrow">Month by month</p>
-            <h2 id="by-month" className={styles.h2}>
-              {worstMonth && worstMonth.avg !== null
-                ? `Worst month: ${monthLabel(worstMonth.month)}, ${fmt1(worstMonth.avg)} min late on average`
-                : "Average delay by month"}
-            </h2>
-            {networkWorst ? (
-              <p className={styles.sub}>
-                The whole network averaged {fmt1(networkWorst.avgDelayMin)} min that month. The dashed
-                line is the network average.
-              </p>
-            ) : null}
-            <div className={styles.card}>
-              <TrainMonthChart
-                monthly={t.monthly}
-                networkAvg={monthly.months.map((m) => ({ month: m.month, avg: m.avgDelayMin }))}
-              />
-            </div>
-          </section>
-
-          {t.stops.length > 0 ? (
-            <section className={styles.section} aria-labelledby="route">
-              <p className="eyebrow">The route</p>
-              <h2 id="route" className={styles.h2}>
-                {jump
-                  ? `Biggest jump: +${fmt1(jump.delta)} min between ${jump.from} and ${jump.to}`
-                  : "Where the minutes pile up"}
-              </h2>
-              <p className={styles.sub}>
-                Stops of the most common stop sequence, used by {fmtInt(t.stopsSequenceRuns)} of{" "}
-                {fmtInt(t.runs)} runs. Each number is the average delay at that stop.
-              </p>
-              <div className={styles.card}>
-                <RouteStrip stops={t.stops} />
-              </div>
-            </section>
-          ) : null}
-
-          {t.worstRun ? (
-            <section className={`${styles.section} ${styles.worst}`} aria-labelledby="worst-run">
-              <p className={styles.worstLabel}>Worst run</p>
-              <h2 id="worst-run" className={styles.worstFigure}>
-                {fmtDuration(t.worstRun.delayMin)} late
-              </h2>
-              <p className={styles.worstText}>
-                On {fmtDate(t.worstRun.date)}, {t.worstRun.origin} → {t.worstRun.dest}. Somebody
-                definitely missed their connection.
-              </p>
-            </section>
-          ) : null}
+          </details>
 
           {prev || next ? (
             <nav className={styles.pager} aria-label={`Neighbours in the ranking ${navUnit}`}>
               {prev ? (
                 <Link href={`/train/${prev.slug}/`} className={styles.pagerLink}>
-                  <span className={styles.pagerHint}>← #{navIndex} {navUnit}</span>
+                  <span className={styles.pagerHint}>← No. {navIndex} {navUnit}</span>
                   <span className={styles.pagerName}>{prev.train}</span>
                 </Link>
               ) : (
@@ -281,7 +251,7 @@ export default async function TrainPage({ params }: { params: Promise<Params> })
               {next ? (
                 <Link href={`/train/${next.slug}/`} className={`${styles.pagerLink} ${styles.pagerNext}`}>
                   <span className={styles.pagerHint}>
-                    #{navIndex + 2} {navUnit} →
+                    No. {navIndex + 2} {navUnit} →
                   </span>
                   <span className={styles.pagerName}>{next.train}</span>
                 </Link>

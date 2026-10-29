@@ -86,19 +86,14 @@
   color: var(--muted);
 }
 
-.figures {
-  display: grid;
-  gap: 18px;
-  margin-top: 22px;
-  padding-top: 20px;
-  border-top: 1px dashed var(--board-line);
-}
-
 .figure {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px 12px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--board-line);
 }
 
 .figureLabel {
@@ -107,6 +102,8 @@
   align-items: flex-start;
   gap: 4px;
   padding-bottom: 4px;
+  font-size: 17px;
+  color: var(--ink-2);
 }
 
 .figureUnit {
@@ -116,16 +113,6 @@
   line-height: 1;
   color: var(--db-red-dark);
   text-transform: uppercase;
-}
-
-.chip {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--board-2);
-  border: 1px solid var(--board-line);
-  font-size: 15px;
-  color: var(--ink-2);
 }
 
 .exact {
@@ -143,7 +130,6 @@
 }
 
 .h2 {
-  margin-top: 6px;
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 30px;
@@ -163,6 +149,38 @@
   border-radius: var(--radius);
   background: var(--card);
   box-shadow: var(--shadow);
+}
+
+.numbers {
+  margin-top: 40px;
+}
+
+.numbersSummary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 17px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.numbersSummary::-webkit-details-marker {
+  display: none;
+}
+
+.numbersSummary::after {
+  content: "+";
+  margin-left: 10px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.numbers[open] .numbersSummary::after {
+  content: "−";
 }
 
 .groups {
@@ -296,10 +314,6 @@
   .title {
     font-size: 64px;
   }
-  .figures {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
   .card {
     padding: 24px;
   }
@@ -312,7 +326,8 @@
   .groups > :last-child {
     grid-column: 1 / -1;
   }
-  .section {
+  .section,
+  .numbers {
     margin-top: 56px;
   }
 }

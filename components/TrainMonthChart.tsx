@@ -57,8 +57,8 @@ export function TrainMonthChart({ monthly, networkAvg }: TrainMonthChartProps) {
   const sel = monthly[Math.min(selected, monthly.length - 1)];
   const selNet = network.get(sel.month);
   const sub = [
-    sel.avg === null ? null : `${sel.runs} runs`,
-    selNet === undefined ? null : `network ${fmt1(selNet)} min`,
+    sel.avg === null ? null : `${sel.runs} trips`,
+    selNet === undefined ? null : `all trains ${fmt1(selNet)} min`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -76,7 +76,7 @@ export function TrainMonthChart({ monthly, networkAvg }: TrainMonthChartProps) {
         flag={flags.get(selected)}
         value={sel.avg === null ? "–" : fmt1(sel.avg)}
         unit={sel.avg === null ? undefined : "min"}
-        noun={sel.avg === null ? "No measured run this month" : "average delay at the last German stop"}
+        noun={sel.avg === null ? "No trips measured this month" : "late on average"}
         sub={sub || undefined}
       />
 
@@ -95,13 +95,13 @@ export function TrainMonthChart({ monthly, networkAvg }: TrainMonthChartProps) {
           {networkAvg && (
             <li>
               <span className={styles.keyRef} />
-              Network average
+              All trains
             </li>
           )}
           {hasGap && (
             <li>
               <span className={styles.keyGap} />
-              No measured run
+              No trips measured
             </li>
           )}
         </ul>
