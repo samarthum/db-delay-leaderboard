@@ -9,9 +9,11 @@ interface ShareButtonProps {
   text: string;
   /** Absolute page URL. */
   url: string;
+  /** Button text, e.g. "Share this line". */
+  label: string;
 }
 
-export function ShareButton({ title, text, url }: ShareButtonProps) {
+export function ShareButton({ title, text, url, label }: ShareButtonProps) {
   const [status, setStatus] = useState("");
 
   async function share() {
@@ -48,7 +50,7 @@ export function ShareButton({ title, text, url }: ShareButtonProps) {
               strokeLinejoin="round"
             />
           </svg>
-          Share this train
+          {label}
         </button>
         <a className={styles.secondary} href={xHref} target="_blank" rel="noopener noreferrer">
           Share on X

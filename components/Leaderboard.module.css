@@ -3,12 +3,9 @@
 }
 
 .controls {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  margin: 0 calc(-1 * var(--gutter));
-  padding: 10px var(--gutter) 12px;
-  background: linear-gradient(var(--bg) 80%, rgba(246, 244, 238, 0));
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 12px;
 }
 
 .explain {
@@ -100,10 +97,8 @@
     padding-block: 24px 64px;
   }
   .controls {
-    position: static;
-    margin: 0 0 8px;
-    padding: 0;
-    background: none;
+    display: flex;
+    gap: 12px;
   }
   .list {
     max-width: 760px;

@@ -11,6 +11,8 @@ export interface TrainMonthChartProps {
   monthly: MonthAvg[];
   /** Network-wide average per month, drawn as a reference line when given. */
   networkAvg?: { month: string; avg: number }[];
+  /** What the reference line averages, e.g. "All regional trains". */
+  networkLabel?: string;
 }
 
 /** Worst and best among measured months; skipped when fewer than three months have data. */
@@ -31,7 +33,7 @@ function lastMeasured(monthly: MonthAvg[]): number {
   return monthly.length - 1;
 }
 
-export function TrainMonthChart({ monthly, networkAvg }: TrainMonthChartProps) {
+export function TrainMonthChart({ monthly, networkAvg, networkLabel = "All trains" }: TrainMonthChartProps) {
   const [selected, setSelected] = useState(() => lastMeasured(monthly));
   if (monthly.length === 0) return null;
 
@@ -58,14 +60,14 @@ export function TrainMonthChart({ monthly, networkAvg }: TrainMonthChartProps) {
   const selNet = network.get(sel.month);
   const sub = [
     sel.avg === null ? null : `${sel.runs} trips`,
-    selNet === undefined ? null : `all trains ${fmt1(selNet)} min`,
+    selNet === undefined ? null : `${networkLabel.toLowerCase()} ${fmt1(selNet)} min`,
   ]
     .filter(Boolean)
     .join(" · ");
 
   const measured = monthly.filter((m) => m.avg !== null).length;
   const summary =
-    `Average delay of this train per month, ${monthLabel(monthly[0].month)} to ${monthLabel(monthly[monthly.length - 1].month)}, ` +
+    `Average delay per month, ${monthLabel(monthly[0].month)} to ${monthLabel(monthly[monthly.length - 1].month)}, ` +
     `${measured} of ${monthly.length} months with measured runs.`;
 
   return (
@@ -95,7 +97,7 @@ export function TrainMonthChart({ monthly, networkAvg }: TrainMonthChartProps) {
           {networkAvg && (
             <li>
               <span className={styles.keyRef} />
-              All trains
+              {networkLabel}
             </li>
           )}
           {hasGap && (

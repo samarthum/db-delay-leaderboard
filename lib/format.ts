@@ -30,8 +30,3 @@ export function fmtPct(n: number): string {
   const r = Math.round(n);
   return `${r >= 0 ? "+" : "−"}${Math.abs(r)}%`;
 }
-
-/** Slug is lowercase with a hyphen: "NJ 40490" -> "nj-40490" */
-export function trainSlug(train: string): string {
-  return train.trim().toLowerCase().replace(/\s+/g, "-");
-}

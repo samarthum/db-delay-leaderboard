@@ -142,12 +142,13 @@ function footer() {
   );
 }
 
-function arrow(size) {
+/** One-way arrow for a train, two-way for a line. */
+function arrow(size, bothWays) {
   return h(
     "svg",
     { width: size, height: Math.round(size * 0.6), viewBox: "0 0 40 24", style: { margin: "0 12px" } },
     h("path", {
-      d: "M2 12h33M25 3l10 9-10 9",
+      d: bothWays ? "M5 12h30M14 3l-9 9 9 9M26 3l9 9-9 9" : "M2 12h33M25 3l10 9-10 9",
       stroke: C.red,
       strokeWidth: 4,
       fill: "none",
@@ -174,7 +175,7 @@ function route(t) {
       },
     },
     h("div", {}, clip(t.origin, 30)),
-    arrow(size),
+    arrow(size, t.category === "regional"),
     h("div", {}, clip(t.dest, 30)),
   );
 }
@@ -319,8 +320,10 @@ function pill(text, filled) {
   );
 }
 
-function homeCard(stats, span) {
-  const t = stats.rankings.minutes[0];
+function homeCard(stats) {
+  const { months, categories } = stats.headline;
+  const ld = categories.longDistance;
+  const span = `${monthLabel(months[0])} – ${monthLabel(months[months.length - 1])}`;
   return frame(
     `Deutsche Bahn · ${span}`,
     [
@@ -333,15 +336,40 @@ function homeCard(stats, span) {
             style: {
               fontFamily: COND,
               fontWeight: 800,
-              fontSize: 56,
+              fontSize: 66,
               lineHeight: 1,
               letterSpacing: 1,
               textTransform: "uppercase",
             },
           },
-          "Most delayed train",
+          "The average long-distance train in Germany",
         ),
-        trainName(t.train),
+        h(
+          "div",
+          { style: { fontSize: 34, fontWeight: 600, lineHeight: 1.2, marginTop: 22, color: C.muted } },
+          `Regional trains: ${categories.regional.avgDelayMin.toFixed(1)} min late`,
+        ),
+      ),
+      board({ minutes: { avg: ld.avgDelayMin }, percent: { avg: ld.avgDelayPct } }),
+    ],
+  );
+}
+
+const KIND = { longDistance: "Long-distance train", regional: "Regional line" };
+
+function unitCard(t, span) {
+  const badges = [
+    t.rank.minutes != null && pill(`No. ${t.rank.minutes} by minutes`, true),
+    t.rank.percent != null && pill(`No. ${t.rank.percent} by % of trip`, t.rank.minutes == null),
+  ].filter(Boolean);
+  return frame(
+    `${KIND[t.category]} · ${span}`,
+    [
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", width: 600 } },
+        badges.length > 0 && h("div", { style: { display: "flex", marginBottom: 10 } }, badges),
+        trainName(t.name),
         route(t),
       ),
       board(t),
@@ -349,24 +377,15 @@ function homeCard(stats, span) {
   );
 }
 
-function trainCard(t, span) {
-  const badges = [
-    t.rank.minutes != null && pill(`No. ${t.rank.minutes} by minutes`, true),
-    t.rank.percent != null && pill(`No. ${t.rank.percent} by % of trip`, t.rank.minutes == null),
-  ].filter(Boolean);
-  return frame(
-    `Deutsche Bahn · ${span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 600 } },
-        badges.length > 0 && h("div", { style: { display: "flex", marginBottom: 10 } }, badges),
-        trainName(t.train),
-        route(t),
-      ),
-      board(t),
-    ],
-  );
+async function readUnits(folder) {
+  const dir = path.join(DATA_DIR, folder);
+  const files = (await fs.readdir(dir)).filter((f) => f.endsWith(".json")).sort();
+  if (files.length === 0) throw new Error(`data/${folder}/ has no files`);
+  const units = await Promise.all(files.map((f) => readJson(path.join(dir, f))));
+  units.forEach((t, i) => {
+    if (`${t.slug}.json` !== files[i]) throw new Error(`${folder}/${files[i]} has slug "${t.slug}"`);
+  });
+  return units;
 }
 
 async function readJson(file) {
@@ -405,22 +424,16 @@ async function main() {
   if (!/^\d{4}-\d{2}$/.test(lastMonth ?? "") || !/^\d{4}-\d{2}$/.test(firstMonth ?? "")) {
     throw new Error("stats.json window.firstMonth/lastMonth missing or malformed");
   }
-  if (!stats.rankings?.minutes?.[0]) throw new Error("stats.json rankings.minutes is empty");
+  if (!stats.headline?.categories?.longDistance) throw new Error("stats.json headline is missing");
 
-  const trainDir = path.join(DATA_DIR, "trains");
-  const trainFiles = (await fs.readdir(trainDir)).filter((f) => f.endsWith(".json")).sort();
-  if (trainFiles.length === 0) throw new Error("data/trains/ has no train files");
-  const trains = await Promise.all(trainFiles.map((f) => readJson(path.join(trainDir, f))));
-  trains.forEach((t, i) => {
-    if (`${t.slug}.json` !== trainFiles[i]) throw new Error(`${trainFiles[i]} has slug "${t.slug}"`);
-  });
-
+  const units = [...(await readUnits("trains")), ...(await readUnits("lines"))];
   const fonts = await loadFonts();
   const span = `${monthLabel(firstMonth)} – ${monthLabel(lastMonth)}`;
   const dir = path.join(OUT_DIR, lastMonth);
+  await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(dir, { recursive: true });
 
-  const jobs = [["home", homeCard(stats, span)], ...trains.map((t) => [t.slug, trainCard(t, span)])];
+  const jobs = [["home", homeCard(stats)], ...units.map((t) => [t.slug, unitCard(t, span)])];
   for (const [name, node] of jobs) {
     try {
       await render(node, fonts, path.join(dir, `${name}.png`));

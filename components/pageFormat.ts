@@ -1,10 +1,10 @@
-import type { Mode, TrainSummary } from "@/lib/types";
+import type { Category, Mode, UnitSummary } from "@/lib/types";
 import { fmt1, fmtPct, monthShort } from "@/lib/format";
 
-export const MODES: Record<Mode, { tab: string; explain: string; value: (t: TrainSummary) => string }> = {
+export const MODES: Record<Mode, { tab: string; explain: string; value: (t: UnitSummary) => string }> = {
   minutes: {
     tab: "Minutes late",
-    explain: "Average minutes late at the last stop in Germany.",
+    explain: "Average minutes late at the last stop.",
     value: (t) => `${fmt1(t.minutes.avg)} min`,
   },
   percent: {
@@ -14,6 +14,11 @@ export const MODES: Record<Mode, { tab: string; explain: string; value: (t: Trai
   },
 };
 
+export const CATEGORY_COPY: Record<Category, { tab: string; plural: string; back: string }> = {
+  longDistance: { tab: "Long-distance", plural: "long-distance trains", back: "All trains" },
+  regional: { tab: "Regional", plural: "regional lines", back: "All lines" },
+};
+
 const TRAIN_KIND: Record<string, string> = {
   ICE: "ICE",
   IC: "Intercity",
@@ -21,16 +26,28 @@ const TRAIN_KIND: Record<string, string> = {
   ECE: "EuroCity Express",
   RJ: "Railjet",
   RJX: "Railjet Express",
-  NJ: "Night train",
-  EN: "Night train",
   FLX: "Flixtrain",
   TGV: "TGV",
   WB: "WESTbahn",
 };
 
-/** "NJ" -> "Night train"; unknown codes stay as they are. */
-export function trainKind(type: string): string {
-  return TRAIN_KIND[type] ?? type;
+const LINE_KIND: Record<string, string> = {
+  RE: "Regional-Express",
+  RB: "Regionalbahn",
+  IRE: "Interregio-Express",
+  MEX: "Metropolexpress",
+  RS: "Regio-S-Bahn",
+  FEX: "Flughafen-Express",
+};
+
+/** "ICE" -> "ICE", "IC" -> "Intercity", line "RE" -> "Regional-Express"; unknown codes stay as they are. */
+export function unitKind(t: Pick<UnitSummary, "category" | "type">): string {
+  return (t.category === "longDistance" ? TRAIN_KIND : LINE_KIND)[t.type] ?? t.type;
+}
+
+/** A train runs one way ("A → B"); a line runs both ways between its end stations ("A ↔ B"). */
+export function routeArrow(category: Category): { symbol: string; words: string } {
+  return category === "longDistance" ? { symbol: "→", words: "to" } : { symbol: "↔", words: "and" };
 }
 
 /** -1.6 -> "−1.6", 4.2 -> "4.2" (typographic minus so it lines up with tabular figures) */

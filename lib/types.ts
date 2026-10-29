@@ -5,13 +5,19 @@
  * Files:
  *   data/stats.json          -> Stats
  *   data/monthly.json        -> Monthly
- *   data/trains/<slug>.json  -> TrainDetail   (one per train in the top 25 of either ranking)
+ *   data/stations.json       -> StationsFile
+ *   data/trains/<slug>.json  -> UnitDetail   (long-distance trains in the top 25 of either ranking)
+ *   data/lines/<slug>.json   -> UnitDetail   (regional lines in the top 25 of either ranking)
  *
  * Units: delays in minutes, shares and percentages in percent (0-100), one decimal place
- * unless noted. Months are "YYYY-MM". Slugs are lowercase with a hyphen: "NJ 40490" -> "nj-40490".
+ * unless noted. Months are "YYYY-MM". Train slugs: "ICE 1541" -> "ice-1541". Line slugs add the
+ * end stations: "re-19-duesseldorf-hbf-arnhem-centraal".
  */
 
 export type Mode = "minutes" | "percent";
+
+/** Long-distance trains are ranked per train number, regional trains per line. */
+export type Category = "longDistance" | "regional";
 
 export interface WindowInfo {
   firstMonth: string;
@@ -37,14 +43,25 @@ export interface SkippedMonth {
 
 /** Thresholds and rules actually used by the run. Shown in the methodology section. */
 export interface Params {
-  trainTypes: string[];
+  longDistanceTypes: string[];
+  /** Left out everywhere. */
+  nightTrainTypes: string[];
+  /** Line code prefixes counted as regional ("RE" in "RE 19"). */
+  regionalLinePrefixes: string[];
+  /** Measured trips a long-distance train needs to be ranked. */
   minRunsForPool: number;
+  /** Measured trips a regional line needs to be ranked. */
+  minRunsForLinePool: number;
   clampMinMinutes: number;
   clampMaxMinutes: number;
   minScheduledMinutesForPct: number;
   minStationsForFullMonth: number;
+  /** Measured arrivals a station needs to be on the map. */
   minStationArrivals: number;
-  lateThresholdMinutes: number;
+  /** Measured arrivals that make a station "big" for the list under the map. */
+  bigStationMinArrivals: number;
+  /** The headline covers the last this many window months. */
+  headlineMonths: number;
   topN: number;
   moreN: number;
 }
@@ -58,7 +75,7 @@ export interface Dist {
 }
 
 export interface Overall {
-  /** All long-distance runs in the window (including fully cancelled ones). */
+  /** All runs of the category in the window (including fully cancelled ones). */
   runs: number;
   /** Runs with a measured, un-clamped final delay. */
   measuredRuns: number;
@@ -68,24 +85,28 @@ export interface Overall {
   medianDelayMin: number;
   avgDelayPct: number;
   fullCancelPct: number;
-  /** Distinct trains seen. */
-  trains: number;
-  /** Trains with >= minRunsForPool measured runs (the ranking pool). */
+  /** Distinct train numbers or lines seen. */
+  units: number;
+  /** Trains or lines with enough measured runs to be ranked. */
   poolSize: number;
 }
 
 /** One row of a leaderboard. Everything a card needs. */
-export interface TrainSummary {
+export interface UnitSummary {
   slug: string;
-  /** "NJ 40490" */
-  train: string;
+  category: Category;
+  /** "ICE 1541" for a train, "RE 19" for a line. Two lines can share a name; the route tells them apart. */
+  name: string;
+  /** Train type ("ICE") or line code prefix ("RE"). */
   type: string;
-  number: string;
-  /** Other train numbers with identical measured runs (the same physical train), e.g. ["EN 40417"]. */
+  /** Other train numbers with identical measured runs (the same physical train), e.g. ["EN 40417"]. Empty for lines. */
   alsoRunsAs: string[];
-  /** Most common first stop in the data. */
+  /**
+   * Trains: most common first stop. Lines: one end of the most common pair of end stations,
+   * in the direction the line ran more often.
+   */
   origin: string;
-  /** Most common final destination (international trains are measured at the last German stop). */
+  /** Trains: most common final destination (international trains are measured at the last German stop). */
   dest: string;
   routeVariants: number;
   runs: number;
@@ -99,21 +120,21 @@ export interface TrainSummary {
   avgScheduledMin: number;
   fullCancelPct: number;
   partialCancelPct: number;
-  /** 1-based rank in each ranking over the pool, or null when outside the stored top lists. */
+  /** 1-based rank in each ranking of its category, or null when outside the stored top lists. */
   rank: { minutes: number | null; percent: number | null };
 }
 
 export interface MonthAvg {
   month: string;
   runs: number;
-  /** null when the train had no measured run that month. */
+  /** null when there was no measured run that month. */
   avg: number | null;
 }
 
 export interface HistBin {
   /** Display label, e.g. "<0", "0-5", "120+". */
   label: string;
-  /** Inclusive lower bound in minutes, null for the open-ended "<0" bin. */
+  /** Inclusive lower bound in minutes, null for the open-ended first bin. */
   lo: number | null;
   /** Exclusive upper bound in minutes, null for the open-ended last bin. */
   hi: number | null;
@@ -141,74 +162,71 @@ export interface WorstRun {
   dest: string;
 }
 
-export interface TrainDetail extends TrainSummary {
+export interface UnitDetail extends UnitSummary {
   monthly: MonthAvg[];
   histogram: HistBin[];
-  /** Ordered stops of the most common stop sequence, from the most common origin->dest variant. */
+  /** Ordered stops of the most common stop sequence, from the most common first->last stop pair. */
   stops: Stop[];
   /** Number of runs that used exactly this stop sequence. */
   stopsSequenceRuns: number;
   worstRun: WorstRun | null;
 }
 
-export interface Station {
-  name: string;
-  lat: number;
-  lon: number;
-  /** Measured arrivals. */
-  n: number;
-  /** Mean arrival delay in minutes. */
-  avg: number;
-  /** Percent of arrivals >= lateThresholdMinutes late. */
-  late: number;
-}
-
-export interface Extras {
-  /** Lowest average delay in the pool. */
-  bestBehaved: ExtraTrain;
-  /** Highest full-cancellation share in the pool. */
-  mostCancelled: ExtraTrain;
-  /** Worst single month for any train in the top 10 of either ranking (>= 10 measured runs that month). */
-  worstTrainMonth: { slug: string; train: string; month: string; avg: number; runs: number } | null;
-  /** The single worst run that passes the clamp. */
-  worstRun: (WorstRun & { slug: string | null; train: string }) | null;
-}
-
-export interface ExtraTrain {
-  slug: string;
-  train: string;
-  origin: string;
-  dest: string;
+/** A typical trip in the last `Params.headlineMonths` months of the window. */
+export interface HeadlineStats {
+  runs: number;
   measured: number;
-  avgMin: number;
+  avgDelayMin: number;
+  avgDelayPct: number;
   fullCancelPct: number;
+  /** Measured runs by how late they arrived: under 6, 6-15, 15-60, 60+ minutes. */
+  bands: HistBin[];
+}
+
+export interface Headline {
+  months: string[];
+  categories: Record<Category, HeadlineStats>;
 }
 
 export interface Stats {
   generatedAt: string;
   window: WindowInfo;
   params: Params;
-  overall: Overall;
+  headline: Headline;
+  overall: Record<Category, Overall>;
   /**
-   * Ranked lists. Each list has `moreN` entries (best first); the first `topN` are the headline top list.
-   * Both lists store summaries only; details live in data/trains/<slug>.json.
+   * Ranked lists per category. Each list has `moreN` entries (worst first); the first `topN` are
+   * the headline top list. Details live in data/trains/ and data/lines/.
    */
-  rankings: { minutes: TrainSummary[]; percent: TrainSummary[] };
-  extras: Extras;
-  /** Stations with >= minStationArrivals measured arrivals, sorted by name. */
+  rankings: Record<Category, Record<Mode, UnitSummary[]>>;
+}
+
+export interface Station {
+  name: string;
+  lat: number;
+  lon: number;
+  /** Measured arrivals of long-distance and regional trains. */
+  n: number;
+  /** Mean arrival delay in minutes. */
+  avg: number;
+}
+
+export interface StationsFile {
+  generatedAt: string;
+  /** Stations with >= minStationArrivals measured arrivals and known coordinates, sorted by name. */
   stations: Station[];
 }
 
 export interface MonthPoint {
   month: string;
-  /** All long-distance runs scheduled to depart that month. */
+  /** All runs of the category scheduled to depart that month. */
   runs: number;
   measured: number;
   avgDelayMin: number;
   medianDelayMin: number;
   avgDelayPct: number;
   fullCancelPct: number;
-  /** Average delay before the clamp, for the reference comparison. */
+  /** Average delay before the clamp. */
   avgDelayMinUnclamped: number;
   droppedByClamp: number;
 }
@@ -216,5 +234,5 @@ export interface MonthPoint {
 export interface Monthly {
   generatedAt: string;
   window: WindowInfo;
-  months: MonthPoint[];
+  series: Record<Category, MonthPoint[]>;
 }
