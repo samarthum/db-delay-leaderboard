@@ -131,8 +131,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     const query = parseRoute(stops, text);
     if (!query) return null;
     const hits = findTrains(stops, query);
-    const rated = hits.filter((h) => h.late !== null).length;
-    return { kind: "route", query, count: rated || hits.length };
+    return { kind: "route", query, count: hits.length };
   }, [stops, text]);
   const dests = useMemo<DestItem[]>(() => {
     if (!stops || !text.trim()) return [];
@@ -375,8 +374,7 @@ function RouteView({
   const diag = useMemo(() => diagnoseRoute(idx, q), [idx, q]);
   const query = diag && "query" in diag ? diag.query : null;
   const found = useMemo(() => (query ? findTrains(idx, query) : []), [idx, query]);
-  const hits = useMemo(() => found.filter((h) => h.late !== null), [found]);
-  const thin = found.length - hits.length;
+  const hits = found;
   const [all, setAll] = useState(false);
   if (!query) {
     return (
@@ -415,7 +413,6 @@ function RouteView({
       {hits.length === 0 ? (
         <div className={styles.none}>
           <p className={styles.message}>{t("rt.none", { from, to })}</p>
-          {thin > 0 ? <p className={styles.fine}>{(thin === 1 ? t("rt.thinOne") : t("rt.thin", { n: thin }))}</p> : null}
           <p className={styles.message}>{t("rt.noneHint")}</p>
           <button type="button" className={styles.chip} onClick={() => ask(`${to} ${lang === "de" ? "nach" : "to"} ${from}`, null, true)}>
             {t("rt.reverse", { from, to })}
@@ -433,7 +430,6 @@ function RouteView({
               {t("rt.showAll", { n: hits.length })}
             </button>
           ) : null}
-          {thin > 0 ? <p className={styles.fine}>{(thin === 1 ? t("rt.thinOne") : t("rt.thin", { n: thin }))}</p> : null}
           <p className={styles.fine}>{t("rt.measuredAt")}</p>
           <p className={styles.fine}>{t("rt.times")}</p>
         </>
@@ -455,13 +451,19 @@ function RouteRow({ hit, lang, top, onPick }: { hit: RouteHit; lang: Lang; top: 
           {clock(hit.dep)} → {hit.arr === null ? "" : clock(hit.arr)}
           {place}
         </span>
-        <span
-          className={styles.optStat}
-          style={{ color: lateShareColor(hit.late ?? 0) }}
-          aria-label={t("rt.lateAria", { pct: fmtShare(hit.late ?? 0, lang), to: hit.toName })}
-        >
-          {t("rt.late", { pct: fmtShare(hit.late ?? 0, lang) })}
-        </span>
+        {hit.late === null ? (
+          <span className={styles.optStat} style={{ color: "var(--muted)" }}>
+            {t("rt.few")}
+          </span>
+        ) : (
+          <span
+            className={styles.optStat}
+            style={{ color: lateShareColor(hit.late) }}
+            aria-label={t("rt.lateAria", { pct: fmtShare(hit.late, lang), to: hit.toName })}
+          >
+            {t("rt.late", { pct: fmtShare(hit.late, lang) })}
+          </span>
+        )}
       </button>
     </div>
   );

@@ -37,7 +37,7 @@ import duckdb
 
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
 FILE_RE = re.compile(r"(?:^|/)data-(\d{4}-\d{2})\.parquet$")
-MIN_UNIT_RUNS = 20  # same as searchMinRuns in compute.py: a train needs this many measured runs to be listed
+MIN_UNIT_RUNS = 3  # a train needs this many measured runs to appear in route search; below MIN_STOP_RUNS it has no percentage
 MIN_STOP_RUNS = 20  # measured arrivals a stop needs before its late share and average are shown
 STABLE_MINUTES = 30  # a run is on schedule at a stop when its planned time is within this of the stop's median
 MIN_STABLE = 0.8  # a stop is kept when at least this share of its runs are on schedule in that sense
