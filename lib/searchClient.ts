@@ -1,5 +1,6 @@
 import index from "@/data/search/index.json";
 import { buildIndex, type TaIndex, type TaRaw } from "./typeahead";
+import { buildStops, type StopsIndex, type StopsRaw } from "./routeSearch";
 import {
   UNSUPPORTED_TYPES,
   type UnsupportedKind,
@@ -141,4 +142,17 @@ export function loadTypeahead(): Promise<TaIndex> {
     });
   }
   return typeahead;
+}
+
+let stops: Promise<StopsIndex> | undefined;
+
+/** Per-stop data for route search (long-distance trains). About 450 kB gzipped, fetched when a route is first needed. */
+export function loadStops(): Promise<StopsIndex> {
+  if (!stops) {
+    stops = getJson<StopsRaw>("/search/stops.json").then(buildStops);
+    stops.catch(() => {
+      stops = undefined;
+    });
+  }
+  return stops;
 }

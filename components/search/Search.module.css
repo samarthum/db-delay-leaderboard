@@ -439,3 +439,12 @@
     font-size: 40px;
   }
 }
+
+.arrow {
+  color: var(--amber);
+}
+
+.fine {
+  font-size: 15px;
+  color: var(--muted);
+}

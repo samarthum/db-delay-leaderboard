@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { SEARCH_INDEX, loadTypeahead, pickByKey, runSearch, type SearchOutcome } from "@/lib/searchClient";
+import { SEARCH_INDEX, loadStops, loadTypeahead, pickByKey, runSearch, type SearchOutcome } from "@/lib/searchClient";
+import { clock, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
 import { unitName, type SearchUnit } from "@/lib/searchCore";
 import { findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
 import { fmt1, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
@@ -11,7 +12,8 @@ import { makeT, type Key } from "@/lib/t";
 import { SearchResult, kindLabel, routeText } from "./SearchResult";
 import styles from "./Search.module.css";
 
-const EXAMPLES = ["ICE 1541", "RE 19", "Köln Hbf"];
+const EXAMPLES = ["Köln to Berlin", "ICE 1541", "Köln Hbf"];
+const EXAMPLES_DE = ["Köln nach Berlin", "ICE 1541", "Köln Hbf"];
 const TYPING_DELAY_MS = 220;
 
 interface Applied {
@@ -19,11 +21,21 @@ interface Applied {
   u: string | null;
   /** Set when the visitor picked a station; the page shows its trains. */
   s: string | null;
+  /** True when q is a route ("Köln to Berlin"): the page lists trains between the two places. */
+  r: boolean;
 }
+
+/** A route suggestion in the dropdown. */
+interface RouteItem {
+  kind: "route";
+  query: RouteQuery;
+  count: number;
+}
+type Item = Suggestion | RouteItem;
 
 function readUrl(): Applied {
   const p = new URLSearchParams(window.location.search);
-  return { q: (p.get("q") ?? "").trim(), u: p.get("u"), s: p.get("s") };
+  return { q: (p.get("q") ?? "").trim(), u: p.get("u"), s: p.get("s"), r: p.get("r") === "1" };
 }
 
 function urlFor(a: Applied): string {
@@ -31,6 +43,7 @@ function urlFor(a: Applied): string {
   if (a.q) p.set("q", a.q);
   if (a.q && a.u) p.set("u", a.u);
   if (a.s) p.set("s", a.s);
+  if (a.q && a.r) p.set("r", "1");
   const s = p.toString();
   return `${window.location.pathname}${s ? `?${s}` : ""}${window.location.hash}`;
 }
@@ -40,10 +53,12 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   const t = makeT(lang);
   const uid = useId();
   const [text, setText] = useState("");
-  const [applied, setApplied] = useState<Applied>({ q: "", u: null, s: null });
+  const [applied, setApplied] = useState<Applied>({ q: "", u: null, s: null, r: false });
   const [answer, setAnswer] = useState<{ q: string; outcome: SearchOutcome } | null>(null);
   const [failed, setFailed] = useState(false);
   const [ta, setTa] = useState<TaIndex | null>(null);
+  const [stops, setStops] = useState<StopsIndex | null>(null);
+  const [stopsFailed, setStopsFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const timer = useRef<number | undefined>(undefined);
@@ -75,12 +90,16 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   const warm = useCallback(() => {
     loadTypeahead().then(setTa, () => undefined);
   }, []);
+  const warmStops = useCallback(() => {
+    loadStops().then(setStops, () => setStopsFailed(true));
+  }, []);
   useEffect(() => {
     if (applied.q || applied.s) warm();
-  }, [applied.q, applied.s, warm]);
+    if (applied.r) warmStops();
+  }, [applied.q, applied.s, applied.r, warm, warmStops]);
 
   useEffect(() => {
-    if (!applied.q || applied.s) {
+    if (!applied.q || applied.s || applied.r) {
       setAnswer(null);
       setFailed(false);
       return;
@@ -94,34 +113,46 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     return () => {
       current = false;
     };
-  }, [applied.q, applied.s]);
+  }, [applied.q, applied.s, applied.r]);
 
   const suggestions = useMemo(() => (ta && text.trim() ? suggest(ta, text) : null), [ta, text]);
-  const flat = useMemo(() => (suggestions ? flatten(suggestions) : []), [suggestions]);
+  const routeItem = useMemo<RouteItem | null>(() => {
+    if (!stops || !text.trim()) return null;
+    const query = parseRoute(stops, text);
+    if (!query) return null;
+    const hits = findTrains(stops, query);
+    const rated = hits.filter((h) => h.late !== null).length;
+    return { kind: "route", query, count: rated || hits.length };
+  }, [stops, text]);
+  const flat = useMemo<Item[]>(() => [...(routeItem ? [routeItem] : []), ...(suggestions ? flatten(suggestions) : [])], [routeItem, suggestions]);
   const showList = open && text.trim().length > 0 && applied.q !== text.trim();
 
   function onType(value: string) {
     setText(value);
     setOpen(true);
     setActive(-1);
+    // Two words or a separator might be a route: fetch the per-stop data now so the suggestion can appear.
+    if (/\s|→|->|\d:\d/.test(value.trim())) warmStops();
     window.clearTimeout(timer.current);
     // A train number resolves while typing; the dropdown is the way to pick anything else.
     timer.current = window.setTimeout(() => {
-      if (/^\s*[a-zA-Z]{0,4}\s*\d+[a-zA-Z]?\s*$/.test(value) && /\d{3,}/.test(value)) commit({ q: value.trim(), u: null, s: null }, "replace");
+      if (/^\s*[a-zA-Z]{0,4}\s*\d+[a-zA-Z]?\s*$/.test(value) && /\d{3,}/.test(value)) commit({ q: value.trim(), u: null, s: null, r: false }, "replace");
     }, TYPING_DELAY_MS);
   }
 
-  function pick(s: Suggestion) {
+  function pick(s: Item) {
     window.clearTimeout(timer.current);
     setOpen(false);
     input.current?.blur();
-    if (s.kind === "station") {
+    if (s.kind === "route") {
+      commit({ q: text.trim(), u: null, s: null, r: true }, "push");
+    } else if (s.kind === "station") {
       setText(s.station.name);
-      commit({ q: s.station.name, u: null, s: s.station.name }, "push");
+      commit({ q: s.station.name, u: null, s: s.station.name, r: false }, "push");
     } else {
       const name = unitName(s.train);
       setText(name);
-      commit({ q: name, u: s.train.kind === 0 ? null : s.train.key, s: null }, "push");
+      commit({ q: name, u: s.train.kind === 0 ? null : s.train.key, s: null, r: false }, "push");
     }
   }
 
@@ -131,15 +162,29 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     const value = text.trim();
     if (!value) return;
     if (active >= 0 && flat[active]) return pick(flat[active]);
-    const st = ta ? findStation(ta, value) : null;
-    const numeric = /^[a-zA-Z]{0,4}\s*\d/.test(value);
     setOpen(false);
     input.current?.blur();
+    // A route wins over a lookalike: "Köln Berlin" is a trip, not a station.
+    if (routeItem || (stops && splitRoute(value))) return commit({ q: value, u: null, s: null, r: true }, "push");
+    // The per-stop data may still be loading, or the text may only look like a route: decide once it is here.
+    if (!stops && /\s|→|->|\d:\d/.test(value)) {
+      loadStops().then(
+        (idx) => {
+          setStops(idx);
+          const query = parseRoute(idx, value);
+          commit({ q: value, u: null, s: null, r: Boolean(query) || Boolean(splitRoute(value)) }, "push");
+        },
+        () => commit({ q: value, u: null, s: null, r: false }, "push"),
+      );
+      return;
+    }
+    const st = ta ? findStation(ta, value) : null;
+    const numeric = /^[a-zA-Z]{0,4}\s*\d/.test(value);
     if (st && !numeric) {
       setText(st.name);
-      commit({ q: st.name, u: null, s: st.name }, "push");
+      commit({ q: st.name, u: null, s: st.name, r: false }, "push");
     } else {
-      commit({ q: value, u: null, s: null }, "push");
+      commit({ q: value, u: null, s: null, r: false }, "push");
     }
   }
 
@@ -157,24 +202,26 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     }
   }
 
-  function ask(q: string, u: string | null = null) {
+  function ask(q: string, u: string | null = null, asRoute = false) {
     window.clearTimeout(timer.current);
     setText(q);
     setOpen(false);
+    if (asRoute) return commit({ q, u: null, s: null, r: true }, "push");
     const st = ta ? findStation(ta, q) : null;
-    if (st && !/\d/.test(q) && u === null) commit({ q: st.name, u: null, s: st.name }, "push");
-    else commit({ q, u, s: null }, "push");
+    if (st && !/\d/.test(q) && u === null) commit({ q: st.name, u: null, s: st.name, r: false }, "push");
+    else commit({ q, u, s: null, r: false }, "push");
   }
 
   function clear() {
     window.clearTimeout(timer.current);
     setText("");
     setOpen(false);
-    commit({ q: "", u: null, s: null }, "push");
+    commit({ q: "", u: null, s: null, r: false }, "push");
     input.current?.focus();
   }
 
   const ready = answer !== null && answer.q === applied.q ? answer.outcome : null;
+  const examples = lang === "de" ? EXAMPLES_DE : EXAMPLES;
   const stationEntry: TaStationEntry | null = ta && applied.s ? (ta.stations.find((s) => s.name === applied.s) ?? null) : null;
   const span = spanLabel(SEARCH_INDEX.window.firstMonth, SEARCH_INDEX.window.lastMonth, lang);
   const listId = `${uid}-list`;
@@ -228,10 +275,10 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
 
         {showList ? (
           <div id={listId} className={styles.list} role="listbox" aria-label={t("sug.list")}>
-            {!ta ? null : flat.length === 0 ? (
+            {!ta && !routeItem ? null : flat.length === 0 ? (
               <p className={styles.hint}>{t("sug.empty", { q: text.trim() })}</p>
             ) : (
-              <Groups suggestions={suggestions!} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
+              <Groups suggestions={suggestions ?? { trains: [], lines: [], stations: [] }} route={routeItem} stops={stops} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
             )}
           </div>
         ) : null}
@@ -240,8 +287,8 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
       {!hasQuery && !showList ? (
         <div className={styles.try}>
           <span className={styles.tryLabel}>{t("home.try")}</span>
-          {EXAMPLES.map((ex) => (
-            <button key={ex} type="button" className={styles.chip} onClick={() => ask(ex)}>
+          {examples.map((ex) => (
+            <button key={ex} type="button" className={styles.chip} onClick={() => ask(ex, null, /\s(to|nach)\s/.test(ex))}>
               {ex}
             </button>
           ))}
@@ -253,6 +300,14 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
       <div className={styles.results} aria-live="polite">
         {failed ? (
           <p className={styles.message}>{t("q.failed")}</p>
+        ) : applied.r ? (
+          stops ? (
+            <RouteView idx={stops} q={applied.q} lang={lang} ask={ask} />
+          ) : stopsFailed ? (
+            <p className={styles.message}>{t("rt.failed")}</p>
+          ) : (
+            <p className={styles.loading}>{t("q.loading", { q: applied.q })}</p>
+          )
         ) : applied.s ? (
           stationEntry && ta ? (
             <StationView station={stationEntry} ta={ta} lang={lang} span={span} ask={ask} />
@@ -269,12 +324,126 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   );
 }
 
+/** The best-known station on each side: "Köln Hbf", "Berlin Hauptbahnhof". */
+function routeHeading(idx: StopsIndex, q: RouteQuery): [string, string] {
+  return [idx.raw.stations[q.from[0]], idx.raw.stations[q.to[0]]];
+}
+
+function RouteView({
+  idx,
+  q,
+  lang,
+  ask,
+}: {
+  idx: StopsIndex;
+  q: string;
+  lang: Lang;
+  ask: (q: string, u?: string | null, asRoute?: boolean) => void;
+}) {
+  const t = makeT(lang);
+  const diag = useMemo(() => diagnoseRoute(idx, q), [idx, q]);
+  const query = diag && "query" in diag ? diag.query : null;
+  const found = useMemo(() => (query ? findTrains(idx, query) : []), [idx, query]);
+  const hits = useMemo(() => found.filter((h) => h.late !== null), [found]);
+  const thin = found.length - hits.length;
+  const [all, setAll] = useState(false);
+  if (!query) {
+    return (
+      <div className={styles.none}>
+        <p className={styles.noneTitle}>{t("q.noneTitle", { q })}</p>
+        {diag && "missing" in diag ? (
+          <>
+            <p className={styles.message}>{t("rt.unknown", { place: diag.missing })}</p>
+            <p className={styles.message}>{t("rt.abroad")}</p>
+          </>
+        ) : diag && "same" in diag ? (
+          <p className={styles.message}>{t("rt.same")}</p>
+        ) : (
+          <p className={styles.message}>{t("q.noneNoNum")}</p>
+        )}
+      </div>
+    );
+  }
+  const [from, to] = routeHeading(idx, query);
+  const shown = all ? hits : hits.slice(0, 8);
+  const win = idx.raw.window;
+  return (
+    <section className={styles.station} aria-labelledby="route-name">
+      <h2 id="route-name" className={styles.stationName}>
+        {from}
+        <span className={styles.arrow} aria-hidden="true">
+          {" → "}
+        </span>
+        <span className="visually-hidden"> {t("route.to")} </span>
+        {to}
+      </h2>
+      <p className={styles.stationSub}>
+        {t("rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
+        {query.time !== null ? t("rt.nearTime", { time: clock(query.time) }) : t("rt.earliest")}
+      </p>
+      {hits.length === 0 ? (
+        <div className={styles.none}>
+          <p className={styles.message}>{t("rt.none", { from, to })}</p>
+          {thin > 0 ? <p className={styles.fine}>{t("rt.thin", { n: thin })}</p> : null}
+          <p className={styles.message}>{t("rt.noneHint")}</p>
+          <button type="button" className={styles.chip} onClick={() => ask(`${to} ${lang === "de" ? "nach" : "to"} ${from}`, null, true)}>
+            {t("rt.reverse", { from, to })}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className={styles.rows}>
+            {shown.map((h) => (
+              <RouteRow key={`${h.type}${h.num}`} hit={h} lang={lang} top={to} onPick={() => ask(`${h.type} ${h.num}`)} />
+            ))}
+          </div>
+          {hits.length > 8 && !all ? (
+            <button type="button" className={styles.showAll} onClick={() => setAll(true)}>
+              {t("rt.showAll", { n: hits.length })}
+            </button>
+          ) : null}
+          {thin > 0 ? <p className={styles.fine}>{t("rt.thin", { n: thin })}</p> : null}
+          <p className={styles.fine}>{t("rt.measuredAt")}</p>
+          <p className={styles.fine}>{t("rt.times")}</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function RouteRow({ hit, lang, top, onPick }: { hit: RouteHit; lang: Lang; top: string; onPick: () => void }) {
+  const t = makeT(lang);
+  const place = hit.toName === top ? "" : ` ${hit.toName}`;
+  return (
+    <div className={styles.row}>
+      <button type="button" className={styles.option} onClick={onPick}>
+        <span className={styles.optName}>
+          {hit.type} {hit.num}
+        </span>
+        <span className={styles.optRoute}>
+          {clock(hit.dep)} → {hit.arr === null ? "" : clock(hit.arr)}
+          {place}
+        </span>
+        <span
+          className={styles.optStat}
+          style={{ color: lateShareColor(hit.late ?? 0) }}
+          aria-label={t("rt.lateAria", { pct: fmtShare(hit.late ?? 0, lang), to: hit.toName })}
+        >
+          {t("rt.late", { pct: fmtShare(hit.late ?? 0, lang) })}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function statText(train: TaTrainEntry, lang: Lang): string {
   return fmtShare(train.late, lang);
 }
 
 function Groups({
   suggestions,
+  route: routeItem,
+  stops,
   flat,
   active,
   uid,
@@ -282,11 +451,13 @@ function Groups({
   onPick,
 }: {
   suggestions: NonNullable<ReturnType<typeof suggest>>;
-  flat: Suggestion[];
+  route: RouteItem | null;
+  stops: StopsIndex | null;
+  flat: Item[];
   active: number;
   uid: string;
   lang: Lang;
-  onPick: (s: Suggestion) => void;
+  onPick: (s: Item) => void;
 }) {
   const t = makeT(lang);
   const groups: [Key, Suggestion[]][] = [
@@ -296,6 +467,27 @@ function Groups({
   ];
   return (
     <>
+      {routeItem && stops ? (
+        <div className={styles.group} role="group" aria-label={t("sug.routes")}>
+          <p className={styles.groupTitle} aria-hidden="true">
+            {t("sug.routes")}
+          </p>
+          <button
+            id={`${uid}-o${flat.indexOf(routeItem)}`}
+            type="button"
+            role="option"
+            aria-selected={flat.indexOf(routeItem) === active}
+            className={styles.option}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onPick(routeItem)}
+          >
+            <span className={styles.optStation}>{routeHeading(stops, routeItem.query).join(" → ")}</span>
+            <span className={styles.optStat} style={{ color: "var(--muted)" }}>
+              {routeItem.count === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: routeItem.count })}
+            </span>
+          </button>
+        </div>
+      ) : null}
       {groups
         .filter(([, items]) => items.length > 0)
         .map(([title, items]) => (
@@ -304,7 +496,7 @@ function Groups({
               {t(title)}
             </p>
             {items.map((s) => {
-              const i = flat.indexOf(s);
+              const i = flat.indexOf(s as Item);
               return (
                 <button
                   key={s.kind === "station" ? `s-${s.station.name}` : s.train.key}

@@ -44,6 +44,17 @@ const ALIASES: Record<string, string> = {
   frankfurt: "frankfurt",
   ffm: "frankfurt",
   hbf: "hbf",
+  bahnhof: "hbf",
+  airport: "flughafen",
+  frankfurt_main: "frankfurt",
+  nuremburg: "nurnberg",
+  dusseldorf: "dusseldorf",
+  duesseldorf: "dusseldorf",
+  koeln: "koln",
+  muenchen: "munchen",
+  nuernberg: "nurnberg",
+  hannover: "hannover",
+  hamburg: "hamburg",
   hauptbahnhof: "hbf",
   central: "hbf",
   main: "main",
@@ -51,7 +62,7 @@ const ALIASES: Record<string, string> = {
 };
 
 /** Words of a folded string, with "ae/oe/ue" and "ss" spellings also mapped onto the folded form. */
-function words(folded: string): string[] {
+export function words(folded: string): string[] {
   return folded
     .split(" ")
     .filter(Boolean)

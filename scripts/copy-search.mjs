@@ -23,6 +23,14 @@ for (const name of await fs.readdir(FROM)) {
 }
 console.log(`search: ${files} files, ${(bytes / 1e6).toFixed(1)} MB copied to public/search`);
 
+// Per-stop data for route search, written by scripts/stops.py.
+try {
+  await fs.copyFile(path.join(ROOT, "data", "stops.json"), path.join(TO, "stops.json"));
+  console.log(`stops: ${((await fs.stat(path.join(TO, "stops.json"))).size / 1e6).toFixed(2)} MB copied`);
+} catch {
+  console.log("stops: data/stops.json not found, route search will be off (run scripts/stops.py)");
+}
+
 // Record layout: [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
 const trains = [];
 for (const name of shards.sort()) {
