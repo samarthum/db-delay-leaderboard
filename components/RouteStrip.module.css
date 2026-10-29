@@ -124,7 +124,7 @@
 .moreRail {
   justify-self: center;
   width: var(--rail-w);
-  background: repeating-linear-gradient(to bottom, #a39c8e 0 4px, transparent 4px 9px);
+  background: repeating-linear-gradient(to bottom, #5a6372 0 4px, transparent 4px 9px);
 }
 
 .moreButton {

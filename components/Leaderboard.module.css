@@ -29,7 +29,8 @@
   border-left: 6px solid var(--heat, var(--db-red));
   border-radius: var(--radius-sm);
   background: var(--card);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--board-line);
+  border-left-width: 6px;
   text-decoration: none;
   transition: transform 0.15s ease;
 }

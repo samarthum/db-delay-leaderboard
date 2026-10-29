@@ -18,8 +18,8 @@
 }
 
 .button:hover {
-  background: var(--ink);
-  color: #fff;
+  background: var(--amber);
+  color: #14110a;
 }
 
 .chevron {

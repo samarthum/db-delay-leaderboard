@@ -1,8 +1,13 @@
+// Share images, built at deploy time with satori + resvg, English and German:
+//   public/og/<lastMonth>/<name>.png        English (home, recap, recap-tall, one per train and line)
+//   public/og/<lastMonth>/de/<name>.png     German
+// Every number comes from data/; every sentence from lib/dict/{en,de}, so the cards say what the site says.
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
+import { makeT } from "./dict-load.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DATA_DIR = path.join(ROOT, "data");
@@ -18,31 +23,41 @@ const FONTS = [
 ];
 
 const C = {
-  paper: "#f6f4ee",
-  card: "#ffffff",
-  ink: "#1f2430",
-  muted: "#5f6675",
-  line: "#e1ddd3",
-  red: "#ec0016",
-  board: "#ffffff",
-  boardLine: "#d9d4c7",
-  tile: "#f1eee5",
-  tileEdge: "#cdc7b8",
-  flap: "#1f2430",
-  flapMuted: "#454c5b",
-  redDark: "#b8000f",
+  paper: "#0a0c0f",
+  card: "#13171d",
+  board: "#13171d",
+  boardLine: "#2b323c",
+  tile: "#232a34",
+  tileEdge: "#323a46",
+  ink: "#f4f1e8",
+  ink2: "#cfccc2",
+  muted: "#a1a7b2",
+  line: "#262c35",
+  amber: "#ffc72c",
 };
 const SANS = "Barlow";
 const COND = "Barlow Condensed";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const monthLabel = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
-const fmtMin = (n) => String(Math.round(n));
-const fmtPct = (n) => {
-  const r = Math.round(n);
-  return `${r >= 0 ? "+" : "−"}${Math.abs(r)}%`;
+const MONTHS = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  de: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
 };
+const NBSP = "\u00a0";
+const monthLabel = (m, lang) => `${MONTHS[lang][Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+const spanLabel = (a, b, lang) => `${monthLabel(a, lang)} ${lang === "de" ? "bis" : "to"} ${monthLabel(b, lang)}`;
+const dec = (lang) => (lang === "de" ? "," : ".");
+const fmt1 = (n, lang) => n.toFixed(1).replace(".", dec(lang));
+const fmtShare1 = (n, lang) => (lang === "de" ? `${fmt1(n, lang)}${NBSP}%` : `${fmt1(n, lang)}%`);
+const fmtInt = (n, lang) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, lang === "de" ? "." : ",");
 const clip = (s, max) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
+
+function lateColor(pct) {
+  if (pct < 10) return "#34c36b";
+  if (pct < 20) return "#a6d43a";
+  if (pct < 35) return C.amber;
+  if (pct < 55) return "#ff8a2b";
+  return "#ff4b3e";
+}
 
 function h(type, props, ...children) {
   const kids = children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false);
@@ -52,39 +67,32 @@ function h(type, props, ...children) {
   };
 }
 
-function frame(eyebrowText, main, W = 1200, H = 630) {
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app")
+  .replace(/^https?:\/\//, "")
+  .replace(/\/+$/, "");
+
+// ---------------------------------------------------------------- building blocks
+
+function frame(eyebrowText, main, w = W, hh = H) {
   return h(
     "div",
     {
       style: {
         display: "flex",
         flexDirection: "column",
-        width: W,
-        height: H,
+        width: w,
+        height: hh,
         background: C.paper,
         fontFamily: SANS,
         fontWeight: 500,
         color: C.ink,
       },
     },
-    h("div", { style: { display: "flex", width: "100%", height: 12, background: C.red } }),
     h(
       "div",
-      { style: { display: "flex", flexDirection: "column", flexGrow: 1, padding: "34px 60px 28px" } },
+      { style: { display: "flex", flexDirection: "column", flexGrow: 1, padding: "40px 60px 28px" } },
       eyebrow(eyebrowText),
-      h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexGrow: 1,
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 18,
-          },
-        },
-        main,
-      ),
+      h("div", { style: { display: "flex", flexGrow: 1, alignItems: "center", justifyContent: "space-between" } }, main),
       footer(),
     ),
   );
@@ -104,7 +112,7 @@ function eyebrow(text) {
         textTransform: "uppercase",
       },
     },
-    h("div", { style: { display: "flex", width: 14, height: 14, background: C.red, marginRight: 14 } }),
+    h("div", { style: { display: "flex", width: 14, height: 14, borderRadius: 7, background: C.amber, marginRight: 14 } }),
     text,
   );
 }
@@ -134,11 +142,10 @@ function footer() {
           textTransform: "uppercase",
         },
       },
-      h("div", {
-        style: { display: "flex", width: 22, height: 22, borderRadius: 6, background: C.red, marginRight: 12 },
-      }),
+      h("div", { style: { display: "flex", width: 16, height: 16, borderRadius: 8, background: C.amber, marginRight: 12 } }),
       "German Punctuality",
     ),
+    h("div", { style: { display: "flex", fontSize: 24, fontWeight: 600, color: C.muted } }, SITE_HOST),
   );
 }
 
@@ -149,7 +156,7 @@ function arrow(size, bothWays) {
     { width: size, height: Math.round(size * 0.6), viewBox: "0 0 40 24", style: { margin: "0 12px" } },
     h("path", {
       d: bothWays ? "M5 12h30M14 3l-9 9 9 9M26 3l9 9-9 9" : "M2 12h33M25 3l10 9-10 9",
-      stroke: C.red,
+      stroke: C.amber,
       strokeWidth: 4,
       fill: "none",
       strokeLinecap: "round",
@@ -163,17 +170,7 @@ function route(t) {
   const size = len <= 30 ? 34 : len <= 40 ? 30 : 26;
   return h(
     "div",
-    {
-      style: {
-        display: "flex",
-        flexWrap: "wrap",
-        alignItems: "center",
-        fontSize: size,
-        fontWeight: 600,
-        lineHeight: 1.2,
-        marginTop: 14,
-      },
-    },
+    { style: { display: "flex", flexWrap: "wrap", alignItems: "center", fontSize: size, fontWeight: 600, lineHeight: 1.2, marginTop: 14 } },
     h("div", {}, clip(t.origin, 30)),
     arrow(size, t.category === "regional"),
     h("div", {}, clip(t.dest, 30)),
@@ -189,7 +186,7 @@ function trainName(name) {
         fontWeight: 800,
         fontSize: name.length <= 8 ? 140 : 116,
         lineHeight: 0.95,
-        color: C.red,
+        color: C.amber,
         marginTop: 6,
       },
     },
@@ -197,7 +194,7 @@ function trainName(name) {
   );
 }
 
-function tile(ch, w) {
+function tile(ch, w, color) {
   const tileH = Math.round(w * 1.4);
   return h(
     "div",
@@ -205,38 +202,29 @@ function tile(ch, w) {
       style: {
         display: "flex",
         position: "relative",
-        width: w,
+        width: ch === "%" ? Math.round(w * 1.15) : w,
         height: tileH,
         alignItems: "center",
         justifyContent: "center",
         background: C.tile,
         border: `2px solid ${C.tileEdge}`,
         borderRadius: 12,
-        margin: "0 6px",
+        margin: "0 5px",
       },
     },
-    h(
-      "div",
-      { style: { fontFamily: COND, fontWeight: 800, fontSize: Math.round(w * 1.4), lineHeight: 1, color: C.flap } },
-      ch,
-    ),
+    h("div", { style: { fontFamily: COND, fontWeight: 800, fontSize: Math.round(w * 1.4), lineHeight: 1, color } }, ch),
     h("div", {
-      style: {
-        display: "flex",
-        position: "absolute",
-        left: 0,
-        top: Math.round(tileH / 2) - 4,
-        width: "100%",
-        height: 4,
-        background: C.tileEdge,
-      },
+      style: { display: "flex", position: "absolute", left: 0, top: Math.round(tileH / 2) - 2, width: "100%", height: 4, background: "#000000" },
     }),
   );
 }
 
-function board(t) {
-  const digits = fmtMin(t.minutes.avg).split("");
-  const w = digits.length > 2 ? 100 : 124;
+/** The one number every card leads with: the share of trips that arrive 15+ min late, on split-flap tiles. */
+function lateBoard(pct, t, sub) {
+  const text = `${pct > 0 && pct < 1 ? pct.toFixed(1) : Math.round(pct)}%`;
+  const chars = Array.from(text);
+  const w = chars.length > 3 ? 84 : chars.length > 2 ? 110 : 134;
+  const color = lateColor(pct);
   return h(
     "div",
     {
@@ -244,56 +232,39 @@ function board(t) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        width: 460,
+        width: 470,
         background: C.board,
         border: `2px solid ${C.boardLine}`,
         borderRadius: 24,
-        padding: "32px 30px 28px",
+        padding: "34px 28px 28px",
       },
     },
-    h("div", { style: { display: "flex" } }, digits.map((d) => tile(d, w))),
+    h("div", { style: { display: "flex" } }, chars.map((c) => tile(c, w, color))),
     h(
       "div",
       {
         style: {
+          display: "flex",
+          justifyContent: "center",
+          textAlign: "center",
           fontFamily: COND,
           fontWeight: 800,
           fontSize: 38,
-          letterSpacing: 3,
-          color: C.flap,
+          lineHeight: 1.05,
+          letterSpacing: 1,
+          color: C.ink,
           textTransform: "uppercase",
-          marginTop: 18,
+          marginTop: 22,
         },
       },
-      "Min late on average",
+      t("res.leadRest").toUpperCase(),
     ),
-    h("div", { style: { display: "flex", width: "100%", height: 2, background: C.boardLine, margin: "20px 0 16px" } }),
-    h(
-      "div",
-      { style: { display: "flex", alignItems: "center" } },
-      h(
-        "div",
-        { style: { fontFamily: COND, fontWeight: 800, fontSize: 68, lineHeight: 1, color: C.redDark, marginRight: 16 } },
-        fmtPct(t.percent.avg),
-      ),
-      h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "column",
-            fontSize: 20,
-            fontWeight: 600,
-            lineHeight: 1.2,
-            letterSpacing: 1.5,
-            textTransform: "uppercase",
-            color: C.flapMuted,
-          },
-        },
-        h("div", {}, "of the"),
-        h("div", {}, "trip time"),
-      ),
-    ),
+    sub
+      ? [
+          h("div", { style: { display: "flex", width: "100%", height: 2, background: C.boardLine, margin: "18px 0 14px" } }),
+          h("div", { style: { display: "flex", textAlign: "center", fontSize: 22, fontWeight: 600, color: C.muted } }, sub),
+        ]
+      : null,
   );
 }
 
@@ -311,19 +282,21 @@ function pill(text, filled) {
         padding: "4px 16px",
         borderRadius: 999,
         marginRight: 12,
-        color: filled ? "#ffffff" : C.ink,
-        background: filled ? C.red : C.card,
-        border: `2px solid ${filled ? C.red : C.ink}`,
+        color: filled ? "#14110a" : C.ink2,
+        background: filled ? C.amber : C.card,
+        border: `2px solid ${filled ? C.amber : C.boardLine}`,
       },
     },
     text,
   );
 }
 
-function homeCard(stats) {
-  const { months, categories } = stats.headline;
-  const ld = categories.longDistance;
-  const span = `${monthLabel(months[0])} – ${monthLabel(months[months.length - 1])}`;
+// ---------------------------------------------------------------- cards
+
+function homeCard(stats, t, lang) {
+  const w = stats.window;
+  const ld = stats.recap.longDistance;
+  const span = spanLabel(w.firstMonth, w.lastMonth, lang);
   return frame(
     `Deutsche Bahn · ${span}`,
     [
@@ -332,51 +305,53 @@ function homeCard(stats) {
         { style: { display: "flex", flexDirection: "column", width: 600 } },
         h(
           "div",
-          {
-            style: {
-              fontFamily: COND,
-              fontWeight: 800,
-              fontSize: 66,
-              lineHeight: 1,
-              letterSpacing: 1,
-              textTransform: "uppercase",
-            },
-          },
-          "The average long-distance train in Germany",
+          { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 84, lineHeight: 0.98, letterSpacing: 1, textTransform: "uppercase" } },
+          t("home.title"),
         ),
         h(
           "div",
-          { style: { fontSize: 34, fontWeight: 600, lineHeight: 1.2, marginTop: 22, color: C.muted } },
-          `Regional trains: ${categories.regional.avgDelayMin.toFixed(1)} min late`,
+          { style: { display: "flex", fontSize: 30, fontWeight: 600, lineHeight: 1.25, marginTop: 24, color: C.muted } },
+          t("home.networkBasis", { trips: fmtInt(ld.measured, lang), span }),
         ),
       ),
-      board({ minutes: { avg: ld.avgDelayMin }, percent: { avg: ld.avgDelayPct } }),
+      lateBoard(ld.latePct, t, null),
     ],
   );
 }
 
+function unitCard(u, late, span, t, lang) {
+  const badges = [
+    u.rank.minutes != null && pill(t("unit.rankMinutes", { n: u.rank.minutes }), true),
+    u.rank.percent != null && pill(t("unit.rankPercent", { n: u.rank.percent }), u.rank.minutes == null),
+  ].filter(Boolean);
+  const kind = u.category === "longDistance" ? t("res.kind.0") : t("res.kind.1");
+  return frame(
+    `${kind} · ${span}`,
+    [
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", width: 600 } },
+        badges.length > 0 && h("div", { style: { display: "flex", marginBottom: 10 } }, badges),
+        trainName(u.name),
+        route(u),
+      ),
+      lateBoard(late, t, t("res.exact", { pct: fmtShare1(late, lang), n: fmtInt(u.measured, lang) })),
+    ],
+  );
+}
 
-// ---------------------------------------------------------------- recap
-
-const fmt1 = (n) => n.toFixed(1);
-const fmtInt = (n) => Math.round(n).toLocaleString("en-US");
-const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app").replace(/^https?:\/\//, "").replace(/\/+$/, "");
-
-/** The recap's numbers, all from stats.json (compute.py writes them). */
-function recapFacts(stats) {
+function recapFacts(stats, t, lang) {
   const ld = stats.recap.longDistance;
   const reg = stats.recap.regional;
-  const worst = stats.rankings.longDistance.minutes[0];
   return {
-    span: `${monthLabel(stats.window.firstMonth)} – ${monthLabel(stats.window.lastMonth)}`,
+    span: spanLabel(stats.window.firstMonth, stats.window.lastMonth, lang),
     ld,
     reg,
-    worst,
     stats: [
-      { value: fmt1(ld.avgDelayMin), unit: "min", label: "late on average at the last stop" },
-      { value: `${fmt1(ld.latePct)}%`, unit: "", label: "arrive 15 minutes or more late" },
-      { value: `${fmt1(ld.late60Pct)}%`, unit: "", label: "arrive an hour or more late" },
-      { value: `${fmt1(ld.cancelledPct)}%`, unit: "", label: "are cancelled" },
+      { value: fmtShare1(ld.latePct, lang), unit: "", label: t("recap.fact.late"), color: lateColor(ld.latePct) },
+      { value: fmt1(ld.avgDelayMin, lang), unit: t("unit.min"), label: t("recap.fact.avg"), color: C.amber },
+      { value: fmtShare1(ld.late60Pct, lang), unit: "", label: t("recap.fact.late60"), color: "#ff4b3e" },
+      { value: fmtShare1(ld.cancelledPct, lang), unit: "", label: t("recap.fact.canc"), color: C.amber },
     ],
   };
 }
@@ -387,7 +362,7 @@ function recapStat(s, big, gap) {
     { style: { display: "flex", flexDirection: "column", marginBottom: gap } },
     h(
       "div",
-      { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, lineHeight: 1, color: C.red, fontSize: big } },
+      { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, lineHeight: 1, color: s.color, fontSize: big } },
       s.value,
       s.unit && h("div", { style: { display: "flex", fontSize: Math.round(big * 0.45), marginLeft: 10, color: C.ink } }, s.unit),
     ),
@@ -395,8 +370,8 @@ function recapStat(s, big, gap) {
   );
 }
 
-function recapWide(f) {
-  const tile = (s, i) =>
+function recapWide(f, t, lang) {
+  const box = (s, i) =>
     h(
       "div",
       {
@@ -414,14 +389,13 @@ function recapWide(f) {
       },
       h(
         "div",
-        { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, fontSize: 72, lineHeight: 1, color: C.red } },
+        { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, fontSize: 68, lineHeight: 1, color: s.color } },
         s.value,
-        s.unit && h("div", { style: { display: "flex", fontSize: 30, marginLeft: 8, color: C.ink } }, s.unit),
+        s.unit && h("div", { style: { display: "flex", fontSize: 28, marginLeft: 8, color: C.ink } }, s.unit),
       ),
-      h("div", { style: { display: "flex", fontSize: 22, fontWeight: 600, lineHeight: 1.2, marginTop: 8, color: C.muted } }, s.label),
+      h("div", { style: { display: "flex", fontSize: 21, fontWeight: 600, lineHeight: 1.2, marginTop: 8, color: C.muted } }, s.label),
     );
-  const row = (items, first) =>
-    h("div", { style: { display: "flex", marginTop: first ? 0 : 16 } }, items.map((s, i) => tile(s, i)));
+  const row = (items, first) => h("div", { style: { display: "flex", marginTop: first ? 0 : 16 } }, items.map((s, i) => box(s, i)));
   return frame(
     `Deutsche Bahn · ${f.span}`,
     [
@@ -431,17 +405,12 @@ function recapWide(f) {
         h(
           "div",
           { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 64, lineHeight: 0.98, textTransform: "uppercase" } },
-          "Long-distance trains in Germany",
+          t("recap.title"),
         ),
         h(
           "div",
           { style: { display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1.25, marginTop: 18, color: C.muted } },
-          `${fmtInt(f.ld.measured)} trips measured.`,
-        ),
-        h(
-          "div",
-          { style: { display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1.25, marginTop: 4, color: C.muted } },
-          `Regional trains: ${fmt1(f.reg.avgDelayMin)} min late on average.`,
+          t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span }),
         ),
       ),
       h("div", { style: { display: "flex", flexDirection: "column" } }, row(f.stats.slice(0, 2), true), row(f.stats.slice(2, 4), false)),
@@ -449,7 +418,7 @@ function recapWide(f) {
   );
 }
 
-function recapTall(f) {
+function recapTall(f, t, lang) {
   return frame(
     `Deutsche Bahn · ${f.span}`,
     h(
@@ -458,15 +427,22 @@ function recapTall(f) {
       h(
         "div",
         { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 116, lineHeight: 0.95, textTransform: "uppercase", marginBottom: 14 } },
-        "Long-distance trains in Germany",
+        t("recap.title"),
       ),
-      h("div", { style: { display: "flex", fontSize: 36, fontWeight: 600, color: C.muted, marginBottom: 56 } }, `${fmtInt(f.ld.measured)} trips measured, delay at the last stop`),
+      h(
+        "div",
+        { style: { display: "flex", fontSize: 34, fontWeight: 600, color: C.muted, marginBottom: 56 } },
+        t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span }),
+      ),
       f.stats.map((s) => recapStat(s, 170, 40)),
       h(
         "div",
         { style: { display: "flex", flexDirection: "column", borderTop: `2px solid ${C.line}`, paddingTop: 26, marginTop: 6 } },
-        h("div", { style: { display: "flex", fontSize: 34, fontWeight: 600, color: C.ink } }, `Regional trains: ${fmt1(f.reg.avgDelayMin)} min late on average,`),
-        h("div", { style: { display: "flex", fontSize: 34, fontWeight: 600, color: C.ink, marginTop: 2 } }, `${fmt1(f.reg.latePct)}% 15 min or more late.`),
+        h(
+          "div",
+          { style: { display: "flex", fontSize: 32, fontWeight: 600, color: C.ink, lineHeight: 1.25 } },
+          t("recap.regional", { avg: fmt1(f.reg.avgDelayMin, lang), late: fmtShare1(f.reg.latePct, lang), canc: fmtShare1(f.reg.cancelledPct, lang) }),
+        ),
       ),
     ),
     1080,
@@ -474,35 +450,15 @@ function recapTall(f) {
   );
 }
 
-const KIND = { longDistance: "Long-distance train", regional: "Regional line" };
-
-function unitCard(t, span) {
-  const badges = [
-    t.rank.minutes != null && pill(`No. ${t.rank.minutes} by minutes`, true),
-    t.rank.percent != null && pill(`No. ${t.rank.percent} by % of trip`, t.rank.minutes == null),
-  ].filter(Boolean);
-  return frame(
-    `${KIND[t.category]} · ${span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 600 } },
-        badges.length > 0 && h("div", { style: { display: "flex", marginBottom: 10 } }, badges),
-        trainName(t.name),
-        route(t),
-      ),
-      board(t),
-    ],
-  );
-}
+// ---------------------------------------------------------------- io
 
 async function readUnits(folder) {
   const dir = path.join(DATA_DIR, folder);
   const files = (await fs.readdir(dir)).filter((f) => f.endsWith(".json")).sort();
   if (files.length === 0) throw new Error(`data/${folder}/ has no files`);
   const units = await Promise.all(files.map((f) => readJson(path.join(dir, f))));
-  units.forEach((t, i) => {
-    if (`${t.slug}.json` !== files[i]) throw new Error(`${folder}/${files[i]} has slug "${t.slug}"`);
+  units.forEach((u, i) => {
+    if (`${u.slug}.json` !== files[i]) throw new Error(`${folder}/${files[i]} has slug "${u.slug}"`);
   });
   return units;
 }
@@ -513,6 +469,17 @@ async function readJson(file) {
   } catch (e) {
     throw new Error(`cannot read ${path.relative(ROOT, file)}: ${e.message}`);
   }
+}
+
+/** slug -> share of measured trips 15+ min late, from the search shards (the same number the site shows). */
+async function lateBySlug() {
+  const dir = path.join(DATA_DIR, "search");
+  const map = new Map();
+  for (const name of await fs.readdir(dir)) {
+    if (!/^s-.+\.json$/.test(name)) continue;
+    for (const r of await readJson(path.join(dir, name))) if (typeof r[12] === "string") map.set(r[12], r[6]);
+  }
+  return map;
 }
 
 async function loadFonts() {
@@ -528,11 +495,9 @@ async function loadFonts() {
   );
 }
 
-async function render(node, fonts, file, w = W, h = H) {
-  const svg = await satori(node, { width: w, height: h, fonts });
-  const png = new Resvg(svg, { fitTo: { mode: "width", value: w }, font: { loadSystemFonts: false } })
-    .render()
-    .asPng();
+async function render(node, fonts, file, w = W, hh = H) {
+  const svg = await satori(node, { width: w, height: hh, fonts });
+  const png = new Resvg(svg, { fitTo: { mode: "width", value: w }, font: { loadSystemFonts: false } }).render().asPng();
   await fs.writeFile(file, png);
 }
 
@@ -543,27 +508,38 @@ async function main() {
   if (!/^\d{4}-\d{2}$/.test(lastMonth ?? "") || !/^\d{4}-\d{2}$/.test(firstMonth ?? "")) {
     throw new Error("stats.json window.firstMonth/lastMonth missing or malformed");
   }
-  if (!stats.headline?.categories?.longDistance) throw new Error("stats.json headline is missing");
+  if (!stats.recap?.longDistance) throw new Error("stats.json recap is missing");
 
   const units = [...(await readUnits("trains")), ...(await readUnits("lines"))];
+  const late = await lateBySlug();
   const fonts = await loadFonts();
-  const span = `${monthLabel(firstMonth)} – ${monthLabel(lastMonth)}`;
   const dir = path.join(OUT_DIR, lastMonth);
   await fs.rm(dir, { recursive: true, force: true });
-  await fs.mkdir(dir, { recursive: true });
+  await fs.mkdir(path.join(dir, "de"), { recursive: true });
 
-  const jobs = [["home", homeCard(stats)], ...units.map((t) => [t.slug, unitCard(t, span)])];
-  const facts = recapFacts(stats);
-  const sized = [
-    ["recap", recapWide(facts), W, H],
-    ["recap-tall", recapTall(facts), 1080, 1920],
-  ];
-  for (const [name, node, w, hh] of sized) await render(node, fonts, path.join(dir, `${name}.png`), w, hh);
-  for (const [name, node] of jobs) {
-    try {
-      await render(node, fonts, path.join(dir, `${name}.png`));
-    } catch (e) {
-      throw new Error(`render ${name}.png failed: ${e.message}`);
+  let count = 0;
+  for (const lang of ["en", "de"]) {
+    const t = makeT(lang);
+    const out = lang === "de" ? path.join(dir, "de") : dir;
+    const span = spanLabel(firstMonth, lastMonth, lang);
+    const facts = recapFacts(stats, t, lang);
+    const jobs = [
+      ["home", homeCard(stats, t, lang), W, H],
+      ["recap", recapWide(facts, t, lang), W, H],
+      ["recap-tall", recapTall(facts, t, lang), 1080, 1920],
+      ...units.map((u) => {
+        const share = late.get(u.slug);
+        if (share === undefined) throw new Error(`no search record for ${u.slug}, cannot read its late share`);
+        return [u.slug, unitCard(u, share, span, t, lang), W, H];
+      }),
+    ];
+    for (const [name, node, w, hh] of jobs) {
+      try {
+        await render(node, fonts, path.join(out, `${name}.png`), w, hh);
+        count += 1;
+      } catch (e) {
+        throw new Error(`render ${lang}/${name}.png failed: ${e.message}`);
+      }
     }
   }
 
@@ -574,7 +550,7 @@ async function main() {
   }
 
   const ms = Math.round(performance.now() - started);
-  console.log(`og: ${jobs.length + sized.length} images -> public/og/${lastMonth}/ in ${ms} ms`);
+  console.log(`og: ${count} images -> public/og/${lastMonth}/ in ${ms} ms`);
 }
 
 main().catch((e) => {

@@ -19,8 +19,8 @@
 }
 
 .land {
-  fill: #eceef1;
-  stroke: #c4c8cf;
+  fill: #1c222b;
+  stroke: #38414d;
   stroke-width: 2;
   stroke-linejoin: round;
 }
@@ -46,7 +46,7 @@
   font-size: 24px;
   fill: var(--ink);
   paint-order: stroke;
-  stroke: #fff;
+  stroke: #0a0c0f;
   stroke-width: 6px;
   stroke-linejoin: round;
 }

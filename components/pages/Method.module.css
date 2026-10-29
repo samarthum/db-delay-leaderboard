@@ -51,7 +51,7 @@
   width: 12px;
   height: 2.5px;
   border-radius: 2px;
-  background: var(--db-red);
+  background: var(--amber);
   transform: translate(-50%, -50%);
   transition: transform 0.2s ease;
 }
@@ -97,5 +97,5 @@
   width: 7px;
   height: 7px;
   border-radius: 2px;
-  background: var(--db-red);
+  background: var(--amber);
 }
