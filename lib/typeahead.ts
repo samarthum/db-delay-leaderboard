@@ -23,6 +23,9 @@ export function fold(s: string): string {
     .replace(/ö/g, "o")
     .replace(/ü/g, "u")
     .replace(/ß/g, "ss")
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .replace(/æ/g, "ae")
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
@@ -59,6 +62,18 @@ const ALIASES: Record<string, string> = {
   central: "hbf",
   main: "main",
   kassel: "kassel",
+  copenhagen: "kobenhavn",
+  kopenhagen: "kobenhavn",
+  warsaw: "warszawa",
+  warschau: "warszawa",
+  milan: "milano",
+  mailand: "milano",
+  venice: "venezia",
+  venedig: "venezia",
+  antwerp: "antwerpen",
+  ostend: "oostende",
+  prag: "praha",
+  cracow: "krakow",
 };
 
 /** Words of a folded string, with "ae/oe/ue" and "ss" spellings also mapped onto the folded form. */

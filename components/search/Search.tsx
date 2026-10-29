@@ -191,6 +191,12 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     const value = text.trim();
     if (!value) return;
     if (active >= 0 && flat[active]) return pick(flat[active]);
+    // "Köln to" with nothing after it is not a question yet: keep the destinations on screen.
+    const partial = stops ? destinations(stops, value) : null;
+    if (partial && !partial.prefix) {
+      setOpen(true);
+      return;
+    }
     setOpen(false);
     input.current?.blur();
     // A route wins over a lookalike: "Köln Berlin" is a trip, not a station.
@@ -200,6 +206,12 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
       loadStops().then(
         (idx) => {
           setStops(idx);
+          const partial = destinations(idx, value);
+          if (partial && !partial.prefix) {
+            setOpen(true);
+            input.current?.focus();
+            return;
+          }
           const query = parseRoute(idx, value);
           commit({ q: value, u: null, s: null, r: Boolean(query) || Boolean(splitRoute(value)) }, "push");
         },
@@ -356,7 +368,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
 
 /** The best-known station on each side: "Köln Hbf", "Berlin Hauptbahnhof". */
 function routeHeading(idx: StopsIndex, q: RouteQuery): [string, string] {
-  return [idx.raw.stations[q.from[0]], idx.raw.stations[q.to[0]]];
+  return [idx.raw.stations[q.from[0]], q.to.length ? idx.raw.stations[q.to[0]] : idx.raw.foreign[q.toForeign[0]]];
 }
 
 function RouteView({
@@ -385,6 +397,8 @@ function RouteView({
             <p className={styles.message}>{t("rt.unknown", { place: diag.missing })}</p>
             <p className={styles.message}>{t("rt.abroad")}</p>
           </>
+        ) : diag && "fromAbroad" in diag ? (
+          <p className={styles.message}>{t("rt.fromAbroad", { place: diag.fromAbroad })}</p>
         ) : diag && "same" in diag ? (
           <p className={styles.message}>{t("rt.same")}</p>
         ) : (
@@ -394,6 +408,7 @@ function RouteView({
     );
   }
   const [from, to] = routeHeading(idx, query);
+  const abroad = query.to.length === 0;
   const shown = all ? hits : hits.slice(0, 8);
   const win = idx.raw.window;
   return (
@@ -407,16 +422,18 @@ function RouteView({
         {to}
       </h2>
       <p className={styles.stationSub}>
-        {t("rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
+        {t(abroad ? "rt.subAbroad" : "rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
         {query.time !== null ? t("rt.nearTime", { time: clock(query.time) }) : t("rt.earliest")}
       </p>
       {hits.length === 0 ? (
         <div className={styles.none}>
           <p className={styles.message}>{t("rt.none", { from, to })}</p>
           <p className={styles.message}>{t("rt.noneHint")}</p>
-          <button type="button" className={styles.chip} onClick={() => ask(`${to} ${lang === "de" ? "nach" : "to"} ${from}`, null, true)}>
-            {t("rt.reverse", { from, to })}
-          </button>
+          {abroad ? null : (
+            <button type="button" className={styles.chip} onClick={() => ask(`${to} ${lang === "de" ? "nach" : "to"} ${from}`, null, true)}>
+              {t("rt.reverse", { from, to })}
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -430,7 +447,7 @@ function RouteView({
               {t("rt.showAll", { n: hits.length })}
             </button>
           ) : null}
-          <p className={styles.fine}>{t("rt.measuredAt")}</p>
+          <p className={styles.fine}>{t(abroad ? "rt.border" : "rt.measuredAt")}</p>
           <p className={styles.fine}>{t("rt.times")}</p>
         </>
       )}

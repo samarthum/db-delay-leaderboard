@@ -9,11 +9,14 @@ import { fold, words } from "./typeahead";
 
 /** [station index, dep minutes, arr minutes, runs, measured, late %, avg min, cancelled %, minutes after the run's first stop] */
 export type RawStop = [number, number | null, number | null, number, number, number | null, number | null, number, number];
-export type RawTrain = [string, string, RawStop[]];
+/** [type, number, stops, index into `foreign` when the train ends abroad] */
+export type RawTrain = [string, string, RawStop[], number?];
 export interface StopsRaw {
   window: { firstMonth: string; lastMonth: string; monthCount: number };
   params: { minStopRuns: number; lateMinutes: number };
   stations: string[];
+  /** Places abroad where long-distance trains end ("Amsterdam Centraal"): the source records no stops outside Germany. */
+  foreign: string[];
   trains: RawTrain[];
 }
 
@@ -22,12 +25,20 @@ export interface StopsIndex {
   stationWords: string[][];
   /** Number of trains that serve each station: big stations first when a name is ambiguous. */
   weight: number[];
+  foreignWords: string[][];
+  /** Trains heading to each foreign place. */
+  foreignWeight: number[];
 }
 
 export function buildStops(raw: StopsRaw): StopsIndex {
   const weight = new Array<number>(raw.stations.length).fill(0);
-  for (const t of raw.trains) for (const s of t[2]) weight[s[0]] += 1;
-  return { raw, stationWords: raw.stations.map((n) => words(fold(n))), weight };
+  const foreign = raw.foreign ?? [];
+  const foreignWeight = new Array<number>(foreign.length).fill(0);
+  for (const t of raw.trains) {
+    for (const s of t[2]) weight[s[0]] += 1;
+    if (t[3] !== undefined) foreignWeight[t[3]] += 1;
+  }
+  return { raw: { ...raw, foreign }, stationWords: raw.stations.map((n) => words(fold(n))), weight, foreignWords: foreign.map((n) => words(fold(n))), foreignWeight };
 }
 
 // ---------------------------------------------------------------- parsing
@@ -93,9 +104,23 @@ export function stationsFor(idx: StopsIndex, text: string): number[] {
   return hits.sort((a, b) => idx.weight[b] - idx.weight[a]);
 }
 
+/** Foreign places a text names ("amsterdam" is Amsterdam Centraal), most trains first. */
+export function foreignFor(idx: StopsIndex, text: string): number[] {
+  const q = words(fold(text));
+  if (q.length === 0) return [];
+  const hits: number[] = [];
+  idx.foreignWords.forEach((w, i) => {
+    if (wordsMatch(q, w)) hits.push(i);
+  });
+  return hits.sort((a, b) => idx.foreignWeight[b] - idx.foreignWeight[a]);
+}
+
 export interface RouteQuery {
   from: number[];
+  /** German stations. Empty when the trip ends abroad: then `toForeign` is set. */
   to: number[];
+  /** Foreign places the trains head to. Only used when no German station matches. */
+  toForeign: number[];
   time: number | null;
   /** What was typed for each end, for the heading: "Köln", "Berlin". */
   fromText: string;
@@ -103,7 +128,7 @@ export interface RouteQuery {
 }
 
 /** Why a text with a separator is not a usable route. */
-export type RouteProblem = { missing: string } | { same: true };
+export type RouteProblem = { missing: string } | { same: true } | { fromAbroad: string };
 
 /** The two ends must be different places: "Hannover to Hannover" is not a trip. */
 function distinct(from: number[], to: number[]): boolean {
@@ -122,10 +147,11 @@ export function diagnoseRoute(idx: StopsIndex, input: string): { query: RouteQue
   }
   const from = stationsFor(idx, direct.from);
   const to = stationsFor(idx, direct.to);
-  if (!from.length) return { missing: direct.from };
-  if (!to.length) return { missing: direct.to };
-  if (!distinct(from, to)) return { same: true };
-  return { query: { from, to, time: direct.time, fromText: direct.from, toText: direct.to } };
+  const toForeign = to.length ? [] : foreignFor(idx, direct.to);
+  if (!from.length) return foreignFor(idx, direct.from).length ? { fromAbroad: direct.from } : { missing: direct.from };
+  if (!to.length && !toForeign.length) return { missing: direct.to };
+  if (to.length && !distinct(from, to)) return { same: true };
+  return { query: { from, to, toForeign, time: direct.time, fromText: direct.from, toText: direct.to } };
 }
 
 /** Parse the text into two station sets, or null when it is not a route. */
@@ -147,9 +173,12 @@ export function parseRoute(idx: StopsIndex, input: string): RouteQuery | null {
     const toText = tokens.slice(k).join(" ");
     const from = stationsFor(idx, fromText);
     const to = stationsFor(idx, toText);
-    if (!from.length || !to.length || !distinct(from, to)) continue;
-    const score = Math.max(...from.map((i) => idx.weight[i])) + Math.max(...to.map((i) => idx.weight[i]));
-    if (!best || score > best.score) best = { q: { from, to, time, fromText, toText }, score };
+    const toForeign = to.length ? [] : foreignFor(idx, toText);
+    if (!from.length || (!to.length && !toForeign.length) || (to.length && !distinct(from, to))) continue;
+    const score =
+      Math.max(...from.map((i) => idx.weight[i])) +
+      (to.length ? Math.max(...to.map((i) => idx.weight[i])) : Math.max(...toForeign.map((i) => idx.foreignWeight[i])));
+    if (!best || score > best.score) best = { q: { from, to, toForeign, time, fromText, toText }, score };
   }
   return best?.q ?? null;
 }
@@ -183,7 +212,8 @@ export function destinations(idx: StopsIndex, input: string, limit = 5): Destina
   const q = words(fold(prefix));
   const fromSet = new Set(from);
   const count = new Map<number, number>();
-  for (const [, , stops] of idx.raw.trains) {
+  const abroad = new Map<number, number>();
+  for (const [, , stops, fi] of idx.raw.trains) {
     const i = stops.findIndex((s) => fromSet.has(s[0]) && s[1] !== null);
     if (i < 0) continue;
     const seen = new Set<number>();
@@ -194,11 +224,16 @@ export function destinations(idx: StopsIndex, input: string, limit = 5): Destina
       seen.add(st[0]);
     }
     for (const s of seen) count.set(s, (count.get(s) ?? 0) + 1);
+    const last = stops[stops.length - 1];
+    if (fi !== undefined && stops.length - 1 > i && last[2] !== null && last[8] > stops[i][8] && (!q.length || wordsMatch(q, idx.foreignWords[fi]))) {
+      abroad.set(fi, (abroad.get(fi) ?? 0) + 1);
+    }
   }
-  const options = [...count.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([s, trains]) => ({ name: idx.raw.stations[s], trains }));
+  const byTrains = (x: [number, number], y: [number, number]) => y[1] - x[1];
+  const de = [...count.entries()].sort(byTrains).map(([st, trains]) => ({ name: idx.raw.stations[st], trains }));
+  const ab = [...abroad.entries()].sort(byTrains).map(([f, trains]) => ({ name: idx.raw.foreign[f], trains }));
+  // Nothing typed yet: keep two slots for places abroad, or "Düsseldorf to" would never show that Amsterdam works.
+  const options = q.length ? [...de, ...ab].sort((x, y) => y.trains - x.trains).slice(0, limit) : [...de.slice(0, limit - 2), ...ab.slice(0, 2)];
   return { from, fromText, time, prefix, options };
 }
 
@@ -222,6 +257,8 @@ export interface RouteHit {
   cancelled: number;
   /** Stops travelled. */
   hops: number;
+  /** The trip ends abroad: `late` is measured at the train's last stop in Germany. */
+  abroad: boolean;
 }
 
 /** Minutes between two clock times, the short way round the clock. */
@@ -234,15 +271,25 @@ export function clockGap(a: number, b: number): number {
 export function findTrains(idx: StopsIndex, q: RouteQuery): RouteHit[] {
   const fromSet = new Set(q.from);
   const toSet = new Set(q.to);
+  const abroadSet = new Set(q.toForeign);
   const hits: RouteHit[] = [];
-  for (const [type, num, stops] of idx.raw.trains) {
+  for (const [type, num, stops, fi] of idx.raw.trains) {
     let best: { i: number; j: number; score: number } | null = null;
     for (let i = 0; i < stops.length; i++) {
       if (!fromSet.has(stops[i][0]) || stops[i][1] === null) continue;
-      for (let j = i + 1; j < stops.length; j++) {
-        if (!toSet.has(stops[j][0]) || stops[j][2] === null || stops[j][8] <= stops[i][8]) continue;
-        const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
-        if (!best || score > best.score) best = { i, j, score };
+      if (toSet.size > 0) {
+        for (let j = i + 1; j < stops.length; j++) {
+          if (!toSet.has(stops[j][0]) || stops[j][2] === null || stops[j][8] <= stops[i][8]) continue;
+          const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
+          if (!best || score > best.score) best = { i, j, score };
+        }
+      } else if (fi !== undefined && abroadSet.has(fi)) {
+        // The train ends abroad: the last recorded stop is its last one in Germany, and the only place we can measure.
+        const j = stops.length - 1;
+        if (j > i && stops[j][2] !== null && stops[j][8] > stops[i][8]) {
+          const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
+          if (!best || score > best.score) best = { i, j, score };
+        }
       }
     }
     if (!best) continue;
@@ -262,6 +309,7 @@ export function findTrains(idx: StopsIndex, q: RouteQuery): RouteHit[] {
       avg: b[6],
       cancelled: b[7],
       hops: best.j - best.i,
+      abroad: toSet.size === 0,
     });
   }
   const t = q.time;
