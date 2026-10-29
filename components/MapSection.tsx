@@ -3,10 +3,10 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { delayColor } from "@/lib/colors";
-import { fmt1, fmtInt, fmtPct } from "@/lib/format";
 import type { Mode, Station, TrainDetail } from "@/lib/types";
 import { useMode } from "./ModeContext";
-import { MapLegend, type SizeSample } from "./MapLegend";
+import { MapLegend } from "./MapLegend";
+import { MODES } from "./pageFormat";
 import styles from "./MapSection.module.css";
 
 export interface MapSectionProps {
@@ -51,11 +51,6 @@ export const GERMANY: [LngLat, LngLat] = [
   [15.2, 55.1],
 ];
 
-const MODE_COPY: Record<Mode, { button: string; showing: string }> = {
-  minutes: { button: "Minutes late", showing: "average delay at the last German stop, in minutes" },
-  percent: { button: "% of journey", showing: "delay relative to the scheduled journey time" },
-};
-
 const DelayMap = dynamic(() => import("./DelayMap"), { ssr: false });
 
 function located(stops: TrainDetail["stops"]): LngLat[] {
@@ -96,12 +91,6 @@ function toRoutes(list: TrainDetail[]): MapRoute[] {
   });
 }
 
-function quantile(sorted: number[], q: number): number {
-  const i = (sorted.length - 1) * q;
-  const lo = Math.floor(i);
-  return sorted[lo] + (sorted[Math.ceil(i)] - sorted[lo]) * (i - lo);
-}
-
 function radiusScale(ns: number[]): (n: number) => number {
   const lo = Math.min(...ns);
   const span = Math.max(...ns) - lo || 1;
@@ -113,7 +102,7 @@ export function trainHref(slug: string): string {
 }
 
 export function MapSection({ lists, stations, lateThresholdMinutes = 15 }: MapSectionProps) {
-  const { mode, setMode } = useMode();
+  const { mode } = useMode();
   const [status, setStatus] = useState<MapStatus>("idle");
   const [selection, setSelection] = useState<{ mode: Mode; target: MapTarget } | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -121,19 +110,10 @@ export function MapSection({ lists, stations, lateThresholdMinutes = 15 }: MapSe
   const routesByMode = useMemo(() => ({ minutes: toRoutes(lists.minutes), percent: toRoutes(lists.percent) }), [lists]);
   const routes = routesByMode[mode];
 
-  const { mapStations, sizes } = useMemo(() => {
-    const ns = stations.map((s) => s.n).sort((a, b) => a - b);
-    if (ns.length === 0) return { mapStations: [], sizes: [] };
-    const r = radiusScale(ns);
-    const samples: SizeSample[] = [
-      { label: "typical", n: quantile(ns, 0.5) },
-      { label: "busy", n: quantile(ns, 0.9) },
-      { label: "busiest", n: ns[ns.length - 1] },
-    ].map((s) => ({ ...s, r: r(s.n) }));
-    return {
-      mapStations: stations.map((s) => ({ ...s, r: r(s.n) })).sort((a, b) => b.r - a.r),
-      sizes: samples,
-    };
+  const mapStations = useMemo(() => {
+    if (stations.length === 0) return [];
+    const r = radiusScale(stations.map((s) => s.n));
+    return stations.map((s) => ({ ...s, r: r(s.n) })).sort((a, b) => b.r - a.r);
   }, [stations]);
 
   const target = selection?.mode === mode ? selection.target : null;
@@ -163,28 +143,12 @@ export function MapSection({ lists, stations, lateThresholdMinutes = 15 }: MapSe
   return (
     <section id="map" className={`section ${styles.section}`} aria-labelledby="map-title">
       <div className="container">
-        <p className="eyebrow">The map · where it hurts</p>
         <h2 id="map-title" className="section-title">
-          Where the minutes pile up
+          On the map
         </h2>
         <p className="section-sub">
-          The ten worst trains, drawn stop by stop. Each stretch takes the colour of the average delay at the stop it
-          arrives at, so you can watch the lateness build. Dots are stations: bigger means more measured arrivals,
-          redder means later on average.
+          Lines are the top 10 trains by {MODES[mode].tab.toLowerCase()}. Dots are stations. Red means later.
         </p>
-
-        <div className={styles.toolbar}>
-          <p className={styles.showing}>
-            <span className={styles.showingKey}>On the map</span> Top 10 by {MODE_COPY[mode].showing}
-          </p>
-          <div className={styles.segmented} role="group" aria-label="Ranking shown on the map">
-            {(Object.keys(MODE_COPY) as Mode[]).map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
-                {MODE_COPY[m].button}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <div ref={frameRef} className={styles.frame} data-state={status} data-ready={status === "ready" ? "true" : undefined}>
           <PaperMap routes={routes} stations={mapStations} selected={selectedRoute?.slug ?? null} mode={mode} />
@@ -198,60 +162,16 @@ export function MapSection({ lists, stations, lateThresholdMinutes = 15 }: MapSe
               lateThresholdMinutes={lateThresholdMinutes}
             />
           )}
-          {status === "loading" && <p className={styles.pill}>Loading the interactive map…</p>}
-          {status === "failed" && (
-            <p className={styles.pill}>Interactive map unavailable. This is the printed timetable version.</p>
-          )}
+          {status === "loading" && <p className={styles.pill}>Loading map…</p>}
+          {status === "failed" && <p className={styles.pill}>The map didn&rsquo;t load. This is a simple version.</p>}
         </div>
 
-        <MapLegend sizes={sizes} />
-
-        <h3 className={styles.chipsTitle} id="map-routes">
-          Routes on the map
-        </h3>
-        <ol className={styles.chips} aria-labelledby="map-routes">
-          {routes.map((r) => (
-            <li key={r.slug}>
-              <button
-                type="button"
-                className={styles.chip}
-                aria-pressed={selectedRoute?.slug === r.slug}
-                onClick={() => select(selectedRoute?.slug === r.slug ? null : { kind: "route", slug: r.slug })}
-              >
-                <span className={styles.chipRank}>{r.rank}</span>
-                <span className={styles.dot} style={{ background: delayColor(r.minutesAvg) }} aria-hidden="true" />
-                <span className={styles.chipName}>{r.train}</span>
-                <span className={`mono ${styles.chipValue}`}>
-                  {mode === "minutes" ? `${fmt1(r.minutesAvg)} min` : fmtPct(r.percentAvg)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
-        <div aria-live="polite">
-          {selectedRoute && (
-            <div className={styles.card}>
-              <p className={styles.cardTitle}>
-                #{selectedRoute.rank} · {selectedRoute.train}
-              </p>
-              <p>
-                {selectedRoute.origin} → {selectedRoute.dest}
-              </p>
-              <p className="mono">
-                {fmt1(selectedRoute.minutesAvg)} min average delay · {fmtPct(selectedRoute.percentAvg)} of scheduled
-                journey time
-              </p>
-              <a className={styles.cardLink} href={trainHref(selectedRoute.slug)}>
-                Open the {selectedRoute.train} page →
-              </a>
-            </div>
-          )}
-        </div>
+        <MapLegend />
 
         <p className={styles.credit}>
           Map: <a href="https://openfreemap.org">OpenFreeMap</a> · © <a href="https://openmaptiles.org">OpenMapTiles</a> ·
           Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · Station coordinates:
-          Trainline stations (ODbL) · {fmtInt(stations.length)} stations with enough measured arrivals
+          Trainline stations (ODbL)
         </p>
       </div>
     </section>
@@ -322,7 +242,7 @@ function PaperMap({
       viewBox={`0 0 ${SVG_W} ${SVG_H}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label={`Map of Germany with the top ${routes.length} trains by ${MODE_COPY[mode].showing}, coloured by delay, over ${stations.length} stations. The routes are listed below the map.`}
+      aria-label={`Map of Germany with the top ${routes.length} trains by ${MODES[mode].tab.toLowerCase()}, coloured by delay, over ${stations.length} stations. The same trains are listed in the ranking above.`}
     >
       <g opacity={0.8}>
         {stationPaths.map((p) => (

@@ -1,37 +1,11 @@
 .legend {
   margin-top: 12px;
-  display: grid;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  border: 1px solid var(--line);
-}
-
-@media (min-width: 1024px) {
-  .legend {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    align-items: start;
-    gap: 24px;
-  }
-}
-
-.row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-}
-
-.block {
-  min-width: 0;
 }
 
 .caption {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
 }
 
 .scale {
@@ -55,50 +29,4 @@
   font-size: 13px;
   line-height: 1.15;
   color: var(--ink-2);
-}
-
-.sizes {
-  margin-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
-.sizes li {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  line-height: 1.2;
-}
-
-.sizeDot {
-  fill: rgba(95, 102, 117, 0.35);
-  stroke: var(--ink-2);
-  stroke-width: 1;
-}
-
-.sizeN {
-  font-size: 13px;
-  color: var(--ink);
-}
-
-.sizeLabel {
-  color: var(--muted);
-}
-
-.lineKey {
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  line-height: 1.25;
-  color: var(--ink-2);
-}
-
-.lineKey svg {
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 1px rgba(31, 36, 48, 0.35));
 }

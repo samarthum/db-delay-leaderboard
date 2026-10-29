@@ -132,10 +132,10 @@ function routePopup(r: MapRoute): HTMLElement {
   root.append(
     el("p", styles.title, `#${r.rank} · ${r.train}`),
     el("p", styles.route, `${r.origin} → ${r.dest}`),
-    el("p", styles.figures, `${fmt1(r.minutesAvg)} min average delay`),
-    el("p", styles.figures, `${fmtPct(r.percentAvg)} of scheduled journey time`),
+    el("p", styles.figures, `${fmt1(r.minutesAvg)} min late on average`),
+    el("p", styles.figures, `${fmtPct(r.percentAvg)} of the trip`),
   );
-  const link = el("a", styles.link, `Open the ${r.train} page →`);
+  const link = el("a", styles.link, `See ${r.train} →`);
   link.href = trainHref(r.slug);
   root.append(link);
   return root;
@@ -145,9 +145,9 @@ function stationPopup(s: MapStation, lateThreshold: number): HTMLElement {
   const root = el("div", styles.body);
   root.append(
     el("p", styles.title, s.name),
-    el("p", styles.figures, `${fmt1(s.avg)} min average arrival delay`),
-    el("p", styles.figures, `${fmt1(s.late)}% arrive ${lateThreshold}+ min late`),
-    el("p", styles.route, `${fmtInt(s.n)} arrivals measured`),
+    el("p", styles.figures, `${fmt1(s.avg)} min late on average`),
+    el("p", styles.figures, `${fmt1(s.late)}% of trains ${lateThreshold}+ min late`),
+    el("p", styles.route, `${fmtInt(s.n)} arrivals`),
   );
   return root;
 }
