@@ -1,14 +1,14 @@
 # German Punctuality
 
 A mobile-first static site that ranks Deutsche Bahn's most delayed long-distance trains over the last
-~12 months. Your connection is not guaranteed.
+~12 months.
 
 The repo is called `db-delay-leaderboard`. The site is branded **German Punctuality** and is meant to live
 at `germanpunctuality.com`.
 
 - Leaderboard of the top 10 trains by average minutes late, and by average delay as a share of the scheduled journey (toggle).
 - Lazy-loaded MapLibre map (OpenFreeMap Positron) with the top trains' routes and station hotspots.
-- Monthly chart, fun extras, methodology and FAQ.
+- Monthly chart and a short FAQ on how it works.
 - A page per ranked train (`/train/<slug>/`) with a delay histogram, a monthly chart, the route and a share button.
 - Generated Open Graph images for the home page and for every train, versioned by the data's last month.
 
@@ -27,7 +27,7 @@ needs the raw data. Every number on the site comes from them.
 - **Relative delay.** `100 * delay / scheduled journey minutes`, where the journey runs from the run's first scheduled departure to its scheduled arrival at the measured stop. Runs scheduled for under 15 minutes are left out of the % statistics only.
 - **Ranking pool.** Trains with at least 100 measured runs (and, for the % ranking, 100 runs that count for the % statistics).
 - **Same train, several numbers.** Train numbers with the same route and the same planned start times for every run are one physical train. They are merged under the shortest number and shown as "also runs as".
-- **Extras.** Best-behaved train (lowest average delay, under 5% fully cancelled), most cancelled, worst train-month, worst single run (origin differs from destination, at least 3 stops).
+- **Extras.** Best-behaved train (lowest average delay, under 5% fully cancelled), most cancelled, worst train-month, worst single run (origin differs from destination, at least 3 stops). These are in `stats.json` but not shown on the site.
 
 Check the output against the research numbers:
 
