@@ -2,6 +2,7 @@ import { getMonthly, getStations, getStats } from "@/lib/data";
 import { homeMetadata } from "@/lib/seo";
 import { RankingProvider } from "@/components/Ranking";
 import { TopBar } from "@/components/TopBar";
+import { TrainSearch } from "@/components/TrainSearch";
 import { Hero } from "@/components/Hero";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MonthlyChart } from "@/components/MonthlyChart";
@@ -19,6 +20,7 @@ export default function Home() {
     <>
       <TopBar />
       <main>
+        <TrainSearch />
         <Hero stats={stats} />
         <section id="monthly" className="section" aria-labelledby="monthly-title">
           <div className="container">

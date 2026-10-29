@@ -11,9 +11,11 @@ interface ShareButtonProps {
   url: string;
   /** Button text, e.g. "Share this line". */
   label: string;
+  /** Extra buttons that sit in the same row. */
+  children?: React.ReactNode;
 }
 
-export function ShareButton({ title, text, url, label }: ShareButtonProps) {
+export function ShareButton({ title, text, url, label, children }: ShareButtonProps) {
   const [status, setStatus] = useState("");
 
   async function share() {
@@ -55,6 +57,7 @@ export function ShareButton({ title, text, url, label }: ShareButtonProps) {
         <a className={styles.secondary} href={xHref} target="_blank" rel="noopener noreferrer">
           Share on X
         </a>
+        {children}
       </div>
       <p className={styles.status} aria-live="polite" role="status">
         {status}
