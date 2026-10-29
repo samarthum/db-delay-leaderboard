@@ -11,31 +11,6 @@ export interface MonthlyChartProps {
   months: MonthPoint[];
 }
 
-type Metric = "delay" | "cancel";
-
-/** Each view is one measure on one axis; the readout always carries both numbers. */
-const METRICS: Record<
-  Metric,
-  { tab: string; unit: string; noun: string; value: (m: MonthPoint) => number; short: (m: MonthPoint) => string }
-> = {
-  delay: {
-    tab: "Avg delay",
-    unit: "min",
-    noun: "average delay at the last German stop",
-    value: (m) => m.avgDelayMin,
-    short: (m) => `${fmt1(m.avgDelayMin)} min average delay`,
-  },
-  cancel: {
-    tab: "Cancelled",
-    unit: "%",
-    noun: "of runs fully cancelled",
-    value: (m) => m.fullCancelPct,
-    short: (m) => `${fmt1(m.fullCancelPct)}% fully cancelled`,
-  },
-};
-
-const METRIC_ORDER: Metric[] = ["delay", "cancel"];
-
 /** Index of the highest and lowest value; first occurrence wins a tie. */
 export function extremes(values: number[]): { worst: number; best: number } {
   let worst = 0;
@@ -48,70 +23,49 @@ export function extremes(values: number[]): { worst: number; best: number } {
 }
 
 export function MonthlyChart({ months }: MonthlyChartProps) {
-  const [metric, setMetric] = useState<Metric>("delay");
   const [selected, setSelected] = useState(months.length - 1);
   if (months.length === 0) return null;
 
-  const spec = METRICS[metric];
-  const values = months.map(spec.value);
-  const { worst, best } = extremes(values);
+  const { worst, best } = extremes(months.map((m) => m.avgDelayMin));
   const flagOf = (i: number): MonthFlag | undefined =>
     worst === best ? undefined : i === worst ? "worst" : i === best ? "best" : undefined;
 
   const columns: MonthColumn[] = months.map((m, i) => ({
     month: m.month,
-    value: values[i],
+    value: m.avgDelayMin,
     flag: flagOf(i),
-    ariaLabel: `${monthLabel(m.month)}: ${METRICS.delay.short(m)}, ${METRICS.cancel.short(m)}${flagOf(i) ? `, ${flagOf(i)} month` : ""}`,
+    ariaLabel: `${monthLabel(m.month)}: ${fmt1(m.avgDelayMin)} min late on average, ${fmt1(m.fullCancelPct)}% cancelled${flagOf(i) ? `, ${flagOf(i)} month` : ""}`,
   }));
 
-  const delayExt = extremes(months.map(METRICS.delay.value));
-  const first = months[0];
-  const last = months[months.length - 1];
   const summary =
-    `Average delay and full cancellations per month, ${monthLabel(first.month)} to ${monthLabel(last.month)}. ` +
-    `Worst month ${monthLabel(months[delayExt.worst].month)} at ${fmt1(months[delayExt.worst].avgDelayMin)} min, ` +
-    `best ${monthLabel(months[delayExt.best].month)} at ${fmt1(months[delayExt.best].avgDelayMin)} min.`;
+    `Average delay per month, ${monthLabel(months[0].month)} to ${monthLabel(months[months.length - 1].month)}. ` +
+    `Worst month ${monthLabel(months[worst].month)} at ${fmt1(months[worst].avgDelayMin)} min, ` +
+    `best ${monthLabel(months[best].month)} at ${fmt1(months[best].avgDelayMin)} min.`;
 
   const sel = months[Math.min(selected, months.length - 1)];
-  const other: Metric = metric === "delay" ? "cancel" : "delay";
 
   return (
     <figure className={styles.root} aria-label={summary}>
-      <div className={styles.switch} role="group" aria-label="Metric">
-        {METRIC_ORDER.map((k) => (
-          <button
-            key={k}
-            type="button"
-            className={styles.seg}
-            aria-pressed={metric === k}
-            onClick={() => setMetric(k)}
-          >
-            {METRICS[k].tab}
-          </button>
-        ))}
-      </div>
-
       <MonthReadout
         month={sel.month}
         flag={flagOf(selected)}
-        value={fmt1(spec.value(sel))}
-        unit={spec.unit}
-        noun={spec.noun}
-        sub={`${METRICS[other].short(sel)} · ${fmtInt(sel.runs)} runs`}
+        value={fmt1(sel.avgDelayMin)}
+        unit="min"
+        noun="late on average"
+        sub={`${fmt1(sel.fullCancelPct)}% of trips cancelled`}
       />
 
       <MonthBars
         columns={columns}
         selected={selected}
         onSelect={setSelected}
-        unit={spec.unit}
+        unit="min"
         format={fmt1}
-        groupLabel={`${spec.tab} by month. Use arrow keys to move between months.`}
+        groupLabel="Average delay by month. Use arrow keys to move between months."
       />
 
       <p className={styles.hint} aria-hidden="true">
-        Tap or drag across the bars for exact values.
+        Tap a bar to see that month.
       </p>
 
       <table className="visually-hidden">

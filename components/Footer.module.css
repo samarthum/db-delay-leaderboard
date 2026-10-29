@@ -21,12 +21,6 @@
   color: var(--ink);
 }
 
-.tag {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--db-red-dark);
-}
-
 .credits {
   display: grid;
   gap: 10px;

@@ -7,8 +7,6 @@
 .inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   min-height: 48px;
 }
 
@@ -34,40 +32,7 @@
   box-shadow: 0 0 0 3px rgba(236, 0, 22, 0.18);
 }
 
-.links {
-  display: flex;
-  gap: 2px;
-}
-
-.links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 8px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--ink-2);
-}
-
-.links a:hover {
-  color: var(--db-red-dark);
-}
-
-.wide {
-  display: none;
-}
-
 @media (min-width: 720px) {
-  .wide {
-    display: block;
-  }
-  .links {
-    gap: 8px;
-  }
   .brand {
     font-size: 19px;
   }

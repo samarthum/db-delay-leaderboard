@@ -1,5 +1,3 @@
-import type { WindowInfo } from "./types";
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "2026-01" -> "Jan" */
@@ -10,11 +8,6 @@ export function monthShort(month: string): string {
 /** "2026-01" -> "Jan 2026" */
 export function monthLabel(month: string): string {
   return `${monthShort(month)} ${month.slice(0, 4)}`;
-}
-
-/** "Nov 2025 – Sep 2026 · 11 months" */
-export function windowLabel(w: WindowInfo): string {
-  return `${monthLabel(w.firstMonth)} – ${monthLabel(w.lastMonth)} · ${w.monthCount} months`;
 }
 
 /** 33396 -> "33,396" (fixed locale so server and client agree) */

@@ -1,26 +1,34 @@
-import type { Mode } from "@/lib/types";
-import { fmt1, monthShort } from "@/lib/format";
+import type { Mode, TrainSummary } from "@/lib/types";
+import { fmt1, fmtPct, monthShort } from "@/lib/format";
 
-export const MODE_LABEL: Record<Mode, string> = {
-  minutes: "By minutes",
-  percent: "By % of journey",
+export const MODES: Record<Mode, { tab: string; explain: string; value: (t: TrainSummary) => string }> = {
+  minutes: {
+    tab: "Minutes late",
+    explain: "Average minutes late at the last stop in Germany.",
+    value: (t) => `${fmt1(t.minutes.avg)} min`,
+  },
+  percent: {
+    tab: "% of trip",
+    explain: "Delay compared to trip length. 15 min late on a 1 hour trip is +25%.",
+    value: (t) => fmtPct(t.percent.avg),
+  },
 };
 
 const TRAIN_KIND: Record<string, string> = {
-  ICE: "ICE high-speed train",
+  ICE: "ICE",
   IC: "Intercity",
   EC: "EuroCity",
-  ECE: "EuroCity-Express",
+  ECE: "EuroCity Express",
   RJ: "Railjet",
-  RJX: "Railjet Xpress",
-  NJ: "Nightjet night train",
-  EN: "EuroNight night train",
+  RJX: "Railjet Express",
+  NJ: "Night train",
+  EN: "Night train",
   FLX: "Flixtrain",
-  TGV: "TGV high-speed train",
+  TGV: "TGV",
   WB: "WESTbahn",
 };
 
-/** "NJ" -> "Nightjet night train"; unknown codes stay as they are. */
+/** "NJ" -> "Night train"; unknown codes stay as they are. */
 export function trainKind(type: string): string {
   return TRAIN_KIND[type] ?? type;
 }
@@ -48,9 +56,4 @@ export function fmtDuration(minutes: number): string {
 export function fmtDate(iso: string): string {
   const [y, mo, d] = iso.slice(0, 10).split("-");
   return `${Number(d)} ${monthShort(`${y}-${mo}`)} ${y}`;
-}
-
-/** 1 -> "01" so ranks line up on the board */
-export function fmtRank(n: number): string {
-  return String(n).padStart(2, "0");
 }

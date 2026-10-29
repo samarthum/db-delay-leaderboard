@@ -7,7 +7,6 @@ export function Footer({ generatedAt }: { generatedAt: string }) {
     <footer className={styles.footer}>
       <div className={`container ${styles.inner}`}>
         <p className={styles.brand}>{SITE_NAME}</p>
-        <p className={styles.tag}>Your connection is not guaranteed.</p>
         <ul className={styles.credits}>
           <li>
             Data: Deutsche Bahn via <a href={DATA_SOURCE_URL}>piebro/deutsche-bahn-data</a>, CC BY 4.0

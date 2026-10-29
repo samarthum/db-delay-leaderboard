@@ -1,70 +1,62 @@
 import Link from "next/link";
-import type { Mode, Stats } from "@/lib/types";
-import { fmt1, fmtInt, fmtPct } from "@/lib/format";
-import { SectionHeader } from "./SectionHeader";
+import type { Mode, Stats, TrainSummary } from "@/lib/types";
+import { delayColor } from "@/lib/colors";
 import { ModePanel, ModeToggle } from "./ModeToggle";
 import { MoreRanks } from "./MoreRanks";
-import { TrainCard, TrainTableHeader } from "./TrainCard";
+import { MODES } from "./pageFormat";
 import styles from "./Leaderboard.module.css";
 
-const MODES: Mode[] = ["minutes", "percent"];
+function Row({ train: t, mode, rank }: { train: TrainSummary; mode: Mode; rank: number }) {
+  return (
+    <li>
+      <Link
+        href={`/train/${t.slug}/`}
+        className={styles.row}
+        style={{ "--heat": delayColor(t.minutes.avg) } as React.CSSProperties}
+      >
+        <span className={styles.rank}>
+          <span className="visually-hidden">Rank </span>
+          {rank}
+        </span>
+        <span className={styles.who}>
+          <span className={styles.name}>{t.train}</span>
+          <span className={styles.route}>
+            {t.origin} <span aria-hidden="true">→</span>
+            <span className="visually-hidden"> to </span> {t.dest}
+          </span>
+        </span>
+        <span className={styles.value}>{MODES[mode].value(t)}</span>
+      </Link>
+    </li>
+  );
+}
 
 export function Leaderboard({ stats }: { stats: Stats }) {
-  const { params, overall } = stats;
-  const { topN } = params;
+  const { topN } = stats.params;
 
   return (
-    <section id="leaderboard" className="section" aria-labelledby="leaderboard-title">
+    <section id="leaderboard" className={styles.section} aria-label="Ranking">
       <div className="container">
-        <SectionHeader eyebrow="The leaderboard" title="Now departing: late" id="leaderboard-title">
-          <p>
-            Two ways to be late. Night trains rack up the minutes. Short hops rack up the
-            percentages, because 15 minutes hurts more on a 30-minute ride. Pick your poison.
-          </p>
-        </SectionHeader>
-
         <div className={styles.controls}>
           <ModeToggle />
         </div>
-        <p className={styles.hint}>
-          Out of <strong>{fmtInt(overall.poolSize)} trains</strong>. Tap any train for its full story.
-        </p>
 
-        {MODES.map((mode) => {
+        {(Object.keys(MODES) as Mode[]).map((mode) => {
           const list = stats.rankings[mode];
-          const top = list.slice(0, topN);
           const more = list.slice(topN);
           return (
             <ModePanel key={mode} mode={mode}>
-              <TrainTableHeader mode={mode} />
-              <ol className={styles.list}>
-                {top.map((t, i) => (
-                  <TrainCard key={t.slug} train={t} mode={mode} rank={i + 1} index={i} />
+              <p className={styles.explain}>{MODES[mode].explain}</p>
+              <ol className={`${styles.list} ${styles.top}`}>
+                {list.slice(0, topN).map((t, i) => (
+                  <Row key={t.slug} train={t} mode={mode} rank={i + 1} />
                 ))}
               </ol>
               {more.length > 0 ? (
-                <MoreRanks label={`ranks ${topN + 1}–${topN + more.length}`}>
-                  <ol className={styles.compact} start={topN + 1}>
+                <MoreRanks label={`${more.length} more`}>
+                  <ol className={styles.list} start={topN + 1}>
                     {more.map((t, i) => (
-                      <li key={t.slug}>
-                        <Link href={`/train/${t.slug}/`} className={styles.row}>
-                          <span className={styles.rowRank}>{topN + 1 + i}</span>
-                          <span className={styles.rowWho}>
-                            <span className={styles.rowName}>{t.train}</span>
-                            <span className={styles.rowRoute}>
-                              {t.origin} → {t.dest}
-                            </span>
-                          </span>
-                          <span className={styles.rowNums}>
-                            <span className={mode === "minutes" ? styles.rowPrimary : undefined}>
-                              {fmt1(t.minutes.avg)} min
-                            </span>
-                            <span className={mode === "percent" ? styles.rowPrimary : undefined}>
-                              {fmtPct(t.percent.avg)}
-                            </span>
-                          </span>
-                        </Link>
-                      </li>
+                      <Row key={t.slug} train={t} mode={mode} rank={topN + 1 + i} />
                     ))}
                   </ol>
                 </MoreRanks>
@@ -72,11 +64,6 @@ export function Leaderboard({ stats }: { stats: Stats }) {
             </ModePanel>
           );
         })}
-
-        <p className={styles.note}>
-          Delays count at the last German stop. &ldquo;1 in 10 trips&rdquo; means the worst tenth of
-          trips were at least that late. <a href="#methodology">How we count</a>
-        </p>
       </div>
     </section>
   );

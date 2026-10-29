@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { Mode } from "@/lib/types";
 import { useMode } from "./ModeContext";
-import { MODE_LABEL } from "./pageFormat";
+import { MODES as MODE_COPY } from "./pageFormat";
 import styles from "./ModeToggle.module.css";
 
 const MODES: Mode[] = ["minutes", "percent"];
@@ -39,7 +39,7 @@ export function ModeToggle() {
           onClick={() => setMode(m)}
           onKeyDown={onKeyDown}
         >
-          {MODE_LABEL[m]}
+          {MODE_COPY[m].tab}
         </button>
       ))}
     </div>
