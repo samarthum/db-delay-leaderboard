@@ -384,7 +384,7 @@ function RouteView({
       {hits.length === 0 ? (
         <div className={styles.none}>
           <p className={styles.message}>{t("rt.none", { from, to })}</p>
-          {thin > 0 ? <p className={styles.fine}>{t("rt.thin", { n: thin })}</p> : null}
+          {thin > 0 ? <p className={styles.fine}>{(thin === 1 ? t("rt.thinOne") : t("rt.thin", { n: thin }))}</p> : null}
           <p className={styles.message}>{t("rt.noneHint")}</p>
           <button type="button" className={styles.chip} onClick={() => ask(`${to} ${lang === "de" ? "nach" : "to"} ${from}`, null, true)}>
             {t("rt.reverse", { from, to })}
@@ -402,7 +402,7 @@ function RouteView({
               {t("rt.showAll", { n: hits.length })}
             </button>
           ) : null}
-          {thin > 0 ? <p className={styles.fine}>{t("rt.thin", { n: thin })}</p> : null}
+          {thin > 0 ? <p className={styles.fine}>{(thin === 1 ? t("rt.thinOne") : t("rt.thin", { n: thin }))}</p> : null}
           <p className={styles.fine}>{t("rt.measuredAt")}</p>
           <p className={styles.fine}>{t("rt.times")}</p>
         </>

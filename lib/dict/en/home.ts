@@ -34,6 +34,7 @@ export const home = {
   "rt.abroad": "Stops outside Germany are mostly not covered, so places abroad can't be found.",
   "rt.same": "Pick two different places.",
   "rt.thin": "{n} more trains run this route but have too few trips to rate.",
+  "rt.thinOne": "1 more train runs this route but has too few trips to rate.",
   "rt.times": "Times are the usual timetable. Not every train runs every day.",
   "rt.measuredAt": "Delay is measured where you get off, not at the train's last stop.",
   "rt.also": "from {from} to {to}",
