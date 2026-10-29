@@ -106,9 +106,9 @@ export async function renderResultCard(u: SearchUnit, info: CardInfo): Promise<B
 
   // the board on the right: the share that arrives 15+ min late
   const bx = 660;
-  const by = 100;
+  const by = 150;
   const bw = 480;
-  const bh = 420;
+  const bh = 330;
   ctx.fillStyle = C.card;
   ctx.strokeStyle = C.tileEdge;
   ctx.lineWidth = 2;
@@ -124,7 +124,7 @@ export async function renderResultCard(u: SearchUnit, info: CardInfo): Promise<B
   const gap = 8;
   const totalW = text.length * tileW + (text.length - 1) * gap;
   let x = bx + (bw - totalW) / 2;
-  const ty = by + 50;
+  const ty = by + 44;
   ctx.textAlign = "center";
   for (const ch of text) {
     ctx.fillStyle = C.tile;
@@ -155,7 +155,7 @@ export async function renderResultCard(u: SearchUnit, info: CardInfo): Promise<B
     } else cur = next;
   }
   if (cur) lines.push(cur);
-  lines.slice(0, 3).forEach((l, i) => ctx.fillText(l, bx + bw / 2, by + 50 + tileH + 56 + i * 40));
+  lines.slice(0, 3).forEach((l, i) => ctx.fillText(l, bx + bw / 2, ty + tileH + 52 + i * 40));
   ctx.textAlign = "left";
 
   // footer
