@@ -29,3 +29,6 @@
 - Next: commit lib files; wire TrainSearch into app/page.tsx; recap page + OG; clean build; playwright.
 - 17:15 TrainSearch wired into app/page.tsx (above Hero). First build OK (~10 s total incl. og + copy). Served out/ with python http.server :4173. Visual check of ICE 1541 at 390 OK.
 - Polished share row (Save as image beside Share on X). Next: recap page + recap PNGs (og.mjs), top-bar link, search metadata, then tests/e2e (scripts/search-e2e.mjs), cross-check, screenshots, SUMMARY.
+- (handover, 29 Oct) Recap page /recap/ + public/og/<month>/recap.png (1200x630) and recap-tall.png (1080x1920) done in scripts/og.mjs; top-bar "Recap" link; sitemap entry. Default SITE_URL changed to https://german-punctuality.vercel.app (old default 404s).
+- Fixed: "Save as image" failed because document.fonts.load was given next/font's fallback family names; now plain family names + allSettled.
+- Verified: clean npm ci + typecheck + build; Playwright at 390x844 and 1440x900; independent DuckDB cross-check of ICE 1541, IC 2012, RE 4930, RB 31 Lüneburg-Hamburg (all identical to the index).

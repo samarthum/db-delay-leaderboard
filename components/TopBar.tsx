@@ -10,7 +10,7 @@ export function TopBar() {
           <span className={styles.dot} aria-hidden="true" />
           {SITE_NAME}
         </Link>
-        <Link href="/recap/" className={styles.link}>
+        <Link href="/recap/" className={styles.link} prefetch={false}>
           Recap
         </Link>
       </nav>

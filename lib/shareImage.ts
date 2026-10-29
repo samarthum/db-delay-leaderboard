@@ -21,9 +21,10 @@ const C = {
   redDark: "#b8000f",
 };
 
-function cssFont(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
+// Plain family names. The page's CSS variables also list next/font's size-adjusted fallbacks, and loading
+// one of those fails in browsers without a local Arial, which would stop the whole image.
+const DISPLAY = `"Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif`;
+const BODY = `Barlow, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
 
 function fit(ctx: CanvasRenderingContext2D, text: string, font: (px: number) => string, maxWidth: number, start: number, min: number): number {
   let px = start;
@@ -44,9 +45,14 @@ function clipText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 
 /** A 1200x630 card for one search result, drawn in the browser so it can be posted as an image. */
 export async function renderResultCard(u: SearchUnit, info: CardInfo): Promise<Blob> {
-  const display = cssFont("--font-display");
-  const body = cssFont("--font-body");
-  await Promise.all([document.fonts.load(`800 100px ${display}`), document.fonts.load(`600 30px ${body}`), document.fonts.load(`500 30px ${body}`)]);
+  const display = DISPLAY;
+  const body = BODY;
+  // A font that fails to load only changes the look of the card, so it must not stop the image.
+  await Promise.allSettled([
+    document.fonts.load("800 100px 'Barlow Condensed'"),
+    document.fonts.load("600 30px Barlow"),
+    document.fonts.load("500 30px Barlow"),
+  ]);
 
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
