@@ -1,38 +1,41 @@
 # German Punctuality
 
-A mobile-first static site that ranks Deutsche Bahn's most delayed long-distance trains over the last
-~12 months.
+A mobile-first static site that shows how late Deutsche Bahn trains are and ranks the most delayed
+long-distance trains and regional lines over the last ~12 months.
 
 The repo is called `db-delay-leaderboard`. The site is branded **German Punctuality** and is meant to live
 at `germanpunctuality.com`.
 
-- Leaderboard of the top 10 trains by average minutes late, and by average delay as a share of the scheduled journey (toggle).
-- Lazy-loaded MapLibre map (OpenFreeMap Positron) with the top trains' routes and station hotspots.
-- Monthly chart and a short FAQ on how it works.
-- A page per ranked train (`/train/<slug>/`) with a delay histogram, a monthly chart, the route and a share button.
-- Generated Open Graph images for the home page and for every train, versioned by the data's last month.
+- A headline from the last three months: the average delay of a long-distance and a regional trip, and how the trips split by lateness.
+- A monthly chart, with a long-distance/regional switch.
+- Two rankings, long-distance trains and regional lines, each by average minutes late or by delay as a share of the planned trip (toggles).
+- A static station map: one dot per station, coloured by average arrival delay, with the latest big stations listed.
+- A page per ranked train (`/train/<slug>/`) and line (`/line/<slug>/`) with a delay histogram, a monthly chart, the route and a share button.
+- Generated Open Graph images for the home page and every train and line, versioned by the data's last month.
 
 ## How the data is computed
 
-`scripts/compute.py` (Python + DuckDB) reads the monthly Parquet files of
+`scripts/compute.py` (Python + DuckDB) downloads the monthly Parquet files of
 [piebro/deutsche-bahn-data](https://github.com/piebro/deutsche-bahn-data) and writes `data/stats.json`,
-`data/monthly.json` and `data/trains/<slug>.json`. The site is built from those committed files, so a build never
-needs the raw data. Every number on the site comes from them.
+`data/monthly.json`, `data/stations.json`, `data/trains/<slug>.json` and `data/lines/<slug>.json`. The site is
+built from those committed files, so a build never needs the raw data. Every number on the site comes from them.
 
 - **Window.** The latest 12 published months, keeping only months with full station coverage (at least 1000 distinct stations). A partial month is skipped and reported on the site.
-- **Scope.** Train types ICE, IC, EC, ECE, RJ, RJX, NJ, EN, FLX, TGV and WB, without replacement trains.
+- **Scope.** Long-distance train types ICE, IC, EC, ECE, RJ, RJX, FLX, TGV and WB. Regional trains on lines whose code starts with RE, RB, IRE, MEX, RS or FEX. Night trains (NJ, EN), S-Bahn, buses and replacement trains are left out.
 - **Run.** One train number on one scheduled day. Its month is the month of its scheduled first departure.
 - **Delay.** Arrival delay in minutes at the run's last non-cancelled stop with a scheduled arrival. For international trains that is the last German stop.
-- **Clamp.** Runs with a final delay below −10 or above 600 minutes are dropped from the delay statistics (the count is in the JSON and on the site). This nudges the monthly averages about 0.2–0.4 min above the raw, unclamped figures.
+- **Clamp.** Runs with a final delay below −10 or above 600 minutes are dropped from the delay statistics (the count is in the JSON and on the site).
 - **Relative delay.** `100 * delay / scheduled journey minutes`, where the journey runs from the run's first scheduled departure to its scheduled arrival at the measured stop. Runs scheduled for under 15 minutes are left out of the % statistics only.
-- **Ranking pool.** Trains with at least 100 measured runs (and, for the % ranking, 100 runs that count for the % statistics).
+- **Units.** Long-distance trains are ranked per train number, regional trains per line. A line is its code (`RE 19`) plus the connected set of stations its runs serve, because the same code is reused in different regions. A line counts its trips in both directions.
+- **Ranking pool.** Trains with at least 100 measured runs, lines with at least 1000 (and, for the % rankings, as many runs that count for %).
 - **Same train, several numbers.** Train numbers with the same route and the same planned start times for every run are one physical train. They are merged under the shortest number and shown as "also runs as".
-- **Extras.** Best-behaved train (lowest average delay, under 5% fully cancelled), most cancelled, worst train-month, worst single run (origin differs from destination, at least 3 stops). These are in `stats.json` but not shown on the site.
+- **Headline.** The averages and lateness bands of every run in the last three window months, per category.
+- **Stations.** Average arrival delay per station over the window, for stations with at least 500 measured arrivals.
 
-Check the output against the research numbers:
+Check the headline against an independent query (needs the Parquet files locally):
 
 ```bash
-python scripts/check_reference.py
+python scripts/check_headline.py --data-dir ~/dbdata
 ```
 
 ## Run it locally
@@ -50,7 +53,7 @@ Recompute the data:
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt
-.venv/bin/python scripts/compute.py                      # reads Hugging Face over HTTP
+.venv/bin/python scripts/compute.py                      # downloads ~4 GB into /tmp/db-delay-parquet first
 .venv/bin/python scripts/compute.py --data-dir ~/dbdata \
     --stations-csv ~/dbdata/trainline-stations.csv       # reads local data-YYYY-MM.parquet files
 ```
@@ -58,14 +61,14 @@ python -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt
 Review screenshots (needs `npx playwright install chromium` once, and a build):
 
 ```bash
-node scripts/screenshots.mjs shots nj-40490
+node scripts/screenshots.mjs shots            # optional: [trainSlug] [lineSlug]
 ```
 
 ## Refresh workflow
 
 `.github/workflows/refresh.yml` runs weekly and on demand. It asks Hugging Face which monthly files are
-published, and only when the window changed (or when run manually) recomputes the data and commits
-`data/*.json` if the content changed. It needs no secrets. A push to `main` triggers a Vercel redeploy,
+published, and only when the window changed (or when run manually) downloads the files, recomputes the
+data and commits `data/` if the content changed. It needs no secrets. A push to `main` triggers a Vercel redeploy,
 which regenerates the OG images.
 
 ## Deploy on Vercel
@@ -88,7 +91,7 @@ redeploy. The variable is inlined at build time, so a redeploy is required.
 
 - Data: Deutsche Bahn via [piebro/deutsche-bahn-data](https://github.com/piebro/deutsche-bahn-data), CC BY 4.0.
 - Station coordinates: [Trainline stations](https://github.com/trainline-eu/stations) (ODbL).
-- Map: [OpenFreeMap](https://openfreemap.org), © [OpenMapTiles](https://openmaptiles.org), data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
+- Map outline: [Natural Earth](https://www.naturalearthdata.com) (public domain), simplified by `scripts/germany_outline.py`.
 - Fonts: Barlow, Barlow Condensed and Roboto Mono (SIL OFL, licences in `scripts/fonts/`).
 
 Not affiliated with Deutsche Bahn.
