@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { SEARCH_INDEX, loadStops, loadTypeahead, pickByKey, runSearch, type SearchOutcome } from "@/lib/searchClient";
-import { clock, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
+import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
 import { unitName, type SearchUnit } from "@/lib/searchCore";
 import { findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
 import { fmt1, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
@@ -31,7 +31,15 @@ interface RouteItem {
   query: RouteQuery;
   count: number;
 }
-type Item = Suggestion | RouteItem;
+/** "Köln to" suggests a destination; picking it completes the route. */
+interface DestItem {
+  kind: "dest";
+  name: string;
+  trains: number;
+  /** The full text to search once picked: "Köln to Berlin Hauptbahnhof". */
+  text: string;
+}
+type Item = Suggestion | RouteItem | DestItem;
 
 function readUrl(): Applied {
   const p = new URLSearchParams(window.location.search);
@@ -62,6 +70,8 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const timer = useRef<number | undefined>(undefined);
+  const stopsRef = useRef<StopsIndex | null>(null);
+  stopsRef.current = stops;
   const input = useRef<HTMLInputElement>(null);
 
   const commit = useCallback((next: Applied, mode: "push" | "replace") => {
@@ -124,7 +134,19 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     const rated = hits.filter((h) => h.late !== null).length;
     return { kind: "route", query, count: rated || hits.length };
   }, [stops, text]);
-  const flat = useMemo<Item[]>(() => [...(routeItem ? [routeItem] : []), ...(suggestions ? flatten(suggestions) : [])], [routeItem, suggestions]);
+  const dests = useMemo<DestItem[]>(() => {
+    if (!stops || !text.trim()) return [];
+    const d = destinations(stops, text);
+    if (!d) return [];
+    const sep = lang === "de" ? "nach" : "to";
+    const lead = d.time !== null ? `${clock(d.time)} ` : "";
+    return d.options.map((o) => ({ kind: "dest", name: o.name, trains: o.trains, text: `${lead}${d.fromText} ${sep} ${o.name}` }));
+  }, [stops, text, lang]);
+  // With a separator typed the question is a route: offer destinations, not train and station matches.
+  const flat = useMemo<Item[]>(
+    () => [...(routeItem ? [routeItem] : []), ...dests, ...(suggestions && dests.length === 0 && !routeItem ? flatten(suggestions) : [])],
+    [routeItem, dests, suggestions],
+  );
   const showList = open && text.trim().length > 0 && applied.q !== text.trim();
 
   function onType(value: string) {
@@ -136,6 +158,11 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     window.clearTimeout(timer.current);
     // A train number resolves while typing; the dropdown is the way to pick anything else.
     timer.current = window.setTimeout(() => {
+      // A complete route ("Köln to Be") shows its trains while you type, without pressing Enter.
+      if (stopsRef.current && splitRoute(value) && parseRoute(stopsRef.current, value)) {
+        commit({ q: value.trim(), u: null, s: null, r: true }, "replace");
+        return;
+      }
       if (/^\s*[a-zA-Z]{0,4}\s*\d+[a-zA-Z]?\s*$/.test(value) && /\d{3,}/.test(value)) commit({ q: value.trim(), u: null, s: null, r: false }, "replace");
     }, TYPING_DELAY_MS);
   }
@@ -146,6 +173,9 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     input.current?.blur();
     if (s.kind === "route") {
       commit({ q: text.trim(), u: null, s: null, r: true }, "push");
+    } else if (s.kind === "dest") {
+      setText(s.text);
+      commit({ q: s.text, u: null, s: null, r: true }, "push");
     } else if (s.kind === "station") {
       setText(s.station.name);
       commit({ q: s.station.name, u: null, s: s.station.name, r: false }, "push");
@@ -248,6 +278,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
             onChange={(e) => onType(e.target.value)}
             onFocus={() => {
               warm();
+              warmStops();
               setOpen(true);
             }}
             onBlur={() => window.setTimeout(() => setOpen(false), 160)}
@@ -275,10 +306,10 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
 
         {showList ? (
           <div id={listId} className={styles.list} role="listbox" aria-label={t("sug.list")}>
-            {!ta && !routeItem ? null : flat.length === 0 ? (
+            {!ta && !routeItem && dests.length === 0 ? null : flat.length === 0 ? (
               <p className={styles.hint}>{t("sug.empty", { q: text.trim() })}</p>
             ) : (
-              <Groups suggestions={suggestions ?? { trains: [], lines: [], stations: [] }} route={routeItem} stops={stops} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
+              <Groups suggestions={suggestions && dests.length === 0 && !routeItem ? suggestions : { trains: [], lines: [], stations: [] }} route={routeItem} dests={dests} stops={stops} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
             )}
           </div>
         ) : null}
@@ -443,6 +474,7 @@ function statText(train: TaTrainEntry, lang: Lang): string {
 function Groups({
   suggestions,
   route: routeItem,
+  dests,
   stops,
   flat,
   active,
@@ -452,6 +484,7 @@ function Groups({
 }: {
   suggestions: NonNullable<ReturnType<typeof suggest>>;
   route: RouteItem | null;
+  dests: DestItem[];
   stops: StopsIndex | null;
   flat: Item[];
   active: number;
@@ -486,6 +519,33 @@ function Groups({
               {routeItem.count === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: routeItem.count })}
             </span>
           </button>
+        </div>
+      ) : null}
+      {dests.length > 0 ? (
+        <div className={styles.group} role="group" aria-label={t("sug.stations")}>
+          <p className={styles.groupTitle} aria-hidden="true">
+            {t("sug.stations")}
+          </p>
+          {dests.map((d) => {
+            const i = flat.indexOf(d);
+            return (
+              <button
+                key={d.name}
+                id={`${uid}-o${i}`}
+                type="button"
+                role="option"
+                aria-selected={i === active}
+                className={styles.option}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onPick(d)}
+              >
+                <span className={styles.optStation}>{d.name}</span>
+                <span className={styles.optStat} style={{ color: "var(--muted)" }}>
+                  {d.trains === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: d.trains })}
+                </span>
+              </button>
+            );
+          })}
         </div>
       ) : null}
       {groups

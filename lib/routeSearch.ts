@@ -154,6 +154,54 @@ export function parseRoute(idx: StopsIndex, input: string): RouteQuery | null {
   return best?.q ?? null;
 }
 
+// ---------------------------------------------------------------- destinations
+
+const TO_TAIL = /^(.*?)(?:\s+(?:to|nach|bis)(?:\s+(.*))?|\s*(?:→|->|=>|>)\s*(.*))$/i;
+
+export interface Destinations {
+  from: number[];
+  fromText: string;
+  time: number | null;
+  /** What was typed after the separator (may be empty). */
+  prefix: string;
+  /** Places reachable from the start by one long-distance train, most trains first. */
+  options: { name: string; trains: number }[];
+}
+
+/**
+ * For "Köln to" or "Köln to B": the places you can get to from Köln on a train that stops there, filtered by what
+ * was typed after "to". Null when the text has no separator or the start is not a known station.
+ */
+export function destinations(idx: StopsIndex, input: string, limit = 5): Destinations | null {
+  const m = TO_TAIL.exec(input.trim());
+  if (!m) return null;
+  const { time, rest } = extractTime(m[1]);
+  const fromText = rest.replace(LEADING, "").trim();
+  const from = stationsFor(idx, fromText);
+  if (!from.length) return null;
+  const prefix = (m[2] ?? m[3] ?? "").trim();
+  const q = words(fold(prefix));
+  const fromSet = new Set(from);
+  const count = new Map<number, number>();
+  for (const [, , stops] of idx.raw.trains) {
+    const i = stops.findIndex((s) => fromSet.has(s[0]) && s[1] !== null);
+    if (i < 0) continue;
+    const seen = new Set<number>();
+    for (let j = i + 1; j < stops.length; j++) {
+      const st = stops[j];
+      if (fromSet.has(st[0]) || st[2] === null || st[8] <= stops[i][8] || seen.has(st[0])) continue;
+      if (q.length && !wordsMatch(q, idx.stationWords[st[0]])) continue;
+      seen.add(st[0]);
+    }
+    for (const s of seen) count.set(s, (count.get(s) ?? 0) + 1);
+  }
+  const options = [...count.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([s, trains]) => ({ name: idx.raw.stations[s], trains }));
+  return { from, fromText, time, prefix, options };
+}
+
 // ---------------------------------------------------------------- matching
 
 export interface RouteHit {
