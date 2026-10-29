@@ -148,7 +148,11 @@ export function diagnoseRoute(idx: StopsIndex, input: string): { query: RouteQue
   const from = stationsFor(idx, direct.from);
   const to = stationsFor(idx, direct.to);
   const toForeign = to.length ? [] : foreignFor(idx, direct.to);
-  if (!from.length) return foreignFor(idx, direct.from).length ? { fromAbroad: direct.from } : { missing: direct.from };
+  if (!from.length) {
+    const abroad = foreignFor(idx, direct.from);
+    // The matched place ("Amsterdam Centraal"), not the raw text: a typed country would not fit the sentence.
+    return abroad.length ? { fromAbroad: idx.raw.foreign[abroad[0]] } : { missing: direct.from };
+  }
   if (!to.length && !toForeign.length) return { missing: direct.to };
   if (to.length && !distinct(from, to)) return { same: true };
   return { query: { from, to, toForeign, time: direct.time, fromText: direct.from, toText: direct.to } };
