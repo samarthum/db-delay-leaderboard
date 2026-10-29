@@ -14,9 +14,14 @@ export const MODES: Record<Mode, { tab: string; explain: string; value: (t: Unit
   },
 };
 
-export const CATEGORY_COPY: Record<Category, { tab: string; plural: string; back: string }> = {
-  longDistance: { tab: "Long-distance", plural: "long-distance trains", back: "All trains" },
-  regional: { tab: "Regional", plural: "regional lines", back: "All lines" },
+export const CATEGORY_COPY: Record<Category, { tab: string; plural: string; back: string; note: string }> = {
+  longDistance: { tab: "Long-distance", plural: "long-distance trains", back: "All trains", note: "" },
+  regional: {
+    tab: "Regional",
+    plural: "regional lines",
+    back: "All lines",
+    note: " A line counts its trips in both directions.",
+  },
 };
 
 const TRAIN_KIND: Record<string, string> = {

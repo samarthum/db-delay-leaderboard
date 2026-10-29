@@ -5,7 +5,7 @@ import { unitHref } from "@/lib/site";
 import { RankingControls, RankingPanel } from "./Ranking";
 import { MoreRanks } from "./MoreRanks";
 import { RouteText } from "./RouteText";
-import { MODES } from "./pageFormat";
+import { CATEGORY_COPY, MODES } from "./pageFormat";
 import styles from "./Leaderboard.module.css";
 
 function Row({ unit: t, mode, rank }: { unit: UnitSummary; mode: Mode; rank: number }) {
@@ -47,7 +47,10 @@ export function Leaderboard({ stats }: { stats: Stats }) {
             const more = list.slice(topN);
             return (
               <RankingPanel key={`${category}/${mode}`} category={category} mode={mode}>
-                <p className={styles.explain}>{MODES[mode].explain}</p>
+                <p className={styles.explain}>
+                  {MODES[mode].explain}
+                  {CATEGORY_COPY[category].note}
+                </p>
                 <ol className={`${styles.list} ${styles.top}`}>
                   {list.slice(0, topN).map((t, i) => (
                     <Row key={t.slug} unit={t} mode={mode} rank={i + 1} />
