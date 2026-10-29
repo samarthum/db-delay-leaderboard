@@ -21,10 +21,8 @@ export function segment(lang: Lang, key: RouteKey): string {
 
 /** "/", "/de/", "/worst/", "/de/zug/ice-1541/" */
 export function route(lang: Lang, key: RouteKey, slug?: string): string {
-  const prefix = lang === "de" ? "/de" : "";
-  const seg = SEGMENT[lang][key];
-  const parts = [prefix, seg, slug].filter((p): p is string => Boolean(p));
-  return parts.length === 0 ? "/" : `${parts.join("/")}/`;
+  const parts = [lang === "de" ? "de" : "", SEGMENT[lang][key], slug].filter((p): p is string => Boolean(p));
+  return parts.length === 0 ? "/" : `/${parts.join("/")}/`;
 }
 
 export function langOfPath(pathname: string): Lang {
