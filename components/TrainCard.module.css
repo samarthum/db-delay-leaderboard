@@ -1,6 +1,6 @@
 .card,
 .thead {
-  --cols: 52px minmax(0, 1fr) 84px 72px 72px 68px 72px 84px 80px 64px 20px;
+  --cols: 52px minmax(0, 1fr) 96px 96px 150px 100px 20px;
 }
 
 .card {
@@ -151,35 +151,29 @@
 
 .stats {
   grid-area: stats;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: end;
-  gap: 12px 10px;
-  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 12px;
+  font-size: 15px;
+}
+
+.stat {
+  display: flex;
+  gap: 6px;
 }
 
 .stat dt {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.25;
   color: var(--muted);
+}
+
+.stat dt::after {
+  content: ":";
 }
 
 .stat dd {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
-}
-
-.u {
-  font-size: 0.78em;
-  font-weight: 500;
-  color: var(--muted);
 }
 
 .details {
@@ -290,7 +284,8 @@
   }
 
   .stats {
-    grid-column: 5 / 11;
+    grid-column: 5 / 7;
+    display: grid;
     grid-template-columns: subgrid;
     margin: 0;
   }
@@ -305,15 +300,6 @@
 
   .stat dd {
     font-size: 16px;
-    font-weight: 600;
-  }
-
-  .stat:nth-child(-n + 4) .u {
-    display: none;
-  }
-
-  .stats .u {
-    font-size: 0.8em;
   }
 
   .who {
@@ -322,7 +308,7 @@
 
   .details {
     position: static;
-    grid-column: 11;
+    grid-column: 7;
     justify-self: end;
     width: auto;
     height: auto;
@@ -345,10 +331,6 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--muted);
-  }
-
-  .thead .u {
-    font-size: 1em;
   }
 
   .thead[data-mode="minutes"] > :nth-child(3),

@@ -6,6 +6,25 @@ export const MODE_LABEL: Record<Mode, string> = {
   percent: "By % of journey",
 };
 
+const TRAIN_KIND: Record<string, string> = {
+  ICE: "ICE high-speed train",
+  IC: "Intercity",
+  EC: "EuroCity",
+  ECE: "EuroCity-Express",
+  RJ: "Railjet",
+  RJX: "Railjet Xpress",
+  NJ: "Nightjet night train",
+  EN: "EuroNight night train",
+  FLX: "Flixtrain",
+  TGV: "TGV high-speed train",
+  WB: "WESTbahn",
+};
+
+/** "NJ" -> "Nightjet night train"; unknown codes stay as they are. */
+export function trainKind(type: string): string {
+  return TRAIN_KIND[type] ?? type;
+}
+
 /** -1.6 -> "−1.6", 4.2 -> "4.2" (typographic minus so it lines up with tabular figures) */
 export function fmtSigned1(n: number): string {
   return n < 0 ? `−${fmt1(Math.abs(n))}` : fmt1(n);
