@@ -8,7 +8,8 @@ import type { Lang } from "./i18n";
 
 const MONTHS: Record<Lang, string[]> = {
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  de: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+  // German short months: a dot after every abbreviation; May, June and July are written out.
+  de: ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."],
 };
 const MONTHS_LONG: Record<Lang, string[]> = {
   en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -88,19 +89,30 @@ export function fmtStat(n: number, lang: Lang = "en"): string {
 }
 
 /** 488.7 -> "8 h 9 min", 42 -> "42 min" */
-export function fmtDuration(minutes: number): string {
+export function fmtDuration(minutes: number, lang: Lang = "en"): string {
   const m = Math.round(minutes);
-  if (m < 60) return `${m}${NBSP}min`;
+  const [h1, m1] = lang === "de" ? ["Std.", "Min."] : ["h", "min"];
+  if (m < 60) return `${m}${NBSP}${m1}`;
   const h = Math.floor(m / 60);
   const rest = m % 60;
-  return rest ? `${h}${NBSP}h ${rest}${NBSP}min` : `${h}${NBSP}h`;
+  return rest ? `${h}${NBSP}${h1} ${rest}${NBSP}${m1}` : `${h}${NBSP}${h1}`;
+}
+
+const DE_COUNT = ["", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn"];
+const DE_ORD = ["", "", "zweite", "dritte", "vierte", "fünfte", "sechste", "siebte", "achte", "neunte", "zehnte"];
+
+/** A plain fraction of trips as words: "1 in 3 trips" / "jede dritte Fahrt", "3 in 4 trips" / "drei von vier Fahrten". */
+export function fractionText(n: number, d: number, lang: Lang = "en"): string {
+  if (lang === "en") return `${n} in ${d} trips`;
+  if (n === 1) return d === 2 ? "jede zweite Fahrt" : `jede ${DE_ORD[d]} Fahrt`;
+  return `${DE_COUNT[n]} von ${DE_COUNT[d]} Fahrten`;
 }
 
 /** "2026-06-27" -> "27 Jun 2026" / "27. Jun 2026" without touching the runtime time zone */
 export function fmtDate(iso: string, lang: Lang = "en"): string {
   const [y, mo, d] = iso.slice(0, 10).split("-");
   const m = monthShort(`${y}-${mo}`, lang);
-  return lang === "de" ? `${Number(d)}. ${m} ${y}` : `${Number(d)} ${m} ${y}`;
+  return lang === "de" ? `${Number(d)}.${NBSP}${m} ${y}` : `${Number(d)} ${m} ${y}`;
 }
 
 /**

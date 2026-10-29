@@ -189,7 +189,7 @@ export function SearchResult({
         </div>
         <div className={styles.tile}>
           <dt>{t("res.worst")}</dt>
-          <dd>{fmtDuration(unit.worst.delay)}</dd>
+          <dd>{fmtDuration(unit.worst.delay, lang)}</dd>
           <dd className={styles.tileNote}>{fmtDate(unit.worst.date, lang)}</dd>
         </div>
       </dl>

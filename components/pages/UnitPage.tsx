@@ -91,7 +91,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
         [tr("unit.r.runs"), fmtInt(t.runs, lang)],
         [tr("unit.r.measured"), fmtInt(t.measured, lang)],
         [tr("unit.r.measuredPct"), fmtInt(t.measuredPct, lang)],
-        [tr("unit.r.planned"), fmtDuration(t.avgScheduledMin)],
+        [tr("unit.r.planned"), fmtDuration(t.avgScheduledMin, lang)],
         [tr("unit.r.canc"), fmtShare1(t.fullCancelPct, lang)],
         [tr("unit.r.partial"), fmtShare1(t.partialCancelPct, lang)],
       ],
@@ -148,7 +148,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             <div className={styles.tile}>
               <dt>{tr("unit.relTile")}</dt>
               <dd>{fmtPct(t.percent.avg, lang)}</dd>
-              <dd className={styles.tileNote}>{tr("unit.relTileNote", { dur: fmtDuration(t.avgScheduledMin) })}</dd>
+              <dd className={styles.tileNote}>{tr("unit.relTileNote", { dur: fmtDuration(t.avgScheduledMin, lang) })}</dd>
             </div>
             <div className={styles.tile}>
               <dt>{tr("unit.cancTile")}</dt>
@@ -166,7 +166,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           <section className={`${styles.section} ${styles.worst}`} aria-labelledby="worst-run">
             <p className={styles.worstLabel}>{tr("unit.worst")}</p>
             <h2 id="worst-run" className={styles.worstFigure}>
-              {tr("unit.worstFigure", { dur: fmtDuration(t.worstRun.delayMin) })}
+              {tr("unit.worstFigure", { dur: fmtDuration(t.worstRun.delayMin, lang) })}
             </h2>
             <p className={styles.worstText}>{tr("unit.worstText", { date: fmtDate(t.worstRun.date, lang), o: t.worstRun.origin, d: t.worstRun.dest })}</p>
           </section>

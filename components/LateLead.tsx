@@ -1,5 +1,5 @@
 import { lateShareColor } from "@/lib/colors";
-import { fmtInt, fmtShare1, simpleFraction } from "@/lib/format";
+import { fmtInt, fmtShare1, fractionText, simpleFraction } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { SplitFlap } from "./SplitFlap";
@@ -33,7 +33,7 @@ export function LateLead({
     <div className={styles.lead}>
       <SplitFlap text={whole.replace("\u00a0", "")} size={size} color={lateShareColor(pct)} label={fmtShare1(pct, lang)} />
       <p className={styles.rest}>{rest ?? t("res.leadRest")}</p>
-      {frac ? <p className={styles.gloss}>{t("res.gloss", { frac: t("frac", { n: frac[0], d: frac[1] }) })}</p> : null}
+      {frac ? <p className={styles.gloss}>{t("res.gloss", { frac: fractionText(frac[0], frac[1], lang) })}</p> : null}
       {measured !== undefined || basis ? (
         <p className={styles.exact}>
           {measured !== undefined ? t("res.exact", { pct: fmtShare1(pct, lang), n: fmtInt(measured, lang) }) : null}

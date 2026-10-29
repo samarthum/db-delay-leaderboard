@@ -16,7 +16,6 @@ export const shell = {
   "footer.source": "Source code: [GitHub]({repoUrl})",
   "footer.updated": "Data refreshed weekly · last updated {date}",
   "footer.recap": "Yearly recap",
-  frac: "{n} in {d}",
   "share.x": "Share on X",
   "share.copied": "Copied! Link is on your clipboard.",
   "share.copyThis": "Copy this link: {url}",

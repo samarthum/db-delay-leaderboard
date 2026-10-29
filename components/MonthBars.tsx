@@ -146,7 +146,7 @@ export function MonthBars({ columns, selected, onSelect, unit, format, groupLabe
         <span className={styles.unit}>{unit}</span>
         {ticks.map((t) => (
           <span key={t} className={styles.tick} style={{ bottom: pct(t) }}>
-            {format(t).replace(/\.0$/, "")}
+            {format(t).replace(/[.,]0$/, "")}
           </span>
         ))}
       </div>

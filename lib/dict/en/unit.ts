@@ -59,7 +59,7 @@ export const unit = {
   "hist.minutes": "Minutes late",
   "hist.trips": "Trips",
   "hist.onTime": "On time",
-  "hist.late": "Late",
+  "hist.late": "Behind schedule",
   "hist.veryLate": "Very late",
   "hist.under": "under {n} min",
   "hist.plus": "{n}+ min",

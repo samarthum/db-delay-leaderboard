@@ -30,7 +30,7 @@ export const home = {
   "res.kind.1": "Regional line",
   "res.kind.2": "Regional train",
   "res.leadRest": "of trips arrive 15+ min late.",
-  "res.gloss": "About {frac} trips.",
+  "res.gloss": "About {frac}.",
   "res.exact": "{pct} of {n} trips, measured at the last stop.",
   "res.basis": "{span}.",
   "res.runsOn": "Runs on the line",
