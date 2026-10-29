@@ -80,7 +80,7 @@ the static site.
 ## Switching domains
 
 The site URL lives in one place, `lib/site.ts`, and is read from `NEXT_PUBLIC_SITE_URL` (default
-`https://db-delay-leaderboard.vercel.app`). Canonical URLs, Open Graph and Twitter image URLs, the sitemap and
+`https://german-punctuality.vercel.app`). Canonical URLs, Open Graph and Twitter image URLs, the sitemap and
 `robots.txt` all derive from it.
 
 To move to `germanpunctuality.com`: add the domain to the Vercel project, set

@@ -2,7 +2,7 @@ import type { Category } from "./types";
 
 /** The one place the public origin lives. Set NEXT_PUBLIC_SITE_URL at build time to switch domains. */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://db-delay-leaderboard.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app"
 ).replace(/\/+$/, "");
 
 export const SITE_NAME = "German Punctuality";

@@ -360,7 +360,7 @@ function homeCard(stats) {
 
 const fmt1 = (n) => n.toFixed(1);
 const fmtInt = (n) => Math.round(n).toLocaleString("en-US");
-const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://db-delay-leaderboard.vercel.app").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app").replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
 /** The recap's numbers, all from stats.json (compute.py writes them). */
 function recapFacts(stats) {
