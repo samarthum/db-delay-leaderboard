@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import type { UnitSummary } from "./types";
 import { getStats } from "./data";
-import { fmt1, fmtInt, fmtMin, fmtPct, monthLabel } from "./format";
+import { fmt1, fmtInt, fmtMin, fmtPct, fmtShare1, spanLabel } from "./format";
+import { OG_LOCALE, otherLangPath, route, type Lang } from "./i18n";
 import { OG_SIZE, SITE_NAME, absoluteUrl, ogImagePath, unitHref } from "./site";
+import { makeT } from "./t";
 
-function windowSpan(): string {
+function windowSpan(lang: Lang): string {
   const w = getStats().window;
-  return `${monthLabel(w.firstMonth)} – ${monthLabel(w.lastMonth)}`;
+  return spanLabel(w.firstMonth, w.lastMonth, lang);
 }
 
 function routeOf(t: UnitSummary): string {
@@ -14,15 +16,18 @@ function routeOf(t: UnitSummary): string {
 }
 
 /** "No. 3 of Germany's most delayed regional lines." or "" when unranked. */
-export function rankSentence(t: UnitSummary): string {
-  const what = t.category === "longDistance" ? "long-distance trains" : "regional lines";
-  if (t.rank.minutes === 1) return `Germany's most delayed ${what.replace(/s$/, "")}.`;
-  if (t.rank.minutes !== null) return `No. ${t.rank.minutes} of Germany's most delayed ${what}.`;
-  if (t.rank.percent !== null) return `No. ${t.rank.percent} of the ${what} for delay compared to trip length.`;
+export function rankSentence(t: UnitSummary, lang: Lang = "en"): string {
+  const tr = makeT(lang);
+  const ld = t.category === "longDistance";
+  if (t.rank.minutes === 1) return tr("seo.rank.first", { what: tr(ld ? "seo.what.longDistance" : "seo.what.regional") });
+  const plural = tr(ld ? "seo.what.longDistancePlural" : "seo.what.regionalPlural");
+  if (t.rank.minutes !== null) return tr("seo.rank.nth", { n: t.rank.minutes, what: plural });
+  if (t.rank.percent !== null) return tr("seo.rank.pct", { n: t.rank.percent, what: plural });
   return "";
 }
 
 function pageMetadata(p: {
+  lang: Lang;
   title: Metadata["title"];
   socialTitle: string;
   description: string;
@@ -31,8 +36,11 @@ function pageMetadata(p: {
   imageAlt: string;
 }): Metadata {
   const url = absoluteUrl(p.path);
+  const other = otherLangPath(p.path);
+  const en = p.lang === "en" ? p.path : other.path;
+  const de = p.lang === "de" ? p.path : other.path;
   const image = {
-    url: absoluteUrl(ogImagePath(getStats().window.lastMonth, p.image)),
+    url: absoluteUrl(ogImagePath(getStats().window.lastMonth, p.image, p.lang)),
     width: OG_SIZE.width,
     height: OG_SIZE.height,
     alt: p.imageAlt,
@@ -40,72 +48,134 @@ function pageMetadata(p: {
   return {
     title: p.title,
     description: p.description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      languages: { en: absoluteUrl(en), de: absoluteUrl(de), "x-default": absoluteUrl(en) },
+    },
     openGraph: {
       title: p.socialTitle,
       description: p.description,
       url,
       siteName: SITE_NAME,
       type: "website",
-      locale: "en_GB",
+      locale: OG_LOCALE[p.lang],
       images: [image],
     },
     twitter: {
       card: "summary_large_image",
       title: p.socialTitle,
       description: p.description,
-      images: [image],
+      images: [image.url],
     },
   };
 }
 
-export function homeMetadata(): Metadata {
-  const { months, categories } = getStats().headline;
-  const ld = categories.longDistance;
-  const reg = categories.regional;
-  const span = `${monthLabel(months[0])} – ${monthLabel(months[months.length - 1])}`;
-  const title = `${SITE_NAME}: how late Deutsche Bahn trains are`;
+/** The 15-minute share of the whole window, the number the home page opens with. */
+export function networkLate(): { pct: number; trips: number } {
+  const ld = getStats().recap.longDistance;
+  return { pct: ld.latePct, trips: ld.measured };
+}
+
+export function homeMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const { pct, trips } = networkLate();
+  const title = t("seo.home.title");
   return pageMetadata({
+    lang,
     title: { absolute: title },
     socialTitle: title,
-    description:
-      `The average long-distance train in Germany arrives ${fmtMin(ld.avgDelayMin)} minutes late. ` +
-      `Regional trains: ${fmt1(reg.avgDelayMin)} minutes. ${span}, ${fmtInt(ld.measured + reg.measured)} trips. ` +
-      `The most delayed trains and lines, ranked.`,
-    path: "/",
+    description: t("seo.home.desc", { pct: fmtShare1(pct, lang), trips: fmtInt(trips, lang), span: windowSpan(lang) }),
+    path: route(lang, "home"),
     image: "home",
-    imageAlt: `The average long-distance train in Germany arrives ${fmtMin(ld.avgDelayMin)} minutes late, ${span}.`,
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(pct, lang), span: windowSpan(lang) }),
   });
 }
 
-export function unitMetadata(t: UnitSummary): Metadata {
-  const title = `${t.name}: ${fmtMin(t.minutes.avg)} min late on average`;
-  const rank = rankSentence(t);
+export function rankingMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const title = t("seo.ranking.title");
   return pageMetadata({
+    lang,
     title,
     socialTitle: title,
-    description:
-      `${rank ? `${rank} ` : ""}${t.name} (${routeOf(t)}) is ${fmtMin(t.minutes.avg)} min late on average, ` +
-      `${fmtPct(t.percent.avg)} of the trip time. ${windowSpan()}, ${fmtInt(t.measured)} trips.`,
-    path: unitHref(t),
-    image: t.slug,
-    imageAlt: `${t.name}, ${routeOf(t)}: ${fmtMin(t.minutes.avg)} minutes late on average, ${fmtPct(t.percent.avg)} of the trip time.`,
+    description: t("seo.ranking.desc", { span: windowSpan(lang) }),
+    path: route(lang, "ranking"),
+    image: "home",
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
   });
 }
 
-export function recapMetadata(): Metadata {
+export function networkMetadata(lang: Lang, stationCount: number): Metadata {
+  const t = makeT(lang);
+  const title = t("seo.network.title");
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.network.desc", { n: fmtInt(stationCount, lang), span: windowSpan(lang) }),
+    path: route(lang, "network"),
+    image: "home",
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
+  });
+}
+
+export function methodMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const title = t("seo.method.title");
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.method.desc"),
+    path: route(lang, "method"),
+    image: "home",
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
+  });
+}
+
+export function unitMetadata(u: UnitSummary & { histogram?: { lo: number | null; share: number }[] }, lang: Lang, latePct: number): Metadata {
+  const t = makeT(lang);
+  const rank = rankSentence(u, lang);
+  const title = t("seo.unit.title", { name: u.name, pct: fmtShare1(latePct, lang) });
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.unit.desc", {
+      rank: rank ? `${rank} ` : "",
+      name: u.name,
+      route: routeOf(u),
+      avg: fmt1(u.minutes.avg, lang),
+      rel: fmtPct(u.percent.avg, lang),
+      span: windowSpan(lang),
+      n: fmtInt(u.measured, lang),
+    }),
+    path: unitHref(u, lang),
+    image: u.slug,
+    imageAlt: t("seo.unit.alt", { name: u.name, route: routeOf(u), avg: fmtMin(u.minutes.avg), rel: fmtPct(u.percent.avg, lang) }),
+  });
+}
+
+export function recapMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
   const { recap, window: w } = getStats();
   const ld = recap.longDistance;
-  const span = `${monthLabel(w.firstMonth)} to ${monthLabel(w.lastMonth)}`;
-  const title = `Long-distance trains in Germany, ${span}`;
+  const span = spanLabel(w.firstMonth, w.lastMonth, lang);
+  const title = t("seo.recap.title", { span });
   return pageMetadata({
+    lang,
     title,
     socialTitle: title,
-    description:
-      `The average long-distance train arrived ${fmt1(ld.avgDelayMin)} minutes late. ${fmt1(ld.latePct)}% were 15 minutes or more late, ` +
-      `${fmt1(ld.late60Pct)}% an hour or more, ${fmt1(ld.cancelledPct)}% cancelled. ${fmtInt(ld.measured)} trips, ${span}.`,
-    path: "/recap/",
+    description: t("seo.recap.desc", {
+      avg: fmt1(ld.avgDelayMin, lang),
+      late: fmtShare1(ld.latePct, lang),
+      late60: fmtShare1(ld.late60Pct, lang),
+      canc: fmtShare1(ld.cancelledPct, lang),
+      n: fmtInt(ld.measured, lang),
+      span,
+    }),
+    path: route(lang, "recap"),
     image: "recap",
-    imageAlt: `Long-distance trains in Germany, ${span}: ${fmt1(ld.avgDelayMin)} minutes late on average, ${fmt1(ld.latePct)}% 15 minutes or more late.`,
+    imageAlt: t("seo.recap.alt", { span, avg: fmt1(ld.avgDelayMin, lang), late: fmtShare1(ld.latePct, lang) }),
   });
 }

@@ -3,7 +3,9 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import type { Category, Mode } from "@/lib/types";
 import { Toggle } from "./Toggle";
-import { CATEGORY_COPY, MODES } from "./pageFormat";
+import type { Lang } from "@/lib/i18n";
+import { makeT } from "@/lib/t";
+import { categoryCopy, modeCopy } from "./pageFormat";
 
 interface RankingState {
   category: Category;
@@ -28,28 +30,29 @@ export function RankingProvider({ children }: { children: React.ReactNode }) {
   return <RankingCtx.Provider value={value}>{children}</RankingCtx.Provider>;
 }
 
-export function RankingControls() {
+export function RankingControls({ lang }: { lang: Lang }) {
   const { category, mode, setCategory, setMode } = useRanking();
+  const t = makeT(lang);
   return (
     <>
       <Toggle
-        label="Trains or lines"
+        label={t("ranking.toggleCat")}
         idPrefix="category"
         value={category}
         onChange={setCategory}
         options={[
-          { value: "longDistance", label: CATEGORY_COPY.longDistance.tab },
-          { value: "regional", label: CATEGORY_COPY.regional.tab },
+          { value: "longDistance", label: categoryCopy(lang, "longDistance").tab },
+          { value: "regional", label: categoryCopy(lang, "regional").tab },
         ]}
       />
       <Toggle
-        label="Rank by"
+        label={t("ranking.toggleMode")}
         idPrefix="mode"
         value={mode}
         onChange={setMode}
         options={[
-          { value: "minutes", label: MODES.minutes.tab },
-          { value: "percent", label: MODES.percent.tab },
+          { value: "minutes", label: modeCopy(lang, "minutes").tab },
+          { value: "percent", label: modeCopy(lang, "percent").tab },
         ]}
       />
     </>
@@ -57,7 +60,8 @@ export function RankingControls() {
 }
 
 /** Server-rendered list for one category and mode; only the active one is shown. Animates in after the first switch. */
-export function RankingPanel({ category, mode, children }: { category: Category; mode: Mode; children: React.ReactNode }) {
+export function RankingPanel({ category, mode, lang, children }: { category: Category; mode: Mode; lang: Lang; children: React.ReactNode }) {
+  const t = makeT(lang);
   const active = useRanking();
   const [initial] = useState(`${active.category}/${active.mode}`);
   const [switched, setSwitched] = useState(false);
@@ -67,7 +71,7 @@ export function RankingPanel({ category, mode, children }: { category: Category;
   return (
     <div
       role="tabpanel"
-      aria-label={`${CATEGORY_COPY[category].tab}, ${MODES[mode].tab.toLowerCase()}`}
+      aria-label={t("ranking.panel", { cat: categoryCopy(lang, category).tab, mode: modeCopy(lang, mode).tab })}
       hidden={current !== `${category}/${mode}`}
       data-switched={switched || undefined}
     >

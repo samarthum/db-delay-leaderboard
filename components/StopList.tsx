@@ -1,12 +1,15 @@
 "use client";
 
 import { Children, useRef, useState, type ReactNode } from "react";
+import type { Lang } from "@/lib/i18n";
+import { makeT } from "@/lib/t";
 import styles from "./RouteStrip.module.css";
 
 export interface StopListProps {
   children: ReactNode;
   className?: string;
   "aria-label"?: string;
+  lang?: Lang;
   total: number;
   collapsible: boolean;
   /** Position of the "show all" row; items marked data-mid are hidden on phones until expanded. */
@@ -14,7 +17,8 @@ export interface StopListProps {
 }
 
 /** Client island for RouteStrip: every stop stays in the HTML, phones see the middle collapsed. */
-export function StopList({ children, className, total, collapsible, moreIndex, ...aria }: StopListProps) {
+export function StopList({ children, className, total, collapsible, moreIndex, lang = "en", ...aria }: StopListProps) {
+  const t = makeT(lang);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLOListElement>(null);
   const items = Children.toArray(children);
@@ -32,7 +36,7 @@ export function StopList({ children, className, total, collapsible, moreIndex, .
         <li className={styles.more}>
           <span className={styles.moreRail} aria-hidden="true" />
           <button type="button" className={styles.moreButton} aria-expanded={false} onClick={expand}>
-            Show all {total} stops
+            {t("strip.showAll", { n: total })}
           </button>
         </li>
       )}

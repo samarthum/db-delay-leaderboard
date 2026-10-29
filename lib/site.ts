@@ -1,4 +1,5 @@
 import type { Category } from "./types";
+import { route, type Lang } from "./i18n";
 
 /** The one place the public origin lives. Set NEXT_PUBLIC_SITE_URL at build time to switch domains. */
 export const SITE_URL = (
@@ -10,20 +11,18 @@ export const SITE_NAME = "German Punctuality";
 export const REPO_URL = "https://github.com/samarthum/db-delay-leaderboard";
 export const DATA_SOURCE_URL = "https://github.com/piebro/deutsche-bahn-data";
 
-const URL_SEGMENT: Record<Category, string> = { longDistance: "train", regional: "line" };
-
-/** "/train/ice-1541/" or "/line/re-19-duesseldorf-hbf-arnhem-centraal/" */
-export function unitHref(u: { category: Category; slug: string }): string {
-  return `/${URL_SEGMENT[u.category]}/${u.slug}/`;
+/** "/train/ice-1541/" or "/de/linie/re-19-duesseldorf-hbf-arnhem-centraal/" */
+export function unitHref(u: { category: Category; slug: string }, lang: Lang = "en"): string {
+  return route(lang, u.category === "longDistance" ? "train" : "line", u.slug);
 }
 
 export function absoluteUrl(path: string): string {
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-/** OG images are generated at build time into public/og/<lastMonth>/<name>.png. */
-export function ogImagePath(lastMonth: string, name: string): string {
-  return `/og/${lastMonth}/${name}.png`;
+/** OG images are generated at build time: public/og/<lastMonth>/<name>.png, German ones under .../de/. */
+export function ogImagePath(lastMonth: string, name: string, lang: Lang = "en"): string {
+  return lang === "de" ? `/og/${lastMonth}/de/${name}.png` : `/og/${lastMonth}/${name}.png`;
 }
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;

@@ -1,6 +1,8 @@
 import index from "@/data/search/index.json";
+import { buildIndex, type TaIndex, type TaRaw } from "./typeahead";
 import {
   UNSUPPORTED_TYPES,
+  type UnsupportedKind,
   decode,
   exactMatches,
   numberSuggestions,
@@ -60,7 +62,7 @@ export interface SearchOutcome {
   parsed: Parsed;
   problem: null | "empty" | "need-number" | "unsupported";
   /** For problem "unsupported": what the typed type is ("S-Bahn"). */
-  unsupported: string | null;
+  unsupported: UnsupportedKind | null;
   /** Exact matches, most measured runs first. */
   matches: SearchUnit[];
   /** A train type that was typed but does not exist: what was typed and the types used instead (none when ignored). */
@@ -126,4 +128,17 @@ export async function loadLine(unit: SearchUnit): Promise<SearchUnit | null> {
   const [type, num] = unit.line.split(" ");
   const units = await loadShard(shardKey(num));
   return units.find((u) => u.kind === 1 && u.type === type && u.num === num && u.hash === unit.lineHash) ?? null;
+}
+
+let typeahead: Promise<TaIndex> | undefined;
+
+/** The typeahead index (trains, lines, stations). One small file, fetched the first time the box is used. */
+export function loadTypeahead(): Promise<TaIndex> {
+  if (!typeahead) {
+    typeahead = getJson<TaRaw>("/search/ta.json").then(buildIndex);
+    typeahead.catch(() => {
+      typeahead = undefined;
+    });
+  }
+  return typeahead;
 }

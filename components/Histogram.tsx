@@ -1,5 +1,7 @@
 import { delayBucket } from "@/lib/colors";
 import { fmt1, fmtInt } from "@/lib/format";
+import type { Lang } from "@/lib/i18n";
+import { makeT, type T } from "@/lib/t";
 import type { HistBin } from "@/lib/types";
 import { Reveal } from "./Reveal";
 import styles from "./Histogram.module.css";
@@ -8,12 +10,13 @@ export interface HistogramProps {
   bins: HistBin[];
   /** One short line under the chart. */
   caption?: string;
+  lang?: Lang;
 }
 
 type Band = "onTime" | "late" | "veryLate";
 
 const BAND_ORDER: Band[] = ["onTime", "late", "veryLate"];
-const BAND_TITLE: Record<Band, string> = { onTime: "On time", late: "Late", veryLate: "Very late" };
+const BAND_KEY = { onTime: "hist.onTime", late: "hist.late", veryLate: "hist.veryLate" } as const;
 
 /** Bands follow the bin bounds, not the labels: under 5 min, 5 to 60, 60 and up. */
 function bandOf(b: HistBin): Band {
@@ -22,14 +25,14 @@ function bandOf(b: HistBin): Band {
   return "late";
 }
 
-function bandRange(bins: HistBin[]): string {
+function bandRange(bins: HistBin[], t: T): string {
   const los = bins.map((b) => b.lo);
   const his = bins.map((b) => b.hi);
   const lo = los.includes(null) ? null : Math.min(...(los as number[]));
   const hi = his.includes(null) ? null : Math.max(...(his as number[]));
-  if (lo === null && hi !== null) return `under ${hi} min`;
-  if (hi === null && lo !== null) return `${lo}+ min`;
-  return `${lo} to ${hi} min`;
+  if (lo === null && hi !== null) return t("hist.under", { n: hi });
+  if (hi === null && lo !== null) return t("hist.plus", { n: lo });
+  return t("hist.range", { a: lo ?? 0, b: hi ?? 0 });
 }
 
 /** Representative minutes for colouring a bin: the first colour bucket for "<0", 130 for "120+". */
@@ -47,7 +50,8 @@ export function shareAtLeast(bins: HistBin[], minutes: number): number {
 
 const sum1 = (bins: HistBin[]) => Math.round(bins.reduce((s, b) => s + b.share, 0) * 10) / 10;
 
-export function Histogram({ bins, caption }: HistogramProps) {
+export function Histogram({ bins, caption, lang = "en" }: HistogramProps) {
+  const t = makeT(lang);
   const maxShare = Math.max(...bins.map((b) => b.share), 0.0001);
   const groups = BAND_ORDER.map((band) => ({ band, bins: bins.filter((b) => bandOf(b) === band) })).filter(
     (g) => g.bins.length > 0,
@@ -57,15 +61,15 @@ export function Histogram({ bins, caption }: HistogramProps) {
     <Reveal as="figure" className={styles.root}>
       <div aria-hidden="true">
         <div className={styles.head}>
-          <span>Minutes late</span>
-          <span>Trips</span>
+          <span>{t("hist.minutes")}</span>
+          <span>{t("hist.trips")}</span>
         </div>
         {groups.map((g) => (
           <div key={g.band} className={styles.group} data-band={g.band}>
             <div className={styles.groupHead}>
-              <span className={styles.groupTitle}>{BAND_TITLE[g.band]}</span>
-              <span className={styles.groupRange}>{bandRange(g.bins)}</span>
-              <span className={styles.groupShare}>{fmt1(sum1(g.bins))}%</span>
+              <span className={styles.groupTitle}>{t(BAND_KEY[g.band])}</span>
+              <span className={styles.groupRange}>{bandRange(g.bins, t)}</span>
+              <span className={styles.groupShare}>{fmt1(sum1(g.bins), lang)}{lang === "de" ? "\u00a0%" : "%"}</span>
             </div>
             <ul className={styles.rows}>
               {g.bins.map((b) => {
@@ -80,7 +84,7 @@ export function Histogram({ bins, caption }: HistogramProps) {
                       />
                     </span>
                     <span className={styles.nums}>
-                      <span className={styles.share}>{fmt1(b.share)}%</span>
+                      <span className={styles.share}>{fmt1(b.share, lang)}{lang === "de" ? "\u00a0%" : "%"}</span>
                     </span>
                   </li>
                 );
@@ -91,20 +95,20 @@ export function Histogram({ bins, caption }: HistogramProps) {
       </div>
       {caption && <figcaption className={styles.caption}>{caption}</figcaption>}
       <table className="visually-hidden">
-        <caption>Delay at the last German stop, share of measured runs</caption>
+        <caption>{t("hist.tableCaption")}</caption>
         <thead>
           <tr>
-            <th scope="col">Minutes late</th>
-            <th scope="col">Share of runs (%)</th>
-            <th scope="col">Runs</th>
+            <th scope="col">{t("hist.minutes")}</th>
+            <th scope="col">{t("hist.colShare")}</th>
+            <th scope="col">{t("hist.colRuns")}</th>
           </tr>
         </thead>
         <tbody>
           {bins.map((b) => (
             <tr key={b.label}>
               <th scope="row">{b.label}</th>
-              <td>{fmt1(b.share)}</td>
-              <td>{fmtInt(b.count)}</td>
+              <td>{fmt1(b.share, lang)}</td>
+              <td>{fmtInt(b.count, lang)}</td>
             </tr>
           ))}
         </tbody>

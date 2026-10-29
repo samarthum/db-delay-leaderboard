@@ -41,3 +41,25 @@ export function getUnitSlugs(category: Category): string[] {
   const r = getStats().rankings[category];
   return [...new Set([...r.minutes, ...r.percent].map((t) => t.slug))].sort();
 }
+
+let lateBySlug: Map<string, number> | undefined;
+
+/**
+ * Share of measured trips that arrived 15+ min late, for a train or line page, from the search shards, so a page
+ * and the search result for the same train show the same number. null when the unit is not in the index.
+ */
+export function getLatePct(slug: string): number | null {
+  if (!lateBySlug) {
+    lateBySlug = new Map();
+    const dir = path.join(DATA_DIR, "search");
+    for (const name of fs.readdirSync(dir)) {
+      if (!/^s-.+\.json$/.test(name)) continue;
+      const rows = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")) as unknown[][];
+      for (const r of rows) {
+        const rowSlug = r[12];
+        if (typeof rowSlug === "string") lateBySlug.set(rowSlug, r[6] as number);
+      }
+    }
+  }
+  return lateBySlug.get(slug) ?? null;
+}

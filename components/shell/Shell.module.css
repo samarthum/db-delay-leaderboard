@@ -1,0 +1,232 @@
+/* Header ------------------------------------------------------------ */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(10, 12, 15, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-soft);
+}
+
+.lang {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--board-line);
+  border-radius: 999px;
+  background: var(--card);
+}
+
+.langItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.langOn {
+  background: var(--amber);
+  color: #14110a;
+}
+
+a.langItem:hover {
+  color: var(--ink);
+}
+
+.desktopNav {
+  display: none;
+}
+
+/* Bottom tab bar (phones) -------------------------------------------- */
+.tabbar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 40;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(14, 17, 21, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--board-line);
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  height: var(--tabbar-h);
+}
+
+.tabItem {
+  display: flex;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabLabel {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab[aria-current="page"] {
+  color: var(--amber);
+}
+
+.tab[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 22%;
+  right: 22%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--amber);
+}
+
+/* Footer ------------------------------------------------------------- */
+.footer {
+  margin-top: 40px;
+  padding-block: 32px 40px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.footerInner {
+  display: grid;
+  gap: 12px;
+}
+
+.footerBrand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.credits {
+  display: grid;
+  gap: 4px;
+  font-size: 15px;
+}
+
+.credits li {
+  padding-block: 2px;
+}
+
+.credits a {
+  display: inline-block;
+  padding-block: 8px;
+  margin-block: -8px;
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
+.credits a:hover {
+  color: var(--amber);
+}
+
+.updated {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+@media (min-width: 900px) {
+  .tabbar {
+    display: none;
+  }
+
+  .headerInner {
+    min-height: 60px;
+  }
+
+  .desktopNav {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    margin-right: 8px;
+  }
+
+  .desktopLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink-2);
+  }
+
+  .desktopLink:hover {
+    color: var(--ink);
+  }
+
+  .desktopLink[aria-current="page"] {
+    color: var(--amber);
+    background: var(--amber-soft);
+  }
+}

@@ -1,0 +1,26 @@
+import type { seo } from "../en/seo";
+
+export const seoDe: Record<keyof typeof seo, string> = {
+  "seo.home.title": "German Punctuality: Wie spät kommt dein Zug wirklich?",
+  "seo.home.desc": "Bei {pct} der Fernverkehrsfahrten in Deutschland beträgt die Verspätung 15 Minuten oder mehr. Suche deinen Zug, deine Linie oder deinen Bahnhof. {trips} Fahrten, {span}.",
+  "seo.home.alt": "Bei {pct} der Fernverkehrsfahrten in Deutschland beträgt die Verspätung 15 Minuten oder mehr, {span}.",
+  "seo.ranking.title": "Die verspätetsten Züge und Linien",
+  "seo.ranking.desc": "Deutschlands verspätetste Fernzüge und Regionallinien, geordnet nach durchschnittlicher Verspätung. {span}.",
+  "seo.network.title": "Das Netz: Monat für Monat und Bahnhof für Bahnhof",
+  "seo.network.desc": "Wie spät Züge in Deutschland ankommen, Monat für Monat und an {n} Bahnhöfen. {span}.",
+  "seo.method.title": "So messen wir",
+  "seo.method.desc": "Woher die Daten kommen, wie die Verspätung gemessen wird und was die Zahlen nicht zeigen.",
+  "seo.recap.title": "Fernzüge in Deutschland, {span}",
+  "seo.recap.desc": "Der durchschnittliche Fernzug kam {avg} Minuten zu spät an. {late} hatten 15 Minuten oder mehr Verspätung, {late60} eine Stunde oder mehr, {canc} fielen aus. {n} Fahrten, {span}.",
+  "seo.recap.alt": "Fernzüge in Deutschland, {span}: im Schnitt {avg} Minuten zu spät, {late} mit 15 Minuten oder mehr Verspätung.",
+  "seo.unit.title": "{name}: {pct} der Fahrten mit 15+ Min. Verspätung",
+  "seo.unit.desc": "{rank}{name} ({route}) ist im Schnitt {avg} Min. zu spät, das sind {rel} der Fahrzeit. {span}, {n} Fahrten.",
+  "seo.unit.alt": "{name}, {route}: im Schnitt {avg} Minuten zu spät, {rel} der Fahrzeit.",
+  "seo.rank.first": "Deutschlands {what} mit der größten Verspätung.",
+  "seo.rank.nth": "Platz {n} der {what} mit der größten Verspätung in Deutschland.",
+  "seo.rank.pct": "Platz {n} der {what} bei der Verspätung im Verhältnis zur Fahrzeit.",
+  "seo.what.longDistance": "Fernzug",
+  "seo.what.regional": "Regionallinie",
+  "seo.what.longDistancePlural": "Fernzüge",
+  "seo.what.regionalPlural": "Regionallinien",
+};

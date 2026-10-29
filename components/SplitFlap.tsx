@@ -9,6 +9,8 @@ export interface SplitFlapProps {
   label?: string;
   /** Glyph colour. Amber is for the one accent number in a view. */
   tone?: "ink" | "accent";
+  /** Overrides the glyph colour, e.g. a severity colour. The number is always shown as well. */
+  color?: string;
   className?: string;
 }
 
@@ -18,13 +20,14 @@ const NARROW = new Set([",", ".", ":", "'", " "]);
  * Departure-board tiles. Server-rendered with the final characters; the flip is a CSS animation
  * (see SplitFlap.module.css) that Reveal replays when the board scrolls into view.
  */
-export function SplitFlap({ text, size = "md", label, tone = "ink", className }: SplitFlapProps) {
+export function SplitFlap({ text, size = "md", label, tone = "ink", color, className }: SplitFlapProps) {
   const chars = Array.from(text);
   return (
     <Reveal
       as="span"
       role="img"
       aria-label={label ?? text}
+      style={color ? ({ "--ink-flap": color } as React.CSSProperties) : undefined}
       className={[styles.root, styles[size], tone === "accent" ? styles.accent : "", className ?? ""].join(" ")}
     >
       {chars.map((ch, i) => (

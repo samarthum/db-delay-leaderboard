@@ -9,6 +9,7 @@ export interface RevealProps {
   children: ReactNode;
   role?: string;
   "aria-label"?: string;
+  style?: React.CSSProperties;
 }
 
 /**

@@ -3,6 +3,8 @@
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
 import { useArmedUntilInView } from "@/hooks/useInView";
 import { monthLabel, monthShort } from "@/lib/format";
+import type { Lang } from "@/lib/i18n";
+import { makeT } from "@/lib/t";
 import styles from "./MonthBars.module.css";
 
 export type MonthFlag = "worst" | "best";
@@ -29,9 +31,8 @@ export interface MonthBarsProps {
   format: (v: number) => string;
   groupLabel: string;
   size?: "md" | "sm";
+  lang?: Lang;
 }
-
-const FLAG_TEXT: Record<MonthFlag, string> = { worst: "Worst", best: "Best" };
 
 export interface MonthReadoutProps {
   /** "YYYY-MM" */
@@ -43,17 +44,19 @@ export interface MonthReadoutProps {
   noun: string;
   sub?: string;
   size?: "md" | "sm";
+  lang?: Lang;
 }
 
 /** Departure-board panel above a month chart that spells out the selected month. */
-export function MonthReadout({ month, flag, value, unit, noun, sub, size = "md" }: MonthReadoutProps) {
+export function MonthReadout({ month, flag, value, unit, noun, sub, size = "md", lang = "en" }: MonthReadoutProps) {
+  const t = makeT(lang);
   return (
     <div className={`${styles.readout} ${size === "sm" ? styles.readoutSm : ""}`} aria-live="polite">
       <div className={styles.readoutTop}>
-        <span className={styles.readoutMonth}>{monthLabel(month)}</span>
+        <span className={styles.readoutMonth}>{monthLabel(month, lang)}</span>
         {flag && (
           <span className={styles.badge} data-flag={flag}>
-            {FLAG_TEXT[flag]} month
+            {flag === "worst" ? t("chart.worstMonth") : t("chart.bestMonth")}
           </span>
         )}
       </div>
@@ -96,7 +99,8 @@ function flagAlign(columns: MonthColumn[], i: number): "center" | "start" | "end
   return "center";
 }
 
-export function MonthBars({ columns, selected, onSelect, unit, format, groupLabel, size = "md" }: MonthBarsProps) {
+export function MonthBars({ columns, selected, onSelect, unit, format, groupLabel, size = "md", lang = "en" }: MonthBarsProps) {
+  const t = makeT(lang);
   const [rootRef, armed] = useArmedUntilInView<HTMLDivElement>();
   const colsRef = useRef<HTMLDivElement>(null);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
@@ -194,14 +198,14 @@ export function MonthBars({ columns, selected, onSelect, unit, format, groupLabe
                     <>
                       <span className={styles.leader} data-flag={c.flag} style={{ bottom: pct(c.value) }} />
                       <span className={styles.chip} data-flag={c.flag} data-align={flagAlign(columns, i)}>
-                        <span className={styles.chipLabel}>{FLAG_TEXT[c.flag]}</span>
+                        <span className={styles.chipLabel}>{c.flag === "worst" ? t("chart.worst") : t("chart.best")}</span>
                         <span className={styles.chipValue}>{format(c.value)}</span>
                       </span>
                     </>
                   )}
                 </span>
                 <span className={styles.x}>
-                  <span className={styles.month}>{monthShort(c.month)}</span>
+                  <span className={styles.month}>{monthShort(c.month, lang)}</span>
                   {newYear && <span className={styles.year}>{c.month.slice(0, 4)}</span>}
                 </span>
               </button>

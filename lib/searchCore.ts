@@ -125,14 +125,16 @@ const TYPE_ALIASES: Record<string, string> = {
 };
 
 /** Types the site leaves out on purpose, so the answer can say so instead of "no match". */
-export const UNSUPPORTED_TYPES: Record<string, string> = {
-  S: "S-Bahn",
-  U: "U-Bahn",
-  NJ: "Night trains",
-  EN: "Night trains",
-  BUS: "Buses",
-  STR: "Trams",
-  SEV: "Replacement buses",
+export type UnsupportedKind = "sbahn" | "ubahn" | "night" | "bus" | "tram" | "replacement";
+
+export const UNSUPPORTED_TYPES: Record<string, UnsupportedKind> = {
+  S: "sbahn",
+  U: "ubahn",
+  NJ: "night",
+  EN: "night",
+  BUS: "bus",
+  STR: "tram",
+  SEV: "replacement",
 };
 
 export function parseQuery(input: string): Parsed {
@@ -272,8 +274,6 @@ export function numberSuggestions(
 
 // ---------------------------------------------------------------- weekdays
 
-export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-export const WEEKDAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** The days with the highest and lowest mean delay, or null when fewer than two days have data. */
 export function weekdayExtremes(weekday: (number | null)[]): { worst: number; best: number } | null {

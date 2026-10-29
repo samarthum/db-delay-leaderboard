@@ -1,6 +1,8 @@
 import type { Params, Station, WindowInfo } from "@/lib/types";
 import { STATION_SCALE, stationBucket } from "@/lib/colors";
-import { fmt1, fmtInt, monthLabel } from "@/lib/format";
+import { fmt1, fmtInt, spanLabel } from "@/lib/format";
+import type { Lang } from "@/lib/i18n";
+import { makeT } from "@/lib/t";
 import germany from "@/lib/germany.json";
 import styles from "./StationMap.module.css";
 
@@ -25,6 +27,17 @@ const CITIES: [string, number, number][] = [
   ["Stuttgart", 9.182, 48.784],
   ["München", 11.558, 48.14],
 ];
+
+/** "under 2" / "2 to 4" / "8+ min" from the scale's English label, in the page language. */
+function scaleLabel(label: string, t: ReturnType<typeof makeT>): string {
+  const under = /^under (\d+)$/.exec(label);
+  if (under) return t("scale.under", { n: under[1] });
+  const range = /^(\d+) to (\d+)$/.exec(label);
+  if (range) return t("scale.range", { a: range[1], b: range[2] });
+  const plus = /^(\d+)\+ min$/.exec(label);
+  if (plus) return t("scale.plus", { n: plus[1] });
+  return label;
+}
 
 function project(lon: number, lat: number): [number, number] {
   return [(lon - BOX.west) * KX * SCALE, (BOX.north - lat) * SCALE];
@@ -51,20 +64,18 @@ function dotPaths(stations: Station[], bigMin: number) {
   return [...groups.values()].filter((g) => g.d.length > 0);
 }
 
-export function StationMap({ stations, params: p, window: w }: { stations: Station[]; params: Params; window: WindowInfo }) {
+export function StationMap({ stations, params: p, window: w, lang }: { stations: Station[]; params: Params; window: WindowInfo; lang: Lang }) {
+  const t = makeT(lang);
   const big = stations.filter((s) => s.n >= p.bigStationMinArrivals);
   const latest = [...big].sort((a, b) => b.avg - a.avg || a.name.localeCompare(b.name)).slice(0, LIST_SIZE);
 
   return (
-    <section id="map" className="section" aria-labelledby="map-title">
-      <div className="container">
+    <section id="map" aria-labelledby="map-title">
+      <div>
         <h2 id="map-title" className="section-title">
-          Where trains arrive late
+          {t("network.map.title")}
         </h2>
-        <p className="section-sub">
-          Each dot is a station. The darker the dot, the later trains arrive there on average. All long-distance and
-          regional trains, {monthLabel(w.firstMonth)} to {monthLabel(w.lastMonth)}.
-        </p>
+        <p className="section-sub">{t("network.map.sub", { span: spanLabel(w.firstMonth, w.lastMonth, lang) })}</p>
 
         <div className={styles.layout}>
           <figure className={styles.card}>
@@ -72,7 +83,7 @@ export function StationMap({ stations, params: p, window: w }: { stations: Stati
               className={styles.map}
               viewBox={`0 0 ${W} ${H}`}
               role="img"
-              aria-label={`Map of Germany with ${fmtInt(stations.length)} stations coloured by average arrival delay. The latest big stations are listed next to it.`}
+              aria-label={t("network.map.aria", { n: fmtInt(stations.length, lang) })}
             >
               <path d={OUTLINE} className={styles.land} />
               {dotPaths(stations, p.bigStationMinArrivals).map((g) => (
@@ -94,42 +105,40 @@ export function StationMap({ stations, params: p, window: w }: { stations: Stati
             </svg>
 
             <figcaption className={styles.legend}>
-              <span className={styles.legendTitle}>Average minutes late on arrival</span>
+              <span className={styles.legendTitle}>{t("network.map.legend")}</span>
               <ul className={styles.keys}>
                 {STATION_SCALE.map((b) => (
                   <li key={b.label}>
                     <span className={styles.swatch} style={{ background: b.color }} aria-hidden="true" />
-                    {b.label}
+                    {scaleLabel(b.label, t)}
                   </li>
                 ))}
                 <li>
                   <span className={styles.bigSwatch} aria-hidden="true" />
-                  {fmtInt(p.bigStationMinArrivals)}+ arrivals
+                  {t("network.map.big", { n: fmtInt(p.bigStationMinArrivals, lang) })}
                 </li>
               </ul>
             </figcaption>
           </figure>
 
           <div className={styles.side}>
-            <h3 className={styles.listTitle}>Latest big stations</h3>
+            <h3 className={styles.listTitle}>{t("network.map.latest")}</h3>
             <ol className={styles.list}>
               {latest.map((s) => (
                 <li key={s.name} className={styles.item}>
                   <span className={styles.name}>{s.name}</span>
-                  <span className={styles.value}>{fmt1(s.avg)} min</span>
-                  <span className={styles.count}>{fmtInt(s.n)} arrivals</span>
+                  <span className={styles.value}>{fmt1(s.avg, lang)} {t("unit.min")}</span>
+                  <span className={styles.count}>{t("network.map.arrivals", { n: fmtInt(s.n, lang) })}</span>
                 </li>
               ))}
             </ol>
             <p className={styles.note}>
-              Big means at least {fmtInt(p.bigStationMinArrivals)} arrivals. {fmtInt(big.length)} stations qualify.
+              {t("network.map.bigNote", { min: fmtInt(p.bigStationMinArrivals, lang), n: fmtInt(big.length, lang) })}
             </p>
           </div>
         </div>
 
-        <p className={styles.credit}>
-          Station coordinates: Trainline stations (ODbL). Outline: Natural Earth.
-        </p>
+        <p className={styles.credit}>{t("network.map.credit")}</p>
       </div>
     </section>
   );

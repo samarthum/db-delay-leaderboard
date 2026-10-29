@@ -40,7 +40,7 @@
 }
 
 .group[data-band="onTime"] {
-  background: #e8f3eb;
+  background: rgba(70, 208, 129, 0.1);
 }
 
 .group[data-band="veryLate"] {
@@ -64,11 +64,11 @@
 }
 
 .group[data-band="onTime"] .groupTitle {
-  color: #17703d;
+  color: var(--good);
 }
 
 .group[data-band="veryLate"] .groupTitle {
-  color: var(--db-red-dark);
+  color: var(--late);
 }
 
 .groupRange {

@@ -60,7 +60,7 @@
 }
 
 .top li:nth-child(-n + 3) .rank {
-  color: var(--db-red);
+  color: var(--late);
 }
 
 .who {

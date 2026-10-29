@@ -1,28 +1,35 @@
 /* Design tokens + shared primitives. Component styles live in CSS modules next to the component. */
 :root {
+  /* Departure board: near-black, warm white, one amber. Red only for brand and for "late". */
   --db-red: #ec0016;
-  --db-red-dark: #b8000f;
-  --db-red-soft: #fde8ea;
-  --ink: #1f2430;
-  --ink-2: #454c5b;
-  --muted: #5f6675;
-  --line: #e1ddd3;
-  --bg: #f6f4ee;
-  --card: #ffffff;
-  --board: #ffffff;
-  --board-2: #f1eee5;
-  --board-line: #d9d4c7;
-  --good: #1f8a4c;
+  --db-red-dark: #c40012;
+  --db-red-soft: rgba(255, 90, 77, 0.12);
+  --late: #ff6a5c;
+  --amber: #ffc72c;
+  --amber-soft: rgba(255, 199, 44, 0.12);
+  --ink: #f4f1e8;
+  --ink-2: #cfccc2;
+  --muted: #a1a7b2;
+  --line: #262c35;
+  --bg: #0a0c0f;
+  --card: #13171d;
+  --board: #13171d;
+  --board-2: #1a1f27;
+  --board-line: #2b323c;
+  --good: #46d081;
+  --good-ink: #46d081;
+  --on-accent: #ffffff;
 
   --font-display: var(--font-barlow-condensed), "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --font-body: var(--font-barlow), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono: var(--font-roboto-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --radius: 16px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 0 rgba(31, 36, 48, 0.04), 0 8px 24px -12px rgba(31, 36, 48, 0.18);
-  --container: 1120px;
-  --gutter: 16px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: none;
+  --container: 1040px;
+  --gutter: 18px;
+  --tabbar-h: 64px;
 }
 
 @media (min-width: 720px) {
@@ -41,6 +48,8 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   scroll-behavior: smooth;
+  background: var(--bg);
+  color-scheme: dark;
 }
 
 body {
@@ -52,6 +61,14 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* Room for the bottom tab bar on phones. */
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 900px) {
+  body {
+    padding-bottom: 0;
+  }
 }
 
 h1,
@@ -89,7 +106,7 @@ svg {
 }
 
 :focus-visible {
-  outline: 3px solid var(--db-red);
+  outline: 3px solid var(--amber);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -157,11 +174,29 @@ table.visually-hidden {
   display: block;
 }
 
-/* Light "departure board" panel used for headline numbers. */
+/* Dark "departure board" panel used for headline numbers. */
 .board {
   background: var(--board);
   color: var(--ink);
+  border: 1px solid var(--board-line);
   border-radius: var(--radius);
+}
+
+.skip {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--amber);
+  color: #111;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.skip:focus {
+  top: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {

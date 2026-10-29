@@ -1,0 +1,26 @@
+import type { shell } from "../en/shell";
+
+export const shellDe: Record<keyof typeof shell, string> = {
+  skip: "Zum Inhalt springen",
+  brand: "German Punctuality",
+  "nav.label": "Hauptmenü",
+  "nav.search": "Suche",
+  "nav.ranking": "Ranking",
+  "nav.network": "Netz",
+  "nav.method": "Methode",
+  "lang.label": "Sprache",
+  "lang.en": "English",
+  "lang.de": "Deutsch",
+  "footer.data": "Daten: Deutsche Bahn über [piebro/deutsche-bahn-data]({dataUrl}), CC BY 4.0",
+  "footer.stations": "Bahnhofskoordinaten: [Trainline stations](https://github.com/trainline-eu/stations) (ODbL)",
+  "footer.map": "Kartenumriss: [Natural Earth](https://www.naturalearthdata.com) (gemeinfrei)",
+  "footer.affiliation": "Nicht mit der Deutschen Bahn verbunden.",
+  "footer.source": "Quellcode: [GitHub]({repoUrl})",
+  "footer.updated": "Daten wöchentlich aktualisiert · Stand: {date}",
+  "footer.recap": "Jahresrückblick",
+  frac: "{n} von {d}",
+  "share.x": "Auf X teilen",
+  "share.copied": "Kopiert! Der Link liegt in deiner Zwischenablage.",
+  "share.copyThis": "Kopiere diesen Link: {url}",
+  "back.search": "Suche",
+};

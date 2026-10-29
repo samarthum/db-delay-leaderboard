@@ -12,12 +12,12 @@ export interface DelayBucket {
 }
 
 export const DELAY_SCALE: readonly DelayBucket[] = [
-  { from: -Infinity, color: "#2E9E5B", on: "#FFFFFF", label: "under 5 min" },
-  { from: 5, color: "#8DBB2F", on: "#1B2410", label: "5 to 10" },
-  { from: 10, color: "#F2B01E", on: "#2B2000", label: "10 to 20" },
-  { from: 20, color: "#F26A21", on: "#2B1100", label: "20 to 35" },
-  { from: 35, color: "#EC0016", on: "#FFFFFF", label: "35 to 50" },
-  { from: 50, color: "#8E0010", on: "#FFFFFF", label: "50+ min" },
+  { from: -Infinity, color: "#34c36b", on: "#06210f", label: "under 5 min" },
+  { from: 5, color: "#a6d43a", on: "#1B2410", label: "5 to 10" },
+  { from: 10, color: "#ffc72c", on: "#2B2000", label: "10 to 20" },
+  { from: 20, color: "#ff8a2b", on: "#2B1100", label: "20 to 35" },
+  { from: 35, color: "#ff4b3e", on: "#2a0300", label: "35 to 50" },
+  { from: 50, color: "#ff3d8b", on: "#2a0010", label: "50+ min" },
 ] as const;
 
 /**
@@ -25,11 +25,11 @@ export const DELAY_SCALE: readonly DelayBucket[] = [
  * Stations average far less than single trains, so the steps are tighter than DELAY_SCALE.
  */
 export const STATION_SCALE: readonly { from: number; color: string; label: string }[] = [
-  { from: -Infinity, color: "#fed976", label: "under 2" },
-  { from: 2, color: "#feb24c", label: "2 to 4" },
-  { from: 4, color: "#fd8d3c", label: "4 to 6" },
-  { from: 6, color: "#e31a1c", label: "6 to 8" },
-  { from: 8, color: "#99000d", label: "8+ min" },
+  { from: -Infinity, color: "#46d081", label: "under 2" },
+  { from: 2, color: "#ffc72c", label: "2 to 4" },
+  { from: 4, color: "#ff8a2b", label: "4 to 6" },
+  { from: 6, color: "#ff4b3e", label: "6 to 8" },
+  { from: 8, color: "#ff3d8b", label: "8+ min" },
 ] as const;
 
 export function stationBucket(avgMinutes: number): number {
@@ -48,4 +48,13 @@ export function delayBucket(avgMinutes: number): DelayBucket {
 
 export function delayColor(avgMinutes: number): string {
   return delayBucket(avgMinutes).color;
+}
+
+/** Colour for a share of trips that arrive 15+ min late. Never used alone: always next to the number. */
+export function lateShareColor(pct: number): string {
+  if (pct < 10) return "#34c36b";
+  if (pct < 20) return "#a6d43a";
+  if (pct < 35) return "#ffc72c";
+  if (pct < 55) return "#ff8a2b";
+  return "#ff4b3e";
 }

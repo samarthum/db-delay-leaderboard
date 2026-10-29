@@ -1,0 +1,25 @@
+import type { misc } from "../en/misc";
+
+export const miscDe: Record<keyof typeof misc, string> = {
+  "mode.minutes.tab": "Minuten Verspätung",
+  "mode.minutes.explain": "Durchschnittliche Verspätung am letzten Halt, in Minuten.",
+  "mode.percent.tab": "% der Fahrzeit",
+  "mode.percent.explain": "Verspätung im Verhältnis zur Fahrzeit. 15 Minuten Verspätung bei einer Stunde Fahrzeit sind +25 %.",
+  "cat.longDistance.tab": "Fernverkehr",
+  "cat.regional.tab": "Regional",
+  "cat.longDistance.plural": "Fernzüge",
+  "cat.regional.plural": "Regionallinien",
+  "cat.longDistance.back": "Alle Züge",
+  "cat.regional.back": "Alle Linien",
+  "cat.regional.note": "Eine Linie zählt ihre Fahrten in beide Richtungen.",
+  "route.to": "nach",
+  "route.and": "und",
+  "unit.min": "Min.",
+  "chart.worst": "Schlechtester",
+  "chart.best": "Bester",
+  "chart.worstMonth": "Schlechtester Monat",
+  "chart.bestMonth": "Bester Monat",
+  "notfound.title": "Gleis nicht gefunden",
+  "notfound.text": "Diese Seite fällt ersatzlos aus. Wir bitten um Entschuldigung.",
+  "notfound.home": "Mit dem Ersatzverkehr zurück zur Startseite",
+};

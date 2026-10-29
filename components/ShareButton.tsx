@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { Lang } from "@/lib/i18n";
+import { makeT } from "@/lib/t";
 import styles from "./ShareButton.module.css";
 
 interface ShareButtonProps {
@@ -11,12 +13,14 @@ interface ShareButtonProps {
   url: string;
   /** Button text, e.g. "Share this line". */
   label: string;
+  lang?: Lang;
   /** Extra buttons that sit in the same row. */
   children?: React.ReactNode;
 }
 
-export function ShareButton({ title, text, url, label, children }: ShareButtonProps) {
+export function ShareButton({ title, text, url, label, lang = "en", children }: ShareButtonProps) {
   const [status, setStatus] = useState("");
+  const t = makeT(lang);
 
   async function share() {
     if (typeof navigator.share === "function") {
@@ -29,9 +33,9 @@ export function ShareButton({ title, text, url, label, children }: ShareButtonPr
     }
     try {
       await navigator.clipboard.writeText(url);
-      setStatus("Copied! Link is on your clipboard.");
+      setStatus(t("share.copied"));
     } catch {
-      setStatus(`Copy this link: ${url}`);
+      setStatus(t("share.copyThis", { url }));
     }
     window.setTimeout(() => setStatus(""), 4000);
   }
@@ -55,7 +59,7 @@ export function ShareButton({ title, text, url, label, children }: ShareButtonPr
           {label}
         </button>
         <a className={styles.secondary} href={xHref} target="_blank" rel="noopener noreferrer">
-          Share on X
+          {t("share.x")}
         </a>
         {children}
       </div>

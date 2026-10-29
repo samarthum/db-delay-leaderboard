@@ -18,7 +18,7 @@
   font-weight: 700;
   font-size: 44px;
   letter-spacing: 0.12em;
-  color: var(--db-red-dark);
+  color: var(--amber);
 }
 
 .title {
@@ -44,8 +44,22 @@
   margin-top: 20px;
   padding: 0 20px;
   border-radius: 999px;
-  background: var(--db-red-dark);
-  color: #fff;
+  background: var(--amber);
+  color: #14110a;
   font-weight: 700;
   text-decoration: none;
+}
+
+.titleDe {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.rule {
+  margin: 28px 0 20px;
+  border: 0;
+  border-top: 1px solid var(--line);
 }

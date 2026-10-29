@@ -54,6 +54,6 @@
 }
 
 .tab:focus-visible {
-  outline: 3px solid var(--ink);
+  outline: 3px solid var(--amber);
   outline-offset: -3px;
 }

@@ -23,26 +23,26 @@
   text-decoration: none;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .primary {
   border: 0;
-  background: var(--db-red);
-  color: #fff;
+  background: var(--amber);
+  color: #14110a;
 }
 
-.primary:hover {
-  background: var(--db-red-dark);
+.primary:active {
+  filter: brightness(0.92);
 }
 
 .secondary {
-  border: 2px solid var(--ink);
+  border: 1.5px solid var(--board-line);
   color: var(--ink);
 }
 
 .secondary:hover {
-  background: var(--ink);
-  color: #fff;
+  border-color: var(--ink-2);
 }
 
 .status {
