@@ -8,6 +8,8 @@
  *   data/stations.json       -> StationsFile
  *   data/trains/<slug>.json  -> UnitDetail   (long-distance trains in the top 25 of either ranking)
  *   data/lines/<slug>.json   -> UnitDetail   (regional lines in the top 25 of either ranking)
+ *   data/search/*.json       -> the train search index: index.json, s-<digits>.json shards, n-<type>.json
+ *                               (record layout in lib/searchCore.ts, written by search_units in compute.py)
  *
  * Units: delays in minutes, shares and percentages in percent (0-100), one decimal place
  * unless noted. Months are "YYYY-MM". Train slugs: "ICE 1541" -> "ice-1541". Line slugs add the
@@ -64,6 +66,14 @@ export interface Params {
   headlineMonths: number;
   topN: number;
   moreN: number;
+  /** Measured runs a train number, line or regional train number needs to be searchable. */
+  searchMinRuns: number;
+  /** Below this many measured runs a search result carries a "few runs" warning. */
+  searchFewRuns: number;
+  /** Measured runs a weekday needs for its average to be shown in a search result. */
+  searchMinWeekdayRuns: number;
+  /** A run counts as late from this many minutes. */
+  lateMinutes: number;
 }
 
 /** Four-number summary of a delay distribution. */
@@ -188,12 +198,33 @@ export interface Headline {
   categories: Record<Category, HeadlineStats>;
 }
 
+/** Whole-window counts for one category, for the recap card. */
+export interface RecapCategory {
+  runs: number;
+  /** Runs cancelled entirely. */
+  cancelled: number;
+  measured: number;
+  /** Measured runs that arrived `lateMinutes` or more late, and an hour or more late. */
+  lateRuns: number;
+  late60Runs: number;
+  latePct: number;
+  late60Pct: number;
+  cancelledPct: number;
+  avgDelayMin: number;
+}
+
+export interface Recap {
+  longDistance: RecapCategory;
+  regional: RecapCategory;
+}
+
 export interface Stats {
   generatedAt: string;
   window: WindowInfo;
   params: Params;
   headline: Headline;
   overall: Record<Category, Overall>;
+  recap: Recap;
   /**
    * Ranked lists per category. Each list has `moreN` entries (worst first); the first `topN` are
    * the headline top list. Details live in data/trains/ and data/lines/.

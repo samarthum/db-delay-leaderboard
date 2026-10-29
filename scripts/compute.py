@@ -20,6 +20,7 @@ import tempfile
 import time
 import unicodedata
 import urllib.request
+import zlib
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -47,6 +48,10 @@ PARAMS = {
     "headlineMonths": 3,
     "topN": 10,
     "moreN": 25,
+    "searchMinRuns": 20,
+    "searchFewRuns": 100,
+    "searchMinWeekdayRuns": 8,
+    "lateMinutes": 15,
 }
 # Long-distance trains are known by their number, regional trains by their line.
 CATEGORIES = {
@@ -548,6 +553,175 @@ def details(con, units, months, p):
     return result
 
 
+def short_hash(*parts):
+    """Four base-36 characters that tell apart units sharing a type and number (stable across runs)."""
+    n, out = zlib.crc32("|".join(str(x) for x in parts).encode()) % 36 ** 4, ""
+    for _ in range(4):
+        n, d = divmod(n, 36)
+        out = "0123456789abcdefghijklmnopqrstuvwxyz"[d] + out
+    return out
+
+
+# Search kinds: a long-distance train number, a regional line, a regional train number on a line.
+SEARCH_KINDS = [(0, "cat = 'longDistance'", "unit"),
+                (1, "cat = 'regional'", "unit"),
+                (2, "cat = 'regional'", "unit || '/' || num")]
+
+
+def search_units(con, p, page_slug):
+    """Every train number, regional line and regional train number with enough measured runs, as records.
+
+    page_slug maps a unit (or a train number merged into one) to the slug of its full page.
+    Record layout (positional, see lib/search.ts):
+      [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
+    """
+    in_clamp = f"delay between {p['clampMinMinutes']} and {p['clampMaxMinutes']}"
+    min_runs, min_wd, late = p["searchMinRuns"], p["searchMinWeekdayRuns"], p["lateMinutes"]
+    records = []
+    for kind, cond, grp in SEARCH_KINDS:
+        t0 = time.time()
+        stats = {s["grp"]: s for s in rows(con, f"""
+            select {grp} grp, any_value(unit) unit, any_value(tt) tt, any_value(num) num, any_value(line) line,
+              count(*) runs, count(*) filter (where valid) measured,
+              avg(delay) filter (where valid) avg_min,
+              100.0 * count(*) filter (where valid and delay >= {late}) / nullif(count(*) filter (where valid), 0) late,
+              100 * avg(all_canc::int) full_canc
+            from r where {cond} group by grp
+            having count(*) filter (where valid) >= {min_runs}""")}
+        weekday = {}
+        for w in rows(con, f"""
+            select {grp} grp, isodow(start_plan) - 1 wd, avg(delay) avg_min from r
+            where valid and {cond} group by grp, wd having count(*) >= {min_wd}"""):
+            weekday.setdefault(w["grp"], [None] * 7)[w["wd"]] = rnd(w["avg_min"])
+        worst = {w["grp"]: w for w in rows(con, f"""
+            select grp, delay, date, first_eva, last_eva, origin, dest from (
+              select {grp} grp, delay, start_plan::date::varchar date, first_eva, last_eva, origin, dest,
+                row_number() over (partition by {grp} order by delay desc, start_plan, run) rn
+              from r where valid and {cond}) where rn = 1""") if w["grp"] in stats}
+        if kind == 0:
+            routes = {x["grp"]: (x["origin"], x["dest"]) for x in rows(con, f"""
+                select o.unit grp, o.origin, d.dest from
+                  (select unit, origin, row_number() over (partition by unit order by count(*) desc, origin) rn
+                   from r where cat = 'longDistance' and origin is not null group by unit, origin) o
+                  join
+                  (select unit, dest, row_number() over (partition by unit order by count(*) desc, dest) rn
+                   from r where cat = 'longDistance' and dest is not null group by unit, dest) d
+                  on o.unit = d.unit and o.rn = 1 and d.rn = 1""")}
+        else:
+            # The most common pair of end stations, in the direction it ran more often.
+            routes = {x["grp"]: (x["o"], x["d"]) for x in rows(con, f"""
+                select grp, o.name o, d.name d from (
+                  select grp, case when n_ab * 2 >= n then a else b end o_eva, case when n_ab * 2 >= n then b else a end d_eva
+                  from (
+                    select {grp} grp, least(first_eva, last_eva) a, greatest(first_eva, last_eva) b, count(*) n,
+                      count(*) filter (where first_eva <= last_eva) n_ab,
+                      row_number() over (partition by {grp} order by count(*) desc, a, b) rn
+                    from r where {cond} and first_eva is not null group by grp, a, b)
+                  where rn = 1) x
+                join st o on o.eva = x.o_eva join st d on d.eva = x.d_eva""")}
+        names = {}
+        if kind != 0:
+            names = {e["eva"]: e["name"] for e in rows(con, "select eva, name from st")}
+        kind_records = []
+        for g, s in stats.items():
+            o, d = routes.get(g, (None, None))
+            if o is None or d is None:
+                continue
+            w = worst[g]
+            w_o = w["origin"] if kind == 0 else names.get(w["first_eva"])
+            w_d = w["dest"] if kind == 0 else names.get(w["last_eva"])
+            wr = [w["date"], w["delay"]] + ([w_o, w_d] if (w_o, w_d) != (o, d) and w_o and w_d else [])
+            if kind == 0:
+                typ, num, h = s["tt"], s["num"], None
+            elif kind == 1:
+                typ, num = s["line"].split(" ", 1)[0], s["line"].split(" ", 1)[1]
+                h = short_hash(s["line"], o, d)
+            else:
+                typ, num, h = s["line"].split(" ", 1)[0], s["num"], short_hash(s["line"], s["num"], o, d)
+            kind_records.append({"kind": kind, "unit": s["unit"], "group": g, "type": typ, "num": num, "hash": h,
+                                 "line": s["line"] if kind == 2 else None,
+                                 "rec": [typ, num, kind, s["runs"], s["measured"], rnd(s["avg_min"]), rnd(s["late"]),
+                                         rnd(s["full_canc"]), weekday.get(g, [None] * 7), o, d, wr]})
+        log(f"search kind {kind}: {len(kind_records)} of {len(stats)} units with >= {min_runs} measured runs in {time.time() - t0:.1f}s")
+        records += kind_records
+
+    # The raw destination column spells some stations differently ("Frankfurt(Main)Hbf"): use the commonest spelling.
+    def key(name):
+        return re.sub(r"[^a-z0-9]", "", name.lower())
+
+    seen = {}
+    for r_ in records:
+        if r_["kind"] == 0:
+            for name in [r_["rec"][9], r_["rec"][10]] + r_["rec"][11][2:]:
+                seen.setdefault(key(name), {}).setdefault(name, 0)
+                seen[key(name)][name] += 1
+    best = {k: max(v.items(), key=lambda kv: (kv[1], kv[0]))[0] for k, v in seen.items()}
+    for r_ in records:
+        if r_["kind"] == 0:
+            rec = r_["rec"]
+            rec[9], rec[10] = best[key(rec[9])], best[key(rec[10])]
+            if len(rec[11]) > 2:
+                wo, wd = best[key(rec[11][2])], best[key(rec[11][3])]
+                rec[11] = rec[11][:2] + ([wo, wd] if (wo, wd) != (rec[9], rec[10]) else [])
+
+    # A train number's page: the unit's own slug, or the slug of the train it was merged into.
+    line_hash = {r_["unit"]: r_["hash"] for r_ in records if r_["kind"] == 1}
+    for r_ in records:
+        rec = r_["rec"]
+        rec += [page_slug.get(r_["unit"]) if r_["kind"] != 2 else None, r_["hash"],
+                line_hash.get(r_["unit"]) if r_["kind"] == 2 else None, r_["line"]]
+        while rec[-1] is None:
+            rec.pop()
+    return records
+
+
+def search_shards(records):
+    """Group records into shards keyed by the first two leading digits of the number."""
+    shards = {}
+    for r_ in records:
+        digits = re.match(r"\d*", r_["num"]).group(0)
+        shards.setdefault(digits[:2] or "_", []).append(r_)
+    for key in shards:
+        shards[key].sort(key=lambda x: (x["type"], x["num"].zfill(8), x["kind"], x["hash"] or ""))
+    return shards
+
+
+def search_files(records, window, p):
+    """Files for data/search/: index.json, n-<type>.json (all numbers of a type, for typo suggestions), s-<key>.json."""
+    shards = search_shards(records)
+    nums = {}
+    for r_ in records:
+        nums.setdefault(r_["type"], set()).add(r_["num"])
+    index = {"window": {k: window[k] for k in ("firstMonth", "lastMonth", "monthCount")},
+             "params": {k: p[k] for k in ("searchMinRuns", "searchFewRuns", "searchMinWeekdayRuns", "lateMinutes")},
+             "counts": {k: sum(1 for r_ in records if r_["kind"] == i) for i, k in enumerate(("train", "line", "regionalTrain"))},
+             "shards": {k: len(v) for k, v in sorted(shards.items())}}
+    index["types"] = {t: "longDistance" if any(r_["kind"] == 0 and r_["type"] == t for r_ in records) else "regional"
+                      for t in sorted(nums)}
+    files = {"index.json": index}
+    for t, ns in sorted(nums.items()):
+        files[f"n-{t}.json"] = {"nums": ",".join(sorted(ns, key=lambda n: (len(n), n)))}
+    for key, recs in shards.items():
+        files[f"s-{key}.json"] = [r_["rec"] for r_ in recs]
+    return files
+
+
+def recap_stats(con, p):
+    """Numbers for the yearly recap card: whole-window shares and counts per category."""
+    late = p["lateMinutes"]
+    out = {}
+    for c in rows(con, f"""
+        select cat, count(*) runs, count(*) filter (where all_canc) cancelled, count(*) filter (where valid) measured,
+          count(*) filter (where valid and delay >= {late}) late, count(*) filter (where valid and delay >= 60) late60,
+          avg(delay) filter (where valid) avg_min
+        from r group by cat"""):
+        out[c["cat"]] = {"runs": c["runs"], "cancelled": c["cancelled"], "measured": c["measured"],
+                         "lateRuns": c["late"], "late60Runs": c["late60"],
+                         "latePct": rnd(100 * c["late"] / c["measured"]), "late60Pct": rnd(100 * c["late60"] / c["measured"]),
+                         "cancelledPct": rnd(100 * c["cancelled"] / c["runs"]), "avgDelayMin": rnd(c["avg_min"])}
+    return out
+
+
 def station_stats(con, p):
     return [{"name": s["name"], "lat": rnd(s["lat"], 4), "lon": rnd(s["lon"], 4), "n": s["n"], "avg": rnd(s["avg"])}
             for s in rows(con, f"""
@@ -566,7 +740,8 @@ def write_if_changed(path, payload, generated_at=None):
     """Rewrite only when the content (ignoring generatedAt) changed, so reruns leave git clean."""
     try:
         old = json.loads(path.read_text(encoding="utf-8"))
-        old.pop("generatedAt", None)
+        if isinstance(old, dict):
+            old.pop("generatedAt", None)
         if encode(old) == encode(payload):
             return False
     except (OSError, ValueError, AttributeError):
@@ -631,9 +806,16 @@ def compute(args):
     build_detail_stops(con, sources, p)
     det = details(con, units, months, p)
 
+    page_slug = {}
+    for u, (t, s) in summaries.items():
+        page_slug[u] = s["slug"]
+        for alias in t["aliases"]:
+            page_slug[alias] = s["slug"]
+    search = search_files(search_units(con, p, page_slug), window, p)
+
     overall, series = overall_and_monthly(con, months, pool_sizes)
     stats = {"window": window, "params": p, "headline": headline(con, months, p), "overall": overall,
-             "rankings": rankings}
+             "recap": recap_stats(con, p), "rankings": rankings}
     monthly = {"window": window, "series": series}
     stations = {"stations": station_stats(con, p)}
 
@@ -656,6 +838,14 @@ def compute(args):
             if stale.stem not in slugs:
                 stale.unlink()
                 changed.append(f"{folder}/{stale.name} (deleted)")
+    (out_dir / "search").mkdir(parents=True, exist_ok=True)
+    for name, doc in search.items():
+        if write_if_changed(out_dir / "search" / name, doc, generated_at if name == "index.json" else None):
+            changed.append(f"search/{name}")
+    for stale in sorted((out_dir / "search").glob("*.json")):
+        if stale.name not in search:
+            stale.unlink()
+            changed.append(f"search/{stale.name} (deleted)")
     log(f"{len(units)} detail files; changed: {len(changed)} files")
 
 
