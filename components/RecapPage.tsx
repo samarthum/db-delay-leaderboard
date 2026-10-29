@@ -71,7 +71,7 @@ export function RecapPage({ stats }: { stats: Stats }) {
           </figure>
           <figure className={styles.figure}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={tall} width={1080} height={1920} alt={`Tall recap card for ${span}`} className={styles.imgTall} />
+            <img src={tall} width={1080} height={1920} alt={`Tall recap card for ${span}`} className={styles.imgTall} loading="lazy" />
             <figcaption>
               <a href={tall} download="german-punctuality-recap-tall.png">
                 Download tall (1080 × 1920)

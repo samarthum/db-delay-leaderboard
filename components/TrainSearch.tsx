@@ -246,7 +246,7 @@ function Answer({
         <p className={styles.message}>Search by train number, like ICE 1541, RE 19 or just 1541.</p>
       ) : (
         <p className={styles.message}>
-          The list has long-distance trains, regional lines and regional trains with at least {min} measured trips between{" "}
+          The list has long-distance trains, regional lines and regional trains with at least {min} measured trips from{" "}
           {span}. Night trains, S-Bahn and buses are left out.
         </p>
       )}
