@@ -7,6 +7,7 @@
 .inner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   min-height: 48px;
 }
 
@@ -36,4 +37,15 @@
   .brand {
     font-size: 19px;
   }
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 4px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

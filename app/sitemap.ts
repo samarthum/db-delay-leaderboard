@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const categories: Category[] = ["longDistance", "regional"];
   return [
     { url: absoluteUrl("/"), lastModified },
+    { url: absoluteUrl("/recap/"), lastModified },
     ...categories.flatMap((category) =>
       getUnitSlugs(category).map((slug) => ({ url: absoluteUrl(unitHref({ category, slug })), lastModified })),
     ),

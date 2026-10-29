@@ -52,7 +52,7 @@ function h(type, props, ...children) {
   };
 }
 
-function frame(eyebrowText, main) {
+function frame(eyebrowText, main, W = 1200, H = 630) {
   return h(
     "div",
     {
@@ -355,6 +355,125 @@ function homeCard(stats) {
   );
 }
 
+
+// ---------------------------------------------------------------- recap
+
+const fmt1 = (n) => n.toFixed(1);
+const fmtInt = (n) => Math.round(n).toLocaleString("en-US");
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://db-delay-leaderboard.vercel.app").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+
+/** The recap's numbers, all from stats.json (compute.py writes them). */
+function recapFacts(stats) {
+  const ld = stats.recap.longDistance;
+  const reg = stats.recap.regional;
+  const worst = stats.rankings.longDistance.minutes[0];
+  return {
+    span: `${monthLabel(stats.window.firstMonth)} – ${monthLabel(stats.window.lastMonth)}`,
+    ld,
+    reg,
+    worst,
+    stats: [
+      { value: fmt1(ld.avgDelayMin), unit: "min", label: "late on average at the last stop" },
+      { value: `${fmt1(ld.latePct)}%`, unit: "", label: "arrive 15 minutes or more late" },
+      { value: `${fmt1(ld.late60Pct)}%`, unit: "", label: "arrive an hour or more late" },
+      { value: `${fmt1(ld.cancelledPct)}%`, unit: "", label: "are cancelled" },
+    ],
+  };
+}
+
+function recapStat(s, big, gap) {
+  return h(
+    "div",
+    { style: { display: "flex", flexDirection: "column", marginBottom: gap } },
+    h(
+      "div",
+      { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, lineHeight: 1, color: C.red, fontSize: big } },
+      s.value,
+      s.unit && h("div", { style: { display: "flex", fontSize: Math.round(big * 0.45), marginLeft: 10, color: C.ink } }, s.unit),
+    ),
+    h("div", { style: { display: "flex", fontSize: Math.round(big * 0.3), fontWeight: 600, color: C.muted, marginTop: 4 } }, s.label),
+  );
+}
+
+function recapWide(f) {
+  const tile = (s, i) =>
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          width: 270,
+          height: 168,
+          padding: "20px 22px",
+          marginLeft: i % 2 === 0 ? 0 : 16,
+          background: C.card,
+          border: `2px solid ${C.boardLine}`,
+          borderRadius: 18,
+        },
+      },
+      h(
+        "div",
+        { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, fontSize: 72, lineHeight: 1, color: C.red } },
+        s.value,
+        s.unit && h("div", { style: { display: "flex", fontSize: 30, marginLeft: 8, color: C.ink } }, s.unit),
+      ),
+      h("div", { style: { display: "flex", fontSize: 22, fontWeight: 600, lineHeight: 1.2, marginTop: 8, color: C.muted } }, s.label),
+    );
+  const row = (items, first) =>
+    h("div", { style: { display: "flex", marginTop: first ? 0 : 16 } }, items.map((s, i) => tile(s, i)));
+  return frame(
+    `Deutsche Bahn · ${f.span}`,
+    [
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", width: 440 } },
+        h(
+          "div",
+          { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 64, lineHeight: 0.98, textTransform: "uppercase" } },
+          "Long-distance trains in Germany",
+        ),
+        h(
+          "div",
+          { style: { display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1.25, marginTop: 18, color: C.muted } },
+          `${fmtInt(f.ld.measured)} trips measured.`,
+        ),
+        h(
+          "div",
+          { style: { display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1.25, marginTop: 4, color: C.muted } },
+          `Regional trains: ${fmt1(f.reg.avgDelayMin)} min late on average.`,
+        ),
+      ),
+      h("div", { style: { display: "flex", flexDirection: "column" } }, row(f.stats.slice(0, 2), true), row(f.stats.slice(2, 4), false)),
+    ],
+  );
+}
+
+function recapTall(f) {
+  return frame(
+    `Deutsche Bahn · ${f.span}`,
+    h(
+      "div",
+      { style: { display: "flex", flexDirection: "column", width: "100%" } },
+      h(
+        "div",
+        { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 116, lineHeight: 0.95, textTransform: "uppercase", marginBottom: 14 } },
+        "Long-distance trains in Germany",
+      ),
+      h("div", { style: { display: "flex", fontSize: 36, fontWeight: 600, color: C.muted, marginBottom: 56 } }, `${fmtInt(f.ld.measured)} trips measured, delay at the last stop`),
+      f.stats.map((s) => recapStat(s, 170, 40)),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", borderTop: `2px solid ${C.line}`, paddingTop: 26, marginTop: 6 } },
+        h("div", { style: { display: "flex", fontSize: 34, fontWeight: 600, color: C.ink } }, `Regional trains: ${fmt1(f.reg.avgDelayMin)} min late on average,`),
+        h("div", { style: { display: "flex", fontSize: 34, fontWeight: 600, color: C.ink, marginTop: 2 } }, `${fmt1(f.reg.latePct)}% 15 min or more late.`),
+      ),
+    ),
+    1080,
+    1920,
+  );
+}
+
 const KIND = { longDistance: "Long-distance train", regional: "Regional line" };
 
 function unitCard(t, span) {
@@ -409,9 +528,9 @@ async function loadFonts() {
   );
 }
 
-async function render(node, fonts, file) {
-  const svg = await satori(node, { width: W, height: H, fonts });
-  const png = new Resvg(svg, { fitTo: { mode: "width", value: W }, font: { loadSystemFonts: false } })
+async function render(node, fonts, file, w = W, h = H) {
+  const svg = await satori(node, { width: w, height: h, fonts });
+  const png = new Resvg(svg, { fitTo: { mode: "width", value: w }, font: { loadSystemFonts: false } })
     .render()
     .asPng();
   await fs.writeFile(file, png);
@@ -434,6 +553,12 @@ async function main() {
   await fs.mkdir(dir, { recursive: true });
 
   const jobs = [["home", homeCard(stats)], ...units.map((t) => [t.slug, unitCard(t, span)])];
+  const facts = recapFacts(stats);
+  const sized = [
+    ["recap", recapWide(facts), W, H],
+    ["recap-tall", recapTall(facts), 1080, 1920],
+  ];
+  for (const [name, node, w, hh] of sized) await render(node, fonts, path.join(dir, `${name}.png`), w, hh);
   for (const [name, node] of jobs) {
     try {
       await render(node, fonts, path.join(dir, `${name}.png`));
@@ -449,7 +574,7 @@ async function main() {
   }
 
   const ms = Math.round(performance.now() - started);
-  console.log(`og: ${jobs.length} images -> public/og/${lastMonth}/ in ${ms} ms`);
+  console.log(`og: ${jobs.length + sized.length} images -> public/og/${lastMonth}/ in ${ms} ms`);
 }
 
 main().catch((e) => {

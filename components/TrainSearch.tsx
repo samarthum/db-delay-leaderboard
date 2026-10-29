@@ -105,7 +105,7 @@ export function TrainSearch() {
         </p>
         <p className={styles.sub}>
           Type the number of the train you are taking, like ICE 1541, or a regional line like RE 19. You get its record
-          from the last {SEARCH_INDEX.window.monthCount} months.
+          for {span} ({SEARCH_INDEX.window.monthCount} months).
         </p>
         <form className={styles.form} role="search" onSubmit={submit}>
           <label htmlFor="train-q" className="visually-hidden">

@@ -92,3 +92,20 @@ export function unitMetadata(t: UnitSummary): Metadata {
     imageAlt: `${t.name}, ${routeOf(t)}: ${fmtMin(t.minutes.avg)} minutes late on average, ${fmtPct(t.percent.avg)} of the trip time.`,
   });
 }
+
+export function recapMetadata(): Metadata {
+  const { recap, window: w } = getStats();
+  const ld = recap.longDistance;
+  const span = `${monthLabel(w.firstMonth)} to ${monthLabel(w.lastMonth)}`;
+  const title = `Long-distance trains in Germany, ${span}`;
+  return pageMetadata({
+    title,
+    socialTitle: title,
+    description:
+      `The average long-distance train arrived ${fmt1(ld.avgDelayMin)} minutes late. ${fmt1(ld.latePct)}% were 15 minutes or more late, ` +
+      `${fmt1(ld.late60Pct)}% an hour or more, ${fmt1(ld.cancelledPct)}% cancelled. ${fmtInt(ld.measured)} trips, ${span}.`,
+    path: "/recap/",
+    image: "recap",
+    imageAlt: `Long-distance trains in Germany, ${span}: ${fmt1(ld.avgDelayMin)} minutes late on average, ${fmt1(ld.latePct)}% 15 minutes or more late.`,
+  });
+}
