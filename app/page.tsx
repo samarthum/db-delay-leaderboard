@@ -1,4 +1,4 @@
-import { getMonthly, getStats } from "@/lib/data";
+import { getMonthly, getStations, getStats } from "@/lib/data";
 import { homeMetadata } from "@/lib/seo";
 import { RankingProvider } from "@/components/Ranking";
 import { TopBar } from "@/components/TopBar";
@@ -7,6 +7,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { MonthlyChart } from "@/components/MonthlyChart";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Methodology } from "@/components/Methodology";
+import { StationMap } from "@/components/StationMap";
 import { Footer } from "@/components/Footer";
 
 export const metadata = homeMetadata();
@@ -28,6 +29,7 @@ export default function Home() {
         <RankingProvider>
           <Leaderboard stats={stats} />
         </RankingProvider>
+        <StationMap stations={getStations().stations} params={stats.params} window={stats.window} />
         <Methodology stats={stats} />
       </main>
       <Footer generatedAt={stats.generatedAt} />

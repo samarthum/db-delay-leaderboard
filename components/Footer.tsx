@@ -16,8 +16,7 @@ export function Footer({ generatedAt }: { generatedAt: string }) {
             (ODbL)
           </li>
           <li>
-            Map: <a href="https://openfreemap.org">OpenFreeMap</a>, © OpenMapTiles, data ©{" "}
-            <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>
+            Map outline: <a href="https://www.naturalearthdata.com">Natural Earth</a> (public domain)
           </li>
           <li>Not affiliated with Deutsche Bahn.</li>
           <li>

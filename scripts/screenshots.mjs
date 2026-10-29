@@ -1,14 +1,16 @@
-// Serves out/ and writes the review screenshots. Usage: node scripts/screenshots.mjs [outDir] [trainSlug]
+// Serves out/ and writes the review screenshots. Usage: node scripts/screenshots.mjs [outDir] [trainSlug] [lineSlug]
 import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve("out");
 const shotsDir = path.resolve(process.argv[2] ?? "shots");
-const train = process.argv[3] ?? "nj-40490";
-const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain", ".xml": "application/xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
+const stats = JSON.parse(readFileSync(path.resolve("data/stats.json"), "utf8"));
+const train = process.argv[3] ?? stats.rankings.longDistance.minutes[0].slug;
+const line = process.argv[4] ?? stats.rankings.regional.minutes[0].slug;
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain", ".xml": "application/xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
 
 const server = createServer(async (req, res) => {
   let p = path.join(root, decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -25,31 +27,18 @@ await new Promise((r) => server.listen(0, r));
 const base = `http://localhost:${server.address().port}`;
 await mkdir(shotsDir, { recursive: true });
 
-const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+const browser = await chromium.launch();
 
 async function settle(page) {
   await page.waitForLoadState("networkidle");
   await page.evaluate(async () => {
     for (let y = 0; y < document.body.scrollHeight; y += 300) {
       window.scrollTo(0, y);
-      await new Promise((r) => setTimeout(r, 220));
+      await new Promise((r) => setTimeout(r, 120));
     }
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: "instant" });
   });
-  await page.waitForTimeout(1500);
-}
-
-async function percentMode(page) {
-  await page.locator('[role="tab"]:has-text("%"), [role="radio"]:has-text("%")').first().click();
-  await page.waitForTimeout(900);
-}
-
-async function mapShot(page, file) {
-  await page.locator("#map").scrollIntoViewIfNeeded();
-  await page.evaluate(() => document.querySelector("#map").scrollIntoView({ block: "start" }));
-  await page.waitForSelector('[data-ready="true"]', { timeout: 30000 }).catch(() => console.warn("map never reported ready"));
-  await page.waitForTimeout(2500);
-  await page.locator("#map").screenshot({ path: path.join(shotsDir, file) });
+  await page.waitForTimeout(800);
 }
 
 // isMobile stays off: mobile emulation widens the layout viewport to fit overflowing content and hides the overflow.
@@ -57,6 +46,7 @@ function overflowReport(page) {
   return page.evaluate(() => {
     const w = window.innerWidth;
     const wide = [...document.querySelectorAll("body *")]
+      .filter((el) => !el.closest(".visually-hidden"))
       .map((el) => ({ el, r: el.getBoundingClientRect() }))
       .filter(({ r }) => r.width > 0 && r.right > w + 1)
       .sort((a, b) => b.r.right - a.r.right)
@@ -70,31 +60,27 @@ for (const [label, viewport, dsf] of [["mobile", { width: 390, height: 844 }, 2]
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: dsf, hasTouch: label === "mobile" });
   const page = await ctx.newPage();
   const overflow = [];
-  // Full-page captures above ~16k device px tile and repeat, so they are taken at 1x.
-  const full = async (file) => {
-    await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await page.screenshot({ path: path.join(shotsDir, file), fullPage: true, scale: "css" });
-  };
+  const shot = (file, opts = {}) => page.screenshot({ path: path.join(shotsDir, file), scale: "css", ...opts });
+
   await page.goto(`${base}/`);
   await settle(page);
   overflow.push(["home", await overflowReport(page)]);
-  // The map goes first: a full-page capture stalls the software renderer past the map's load timeout.
-  await mapShot(page, `${label}-map.png`);
-  if (label === "mobile") {
-    await page.locator("#leaderboard").screenshot({ path: path.join(shotsDir, "mobile-leaderboard.png") });
-    await page.locator("#monthly").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(2500);
-    await page.locator("#monthly").screenshot({ path: path.join(shotsDir, "mobile-monthly.png") });
+  await shot(`${label}-home-top.png`);
+  await shot(`${label}-home-full.png`, { fullPage: true });
+  await page.locator("#map").screenshot({ path: path.join(shotsDir, `${label}-map.png`), scale: "css" });
+  await page.locator('[role="tab"]:has-text("Regional")').last().click();
+  await page.waitForTimeout(500);
+  await page.locator("#leaderboard").screenshot({ path: path.join(shotsDir, `${label}-leaderboard-regional.png`), scale: "css" });
+  await page.locator('[role="tab"]:has-text("%")').click();
+  await page.waitForTimeout(500);
+  await page.locator("#leaderboard").screenshot({ path: path.join(shotsDir, `${label}-leaderboard-regional-percent.png`), scale: "css" });
+
+  for (const [name, href] of [["train", `/train/${train}/`], ["line", `/line/${line}/`]]) {
+    await page.goto(`${base}${href}`);
+    await settle(page);
+    overflow.push([name, await overflowReport(page)]);
+    await shot(`${label}-${name}.png`, { fullPage: true });
   }
-  await full(`${label}-home-full.png`);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await percentMode(page);
-  await full(`${label}-home-percent.png`);
-  if (label === "mobile") await page.locator("#leaderboard").screenshot({ path: path.join(shotsDir, "mobile-leaderboard-percent.png") });
-  await page.goto(`${base}/train/${train}/`);
-  await settle(page);
-  overflow.push(["train", await overflowReport(page)]);
-  await full(`${label}-train.png`);
   console.log(label, "horizontal overflow:", JSON.stringify(overflow));
   await ctx.close();
 }

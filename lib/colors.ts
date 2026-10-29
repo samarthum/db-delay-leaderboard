@@ -20,6 +20,26 @@ export const DELAY_SCALE: readonly DelayBucket[] = [
   { from: 50, color: "#8E0010", on: "#FFFFFF", label: "50+ min" },
 ] as const;
 
+/**
+ * Station map scale: one heat ramp, light to dark, on a station's average arrival delay.
+ * Stations average far less than single trains, so the steps are tighter than DELAY_SCALE.
+ */
+export const STATION_SCALE: readonly { from: number; color: string; label: string }[] = [
+  { from: -Infinity, color: "#fed976", label: "under 2" },
+  { from: 2, color: "#feb24c", label: "2 to 4" },
+  { from: 4, color: "#fd8d3c", label: "4 to 6" },
+  { from: 6, color: "#e31a1c", label: "6 to 8" },
+  { from: 8, color: "#99000d", label: "8+ min" },
+] as const;
+
+export function stationBucket(avgMinutes: number): number {
+  let hit = 0;
+  STATION_SCALE.forEach((b, i) => {
+    if (avgMinutes >= b.from) hit = i;
+  });
+  return hit;
+}
+
 export function delayBucket(avgMinutes: number): DelayBucket {
   let hit = DELAY_SCALE[0];
   for (const b of DELAY_SCALE) if (avgMinutes >= b.from) hit = b;

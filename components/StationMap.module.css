@@ -1,0 +1,155 @@
+.layout {
+  display: grid;
+  gap: 20px;
+  margin-top: 18px;
+}
+
+.card {
+  padding: 12px 12px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 78vh;
+}
+
+.land {
+  fill: #eceef1;
+  stroke: #c4c8cf;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.dots,
+.bigDots {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.dots {
+  stroke-width: 4.5px;
+}
+
+.bigDots {
+  stroke-width: 7px;
+}
+
+.city {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 24px;
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+
+.legend {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.legendTitle {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.keys li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.swatch,
+.bigSwatch {
+  display: inline-block;
+  border-radius: 50%;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+}
+
+.bigSwatch {
+  width: 13px;
+  height: 13px;
+  background: var(--muted);
+}
+
+.listTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  text-transform: uppercase;
+}
+
+.list {
+  display: grid;
+  margin-top: 8px;
+  counter-reset: rank;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.count {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.note,
+.credit {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 620px) minmax(260px, 340px);
+    align-items: start;
+    gap: 40px;
+  }
+  .card {
+    padding: 18px 20px 16px;
+  }
+  .city {
+    font-size: 20px;
+  }
+}
