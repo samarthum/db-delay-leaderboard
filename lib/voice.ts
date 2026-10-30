@@ -17,7 +17,7 @@ export interface VoiceEvents {
   onError(e: VoiceError): void;
 }
 
-const TOKEN_URL = "/api/scribe-token";
+const TOKEN_URL = "/api/scribe-token/"; // trailing slash: the site uses trailingSlash, and the slashless address answers 308
 const WS_URL = "wss://api.elevenlabs.io/v1/speech-to-text/realtime";
 const SILENCE_SECS = 1.1; // how long a pause ends the sentence
 const NO_SPEECH_MS = 9000; // nothing recognised after this long: give up
