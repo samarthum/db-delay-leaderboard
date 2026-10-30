@@ -7,7 +7,7 @@ import { lineKey, unitName, weekdayExtremes, type SearchUnit } from "@/lib/searc
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtShare1, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
-import { absoluteUrl, unitHref } from "@/lib/site";
+import { absoluteUrl, portraitPath, unitHref } from "@/lib/site";
 import { Arrow } from "../Arrow";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
@@ -176,7 +176,7 @@ export function SearchResult({
       <Weekdays unit={unit} lang={lang} />
 
       <div className="actions">
-        <ShareButton lang={lang} title={`${name} · German Punctuality`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")} />
+        <ShareButton lang={lang} title={`${name} · German Punctuality`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")} image={unit.slug ? portraitPath(win.lastMonth, unit.slug, lang) : line?.slug ? portraitPath(win.lastMonth, line.slug, lang) : undefined} filename={unit.slug ?? line?.slug ?? "german-punctuality"} />
         {fullHref ? (
           <Link className="tl" href={fullHref} prefetch={false}>
             {unit.kind === 0 ? t("res.fullTrain") : t("res.fullLine")} <Arrow />

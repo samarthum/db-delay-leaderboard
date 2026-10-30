@@ -25,6 +25,11 @@ export function ogImagePath(lastMonth: string, name: string, lang: Lang = "en"):
   return lang === "de" ? `/og/${lastMonth}/de/${name}.png` : `/og/${lastMonth}/${name}.png`;
 }
 
+/** The picture that goes out when someone shares: portrait 1080x1350 (phone feeds, X, Instagram). The wide 1200x630 one is only the link preview. */
+export function portraitPath(lastMonth: string, slug: string, lang: Lang = "en"): string {
+  return ogImagePath(lastMonth, `${slug}-portrait`, lang);
+}
+
 /** Route pictures are built at deploy time too: public/og/routes/<lastMonth>/[de/]<name>.png (wide) and <name>-portrait.png. */
 export function routeImagePath(lastMonth: string, name: string, lang: Lang = "en"): string {
   return `/og/routes/${lastMonth}/${lang === "de" ? "de/" : ""}${name}.png`;

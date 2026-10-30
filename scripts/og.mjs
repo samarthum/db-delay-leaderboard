@@ -78,6 +78,14 @@ function lateColor(pct) {
   return C.late;
 }
 
+/** Average minutes late: same steps as the site's DELAY_SCALE. */
+function delayColor(min) {
+  if (min < 5) return C.safe;
+  if (min < 15) return C.fair;
+  if (min < 30) return C.warn;
+  return C.late;
+}
+
 function h(type, props, ...children) {
   const kids = children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false);
   return { type, props: { ...props, children: kids.length === 0 ? undefined : kids.length === 1 ? kids[0] : kids } };
@@ -299,6 +307,47 @@ function unitCard(u, late, span, t, lang) {
   );
 }
 
+/** Portrait card for a train or a regional line: the same skeleton as a route card (name, answer, then what is behind it). */
+function unitPortrait(u, late, span, t, lang) {
+  const kind = u.category === "longDistance" ? t("res.kind.0") : t("res.kind.1");
+  const kindLine = u.rank.minutes != null && u.category === "longDistance" ? t("unit.rankLine", { kind, n: u.rank.minutes }) : kind;
+  const regional = u.category === "regional";
+  const min = t("unit.min");
+  const stops = u.stops ?? [];
+  const chart = stops.length >= 3 ? curveChart(stops.map((x) => [cardName(x.name), x.avgDelay]), 952, 180, { color: delayColor, ymax: (top) => Math.max(20, Math.ceil((top * 1.15) / 10) * 10) }) : null;
+  const pts = chart ? stops : [];
+  const bottom = chart
+    ? [
+        d({ justifyContent: "space-between", fontSize: 24, fontWeight: 600, color: C.ink2, marginBottom: 8 }, d({}, t("unit.stops.cap", { extra: "" }).replace(/\.$/, "")), d({}, t("route.card.scale", { pct: `${chart.ymax} ${min}` }))),
+        chart.svg,
+        d({ justifyContent: "space-between", fontSize: 26, fontWeight: 600, marginTop: 6 }, d({}, clip(cardName(pts[0].name), 26)), d({}, clip(cardName(pts[pts.length - 1].name), 26))),
+      ]
+    : d(
+        { flexDirection: "column", borderTop: `3px solid ${C.ink}` },
+        factRow(`${fmt1(u.minutes.avg, lang)} ${min}`, t("unit.avgTile"), 34),
+        factRow(fmtShare1(u.fullCancelPct, lang), t("unit.cancTile"), 34),
+        u.worstRun ? factRow(`${fmtInt(u.worstRun.delayMin, lang)} ${min}`, t("unit.worst"), 34) : null,
+      );
+  return sheet(
+    1080,
+    1350,
+    [56, 64, 44],
+    span,
+    t,
+    d({ fontSize: 28, fontWeight: 600, color: C.ink2, marginTop: 34 }, kindLine),
+    d({ marginTop: 6 }, trainName(u.name, 952, 190)),
+    d(
+      { flexWrap: "wrap", alignItems: "center", fontSize: 38, fontWeight: 500, lineHeight: 1.2, marginTop: 14, color: C.ink2 },
+      d({ marginRight: 12 }, clip(cardName(u.origin), 30)),
+      d({ marginRight: 12, alignItems: "center" }, arrow(34, C.ink2, regional)),
+      d({}, clip(cardName(u.dest), 30)),
+    ),
+    d({ fontSize: 26, color: C.muted, marginTop: 14 }, t("res.exact", { pct: fmtShare1(late, lang), n: fmtInt(u.measured, lang) })),
+    d({ marginTop: 30 }, figure(late, u.late6Pct, t("res.figure"), t, lang, { ...TALL_FIG, big: 290, sentence: 40, barsTop: 30 })),
+    d({ flexDirection: "column", flexGrow: 1, justifyContent: "flex-end", marginBottom: 18 }, bottom),
+  );
+}
+
 function recapFacts(stats, t, lang) {
   return { span: spanLabel(stats.window.firstMonth, stats.window.lastMonth, lang), ld: stats.recap.longDistance, reg: stats.recap.regional };
 }
@@ -361,17 +410,18 @@ function recapTall(f, t, lang) {
 // ---------------------------------------------------------------- route cards
 
 /** Late share stop by stop: one ink line, a dot per stop coloured by its share. Returns the svg and its scale. */
-function curveChart(points, w, hh) {
+function curveChart(points, w, hh, o = {}) {
   const vals = points.map((p) => p[1]);
   const top = Math.max(...vals);
-  const ymax = Math.min(100, Math.max(40, Math.ceil((top * 1.18) / 10) * 10));
+  const color = o.color ?? lateColor;
+  const ymax = o.ymax ? o.ymax(top) : Math.min(100, Math.max(40, Math.ceil((top * 1.18) / 10) * 10));
   const padX = 20;
   const padY = 20;
   const x = (i) => padX + (i * (w - 2 * padX)) / (points.length - 1);
   const y = (v) => hh - padY - (v / ymax) * (hh - 2 * padY);
   const grid = [0, 0.5, 1].map((f) => h("path", { d: `M${padX} ${y(ymax * f)}H${w - padX}`, stroke: C.rule, strokeWidth: 2, strokeDasharray: f === 0 ? undefined : "6 8" }));
   const line = h("path", { d: points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)} ${y(p[1])}`).join(" "), stroke: C.ink, strokeWidth: 5, fill: "none", strokeLinejoin: "round" });
-  const dots = points.map((p, i) => h("circle", { cx: x(i), cy: y(p[1]), r: i === points.length - 1 ? 12 : 8, fill: lateColor(p[1]), stroke: C.paper, strokeWidth: 3 }));
+  const dots = points.map((p, i) => h("circle", { cx: x(i), cy: y(p[1]), r: i === points.length - 1 ? 12 : 8, fill: color(p[1]), stroke: C.paper, strokeWidth: 3 }));
   return { ymax, svg: h("svg", { width: w, height: hh, viewBox: `0 0 ${w} ${hh}` }, grid, line, dots) };
 }
 
@@ -601,7 +651,7 @@ async function pruneCache() {
 }
 
 // Hard cases for a quick look: the longest names, a short one, a route with and without stops in between, German.
-const SAMPLE_UNITS = new Set(["ice-1541", "rb-28-bad-koetzting-cham-oberpf", "ice-77"]);
+const SAMPLE_UNITS = new Set(["ice-1541", "rb-28-bad-koetzting-cham-oberpf", "re-49-friedrichsfeld-niederrhein-wuppertal-hbf", "re-25-muenchen-hbf-furth-im-wald", "ic-306"]);
 const SAMPLE_ROUTES = new Set(["koeln-hbf-berlin-hbf", "berlin-suedkreuz-lutherstadt-wittenberg-hbf", "muenchen-hbf-nuernberg-hbf", "aschaffenburg-hbf-frankfurt-flughafen"]);
 
 async function main() {
@@ -642,12 +692,13 @@ async function main() {
         .map((u) => {
           const share = late.get(u.slug);
           if (share === undefined) throw new Error(`no search record for ${u.slug}, cannot read its late share`);
-          return [u.slug, unitCard(u, share, span, t, lang), W, H];
-        }),
+          return [[u.slug, unitCard(u, share, span, t, lang), W, H], [`${u.slug}-portrait`, unitPortrait(u, share, span, t, lang), 1080, 1350, true]];
+        })
+        .flat(),
     ];
-    for (const [name, node, w, hh] of jobs) {
+    for (const [name, node, w, hh, packed] of jobs) {
       try {
-        await render(node, fonts, where(dir, lang, name), w, hh);
+        await render(node, fonts, where(dir, lang, name), w, hh, Boolean(packed));
         count += 1;
       } catch (e) {
         throw new Error(`render ${lang}/${name}.png failed: ${e.message}`);

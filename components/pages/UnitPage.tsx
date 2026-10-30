@@ -4,7 +4,7 @@ import { getConnectionsFrom, getLatePct, getMonthly, getRoutes, getStats, getUni
 import { lateShareColor, delayColor, LATE } from "@/lib/colors";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
-import { absoluteUrl, ogImagePath, unitHref } from "@/lib/site";
+import { absoluteUrl, portraitPath, unitHref } from "@/lib/site";
 import { rankSentence } from "@/lib/seo";
 import { makeT } from "@/lib/t";
 import { shortStation } from "@/lib/routeSlug";
@@ -185,7 +185,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           </dl>
 
           <div className="actions">
-            <ShareButton lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={ogImagePath(w.lastMonth, slug, lang)} filename={slug} />
+            <ShareButton lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
           </div>
 
           <section className="sec" aria-labelledby="own">
