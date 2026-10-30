@@ -537,28 +537,27 @@ export function Search({
             )}
           </div>
         ) : null}
+          {showHelp ? (
+            <div className={styles.help} role="group" aria-label={t("help.title")}>
+              <p className={styles.helpTitle}>{t("help.title")}</p>
+              <ul>
+                {HELP.map((h) => (
+                  <li key={h.key}>
+                    <button type="button" className={styles.helpItem} onMouseDown={(e) => e.preventDefault()} onClick={() => askExample(h.kind, lang === "de" ? h.de : h.en)}>
+                      <b>{lang === "de" ? h.de : h.en}</b>
+                      <span>{t(h.key)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </form>
 
-      {showHelp ? (
-        <div className={styles.help} role="group" aria-label={t("help.title")}>
-          <p className={styles.helpTitle}>{t("help.title")}</p>
-          <ul>
-            {HELP.map((h) => (
-              <li key={h.key}>
-                <button type="button" className={styles.helpItem} onMouseDown={(e) => e.preventDefault()} onClick={() => askExample(h.kind, lang === "de" ? h.de : h.en)}>
-                  <b>{lang === "de" ? h.de : h.en}</b>
-                  <span>{t(h.key)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
       <VoicePanel view={voice} lang={lang} getLevel={() => session.current?.level ?? 0} onStop={stopVoice} onCancel={closeVoice} onRetry={startVoice} />
 
-      {!hasQuery && !showList && !showHelp && voice.phase === "idle" ? (
+      {!hasQuery && voice.phase === "idle" ? (
         <p className={styles.eg}>
           <span>{t("home.egLabel")}:</span>
           {examples.map((ex) => (

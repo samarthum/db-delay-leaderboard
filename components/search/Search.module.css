@@ -141,8 +141,20 @@
   cursor: pointer;
 }
 
-/* The box is focused and empty: what it understands, one line each. */
-.help,
+/* The box is focused and empty: what it understands, one line each. A floating panel, like the suggestions: it must not move the page. */
+.help {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin-top: 6px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(20, 22, 26, 0.12);
+}
+
 .picker {
   margin-top: -6px;
   border: 1px solid var(--ink);
@@ -579,10 +591,6 @@
   .root[data-variant="home"]:not([data-active]) > .idle {
     grid-column: 1 / -1;
     grid-row: 5;
-  }
-
-  .root[data-variant="home"]:not([data-active]) > .help {
-    grid-column: 8 / 13;
   }
 
   .root[data-variant="home"] > .intro .h1 {
