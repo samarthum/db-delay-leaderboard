@@ -68,5 +68,7 @@ export const routes = {
   "home.routes": "Routes ranked",
   "footer.routes": "Route ranking",
   "route.full": "Route page: share picture and every train",
+  "route.near.title": "Closest to {time}",
+  "route.near.sub": "The trains that leave {from} nearest to your time.",
   "route.search": "Search another route",
 } as const;

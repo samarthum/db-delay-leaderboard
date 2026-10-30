@@ -9,6 +9,7 @@ import { absoluteUrl, routeImagePath } from "@/lib/site";
 import { makeT } from "@/lib/t";
 import { LateLead } from "../LateLead";
 import { RouteShare } from "../RouteShare";
+import { NearTime, type NearRow } from "../NearTime";
 import styles from "./RoutePage.module.css";
 
 const FEW_SHOWN = 8;
@@ -86,6 +87,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
   const img = (suffix: string) => routeImagePath(w.lastMonth, `${r.slug}${suffix}`, lang);
   const shown = r.list.slice(0, FEW_SHOWN);
   const rest = r.list.slice(FEW_SHOWN);
+  const nearRows: NearRow[] = r.list.map((tr) => ({ name: `${tr[0]} ${tr[1]}`, href: trainHref(tr, slugs, lang), dep: tr[2], arr: tr[3], late: tr[4] }));
 
   return (
     <main id="main" className={styles.page}>
@@ -131,6 +133,8 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
         <div className={styles.shareRow}>
           <RouteShare lang={lang} title={`${r.from} → ${r.to} · German Punctuality`} text={shareText} url={url} image={img("-portrait")} filename={r.slug} />
         </div>
+
+        <NearTime rows={nearRows} from={r.from} lang={lang} />
 
         <Curve r={r} lang={lang} />
 

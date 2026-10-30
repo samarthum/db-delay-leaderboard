@@ -92,6 +92,7 @@ def candidates(stops):
 
 
 def main():
+    global MIN_TRIPS, MIN_MINUTES, MIN_RATED, CANDIDATE_MIN_TRIPS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-dir", help="directory with data-YYYY-MM.parquet files")
     ap.add_argument("--cache-dir", default=str(Path(tempfile.gettempdir()) / "db-delay-parquet"))
@@ -99,7 +100,12 @@ def main():
     ap.add_argument("--stats", default="data/stats.json")
     ap.add_argument("--out", default="data/routes.json")
     ap.add_argument("--memory-limit", default="2GB")
+    ap.add_argument("--min-trips", type=int, default=MIN_TRIPS, help="measured arrivals a pair needs for a page")
+    ap.add_argument("--min-minutes", type=int, default=MIN_MINUTES, help="median planned minutes below which a pair is a hop")
+    ap.add_argument("--min-rated", type=int, default=MIN_RATED, help="trains with a figure of their own a pair needs")
     args = ap.parse_args()
+    MIN_TRIPS, MIN_MINUTES, MIN_RATED = args.min_trips, args.min_minutes, args.min_rated
+    CANDIDATE_MIN_TRIPS = min(CANDIDATE_MIN_TRIPS, int(MIN_TRIPS * 0.6))
 
     stats = json.loads(Path(args.stats).read_text())
     stops = json.loads(Path(args.stops).read_text())

@@ -144,8 +144,8 @@ export function loadTypeahead(): Promise<TaIndex> {
   return typeahead;
 }
 
-/** Exact late share per train for routes that have a page: { slug: [[type, num, late %, measured], ...] }. */
-export type RouteTable = Record<string, [string, string, number | null, number][]>;
+/** Routes that have a page: late share and measured trips of the route, and the exact numbers of each train. */
+export type RouteTable = Record<string, { l: number; n: number; t: [string, string, number | null, number][] }>;
 let routeTable: Promise<RouteTable> | undefined;
 
 /** Small file next to the stops data. If it cannot be loaded the search simply keeps its own numbers. */

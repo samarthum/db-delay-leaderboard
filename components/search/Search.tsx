@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SEARCH_INDEX, loadRouteTable, loadStops, loadTypeahead, pickByKey, runSearch, type RouteTable, type SearchOutcome } from "@/lib/searchClient";
 import { routeSlug } from "@/lib/routeSlug";
+import { pageFor, timeParam } from "@/lib/routePage";
 import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
 import { unitName, type SearchUnit } from "@/lib/searchCore";
 import { findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
@@ -32,6 +34,8 @@ interface RouteItem {
   kind: "route";
   query: RouteQuery;
   count: number;
+  /** Share of the route's trips 15+ min late, when the pair has a route page (picking it opens that page). */
+  late: number | null;
 }
 /** "Köln to" suggests a destination; picking it completes the route. */
 interface DestItem {
@@ -69,6 +73,10 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   const [ta, setTa] = useState<TaIndex | null>(null);
   const [stops, setStops] = useState<StopsIndex | null>(null);
   const [stopsFailed, setStopsFailed] = useState(false);
+  const [table, setTable] = useState<RouteTable | null>(null);
+  const tableRef = useRef<RouteTable | null>(null);
+  tableRef.current = table;
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const timer = useRef<number | undefined>(undefined);
@@ -104,6 +112,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   }, []);
   const warmStops = useCallback(() => {
     loadStops().then(setStops, () => setStopsFailed(true));
+    loadRouteTable().then(setTable);
   }, []);
   useEffect(() => {
     if (applied.q || applied.s) warm();
@@ -132,9 +141,20 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     if (!stops || !text.trim()) return null;
     const query = parseRoute(stops, text);
     if (!query) return null;
-    const hits = findTrains(stops, query);
-    return { kind: "route", query, count: hits.length };
-  }, [stops, text]);
+    const slug = table ? pageFor(stops, query, table) : null;
+    if (slug && table) return { kind: "route", query, count: table[slug].t.length, late: table[slug].l };
+    return { kind: "route", query, count: findTrains(stops, query).length, late: null };
+  }, [stops, table, text]);
+  // An address like /?q=Köln+to+Berlin&r=1 (an old link, a bookmark) goes to the route page when the pair has one.
+  const pageTarget = useMemo(() => {
+    if (!applied.r || !stops || !table) return null;
+    const query = parseRoute(stops, applied.q);
+    const slug = query ? pageFor(stops, query, table) : null;
+    return slug && query ? route(lang, "route", slug) + (query.time !== null ? `?t=${timeParam(query.time)}` : "") : null;
+  }, [applied.r, applied.q, stops, table, lang]);
+  useEffect(() => {
+    if (pageTarget) router.replace(pageTarget);
+  }, [pageTarget, router]);
   const dests = useMemo<DestItem[]>(() => {
     if (!stops || !text.trim()) return [];
     const d = destinations(stops, text);
@@ -160,12 +180,27 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     // A train number resolves while typing; the dropdown is the way to pick anything else.
     timer.current = window.setTimeout(() => {
       // A complete route ("Köln to Be") shows its trains while you type, without pressing Enter.
-      if (stopsRef.current && splitRoute(value) && parseRoute(stopsRef.current, value)) {
-        commit({ q: value.trim(), u: null, s: null, r: true }, "replace");
-        return;
+      if (stopsRef.current && tableRef.current && splitRoute(value)) {
+        const query = parseRoute(stopsRef.current, value);
+        if (query) {
+          // With a route page the dropdown offers it; the inline list is only for pairs without one.
+          if (!pageFor(stopsRef.current, query, tableRef.current)) commit({ q: value.trim(), u: null, s: null, r: true }, "replace");
+          return;
+        }
       }
       if (/^\s*[a-zA-Z]{0,4}\s*\d+[a-zA-Z]?\s*$/.test(value) && /\d{3,}/.test(value)) commit({ q: value.trim(), u: null, s: null, r: false }, "replace");
     }, TYPING_DELAY_MS);
+  }
+
+  /** Open the route page for the text when the pair has one (with the time, if one was typed); else show the inline list. */
+  function openRoute(value: string) {
+    const fallback = () => commit({ q: value, u: null, s: null, r: true }, "push");
+    Promise.all([stopsRef.current ?? loadStops(), tableRef.current ?? loadRouteTable()]).then(([idx, tbl]) => {
+      const query = parseRoute(idx, value);
+      const slug = query ? pageFor(idx, query, tbl) : null;
+      if (slug && query) router.push(route(lang, "route", slug) + (query.time !== null ? `?t=${timeParam(query.time)}` : ""));
+      else fallback();
+    }, () => commit({ q: value, u: null, s: null, r: false }, "push"));
   }
 
   function pick(s: Item) {
@@ -173,10 +208,10 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     setOpen(false);
     input.current?.blur();
     if (s.kind === "route") {
-      commit({ q: text.trim(), u: null, s: null, r: true }, "push");
+      openRoute(text.trim());
     } else if (s.kind === "dest") {
       setText(s.text);
-      commit({ q: s.text, u: null, s: null, r: true }, "push");
+      openRoute(s.text);
     } else if (s.kind === "station") {
       setText(s.station.name);
       commit({ q: s.station.name, u: null, s: s.station.name, r: false }, "push");
@@ -202,7 +237,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     setOpen(false);
     input.current?.blur();
     // A route wins over a lookalike: "Köln Berlin" is a trip, not a station.
-    if (routeItem || (stops && splitRoute(value))) return commit({ q: value, u: null, s: null, r: true }, "push");
+    if (routeItem || (stops && splitRoute(value))) return openRoute(value);
     // The per-stop data may still be loading, or the text may only look like a route: decide once it is here.
     if (!stops && /\s|→|->|\d:\d/.test(value)) {
       loadStops().then(
@@ -215,7 +250,8 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
             return;
           }
           const query = parseRoute(idx, value);
-          commit({ q: value, u: null, s: null, r: Boolean(query) || Boolean(splitRoute(value)) }, "push");
+          if (query || splitRoute(value)) openRoute(value);
+          else commit({ q: value, u: null, s: null, r: false }, "push");
         },
         () => commit({ q: value, u: null, s: null, r: false }, "push"),
       );
@@ -249,7 +285,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     window.clearTimeout(timer.current);
     setText(q);
     setOpen(false);
-    if (asRoute) return commit({ q, u: null, s: null, r: true }, "push");
+    if (asRoute) return openRoute(q);
     const st = ta ? findStation(ta, q) : null;
     if (st && !/\d/.test(q) && u === null) commit({ q: st.name, u: null, s: st.name, r: false }, "push");
     else commit({ q, u, s: null, r: false }, "push");
@@ -345,8 +381,12 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
         {failed ? (
           <p className={styles.message}>{t("q.failed")}</p>
         ) : applied.r ? (
-          stops ? (
-            <RouteView idx={stops} q={applied.q} lang={lang} ask={ask} />
+          stops && table ? (
+            pageTarget ? (
+              <p className={styles.loading}>{t("q.loading", { q: applied.q })}</p>
+            ) : (
+              <RouteView idx={stops} q={applied.q} lang={lang} ask={ask} />
+            )
           ) : stopsFailed ? (
             <p className={styles.message}>{t("rt.failed")}</p>
           ) : (
@@ -399,7 +439,7 @@ function RouteView({
   const exact = pageSlug && table ? table[pageSlug] : undefined;
   const hits = useMemo(() => {
     if (!exact) return found;
-    const byTrain = new Map(exact.map((e) => [`${e[0]} ${e[1]}`, e]));
+    const byTrain = new Map(exact.t.map((e) => [`${e[0]} ${e[1]}`, e]));
     return found.map((h) => {
       const e = byTrain.get(`${h.type} ${h.num}`);
       return e && routeSlug(h.fromName, h.toName) === pageSlug ? { ...h, late: e[2], measured: e[3] } : h;
@@ -556,9 +596,15 @@ function Groups({
             onClick={() => onPick(routeItem)}
           >
             <span className={styles.optStation}>{routeHeading(stops, routeItem.query).join(" → ")}</span>
-            <span className={styles.optStat} style={{ color: "var(--muted)" }}>
-              {routeItem.count === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: routeItem.count })}
-            </span>
+            {routeItem.late !== null ? (
+              <span className={styles.optStat} style={{ color: lateShareColor(routeItem.late) }}>
+                {t("rt.late", { pct: fmtShare(routeItem.late, lang) })}
+              </span>
+            ) : (
+              <span className={styles.optStat} style={{ color: "var(--muted)" }}>
+                {routeItem.count === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: routeItem.count })}
+              </span>
+            )}
           </button>
         </div>
       ) : null}
