@@ -3,7 +3,7 @@ export const voice = {
   "voice.starting": "Getting ready",
   "voice.listening": "Listening",
   "voice.heard": "Got it",
-  "voice.hint": "Say it like “Köln to Berlin at 8:14”.",
+  "voice.hint": "Say something like “Köln to Berlin at 8:14”.",
   "voice.stop": "Stop",
   "voice.cancel": "Cancel",
   "voice.close": "Close",
@@ -14,5 +14,5 @@ export const voice = {
   "voice.err.unsupported": "Voice search does not work in this browser. Type instead.",
   "voice.err.service": "Voice search is not available right now. Type instead.",
   "voice.err.network": "The connection dropped. Try again.",
-  "voice.err.nospeech": "Did not catch that. Tap try again and say it a little louder.",
+  "voice.err.nospeech": "Didn't catch that. Try again and speak a little louder.",
 };
