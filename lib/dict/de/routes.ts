@@ -74,7 +74,7 @@ export const routesDe: Record<keyof typeof routes, string> = {
   "route.near.sub": "Die Abfahrten ab {from}, die am nächsten an deiner Uhrzeit liegen.",
   "route.search": "Eine andere Strecke suchen",
   "route.crumb": "Strecken",
-  "route.figure": "der Fahrten kommen **mindestens 15 Minuten** zu spät in {to} an.",
+  "route.figure": "der Fahrten kommen in {to} **mindestens 15 Minuten** zu spät an.",
   "route.avgOn": "bei Ankunft in {to}",
   "route.th.dep": "Ab / an",
   "route.th.train": "Zug",
