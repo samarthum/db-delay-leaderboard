@@ -1,0 +1,151 @@
+.panel {
+  --bar: var(--amber);
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 16px 16px 14px;
+  border: 2px solid var(--board-line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.dot[data-live] {
+  background: var(--late);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.status {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.meter {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+
+.words {
+  min-height: 3.1em;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.hint {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.stop,
+.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--amber);
+  color: #14110a;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.stop:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.stop:active:not(:disabled),
+.primary:active {
+  transform: scale(0.98);
+}
+
+.square {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: currentColor;
+}
+
+.link {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.link:disabled {
+  opacity: 0.4;
+}
+
+.error {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.privacy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot[data-live] {
+    animation: none;
+  }
+}

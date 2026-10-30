@@ -3,6 +3,7 @@
 //   public/og/<lastMonth>/de/<name>.png     German
 // Every number comes from data/; every sentence from lib/dict/{en,de}, so the cards say what the site says.
 import fs from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import satori from "satori";
@@ -780,12 +781,47 @@ function assertBottomMargin(rendered, file) {
   }
 }
 
+// Drawing a card takes ~0.17 s and there are ~2,900 of them: a deploy that changed only code should not redraw them.
+// A card is cached under a hash of everything that decides its pixels (the element tree, size, fonts, options), in
+// .next/cache, which Vercel keeps between builds. Cards not used by this run are deleted at the end, so it cannot grow.
+const CACHE_DIR = path.join(ROOT, ".next", "cache", "og-cards");
+const RENDER_VERSION = "1";
+const cacheUsed = new Set();
+const cacheStats = { hit: 0, drawn: 0 };
+let fontKey = "";
+
 async function render(node, fonts, file, w = W, hh = H, compress = false) {
+  const packed = compress && sharp ? 1 : 0;
+  const key = createHash("sha1").update(RENDER_VERSION).update(fontKey).update(`${w}x${hh}:${packed}:`).update(JSON.stringify(node)).digest("hex").slice(0, 28);
+  const cached = path.join(CACHE_DIR, `${key}.png`);
+  cacheUsed.add(cached);
+  try {
+    await fs.copyFile(cached, file);
+    cacheStats.hit += 1;
+    return;
+  } catch {
+    // not cached yet
+  }
   const svg = await satori(node, { width: w, height: hh, fonts });
   const rendered = new Resvg(svg, { fitTo: { mode: "width", value: w }, font: { loadSystemFonts: false } }).render();
   assertBottomMargin(rendered, file);
   const png = rendered.asPng();
-  await fs.writeFile(file, compress && sharp ? await sharp(png).png({ palette: true, quality: 90, effort: 5, compressionLevel: 9, colours: 128, dither: 0.6 }).toBuffer() : png);
+  const out = packed ? await sharp(png).png({ palette: true, quality: 90, effort: 5, compressionLevel: 9, colours: 128, dither: 0.6 }).toBuffer() : png;
+  await fs.writeFile(file, out);
+  await fs.writeFile(cached, out);
+  cacheStats.drawn += 1;
+}
+
+async function pruneCache() {
+  let removed = 0;
+  for (const name of await fs.readdir(CACHE_DIR).catch(() => [])) {
+    const f = path.join(CACHE_DIR, name);
+    if (!cacheUsed.has(f)) {
+      await fs.rm(f, { force: true });
+      removed += 1;
+    }
+  }
+  return removed;
 }
 
 async function main() {
@@ -800,6 +836,8 @@ async function main() {
   const units = [...(await readUnits("trains")), ...(await readUnits("lines"))];
   const late = await lateBySlug();
   const fonts = await loadFonts();
+  fontKey = createHash("sha1").update(Buffer.concat(fonts.map((f) => Buffer.from(f.data)))).digest("hex");
+  await fs.mkdir(CACHE_DIR, { recursive: true });
   const dir = path.join(OUT_DIR, lastMonth);
   await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(path.join(dir, "de"), { recursive: true });
@@ -869,8 +907,9 @@ async function main() {
     }
   }
 
+  const pruned = await pruneCache();
   const ms = Math.round(performance.now() - started);
-  console.log(`og: ${count} images -> public/og/${lastMonth}/, ${routeCount} route images -> public/og/routes/ in ${ms} ms`);
+  console.log(`og: ${count} images -> public/og/${lastMonth}/, ${routeCount} route images -> public/og/routes/ in ${ms} ms (${cacheStats.hit} from cache, ${cacheStats.drawn} drawn, ${pruned} stale cache files removed)`);
 }
 
 main().catch((e) => {

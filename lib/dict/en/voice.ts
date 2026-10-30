@@ -1,0 +1,18 @@
+export const voice = {
+  "voice.start": "Speak your search",
+  "voice.starting": "Getting ready",
+  "voice.listening": "Listening",
+  "voice.heard": "Got it",
+  "voice.hint": "Say it like “Köln to Berlin at 8:14”.",
+  "voice.stop": "Stop",
+  "voice.cancel": "Cancel",
+  "voice.close": "Close",
+  "voice.retry": "Try again",
+  "voice.privacy": "Your voice is sent to ElevenLabs to turn it into text.",
+  "voice.err.denied": "The microphone is blocked. Allow it in your browser settings, or type instead.",
+  "voice.err.nomic": "No microphone found. Type instead.",
+  "voice.err.unsupported": "Voice search does not work in this browser. Type instead.",
+  "voice.err.service": "Voice search is not available right now. Type instead.",
+  "voice.err.network": "The connection dropped. Try again.",
+  "voice.err.nospeech": "Did not catch that. Tap try again and say it a little louder.",
+};

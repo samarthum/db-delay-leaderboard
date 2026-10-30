@@ -13,7 +13,10 @@ import { fmt1, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
 import { lateShareColor } from "@/lib/colors";
 import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
+import { VoiceSession, prefetchToken, voiceConfigured, voiceSupported } from "@/lib/voice";
+import { interpretSpoken } from "@/lib/spoken";
 import { SearchResult, kindLabel, routeText } from "./SearchResult";
+import { VoicePanel, type VoiceView } from "./VoicePanel";
 import styles from "./Search.module.css";
 
 const EXAMPLES = ["Köln to Berlin", "ICE 1541", "Köln Hbf"];
@@ -83,6 +86,28 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   const stopsRef = useRef<StopsIndex | null>(null);
   stopsRef.current = stops;
   const input = useRef<HTMLInputElement>(null);
+
+  // Voice: the mic button lives in the box; the panel under it shows the level and the words as they are heard.
+  const [voice, setVoice] = useState<VoiceView>({ phase: "idle" });
+  const [voiceOk, setVoiceOk] = useState(false);
+  const session = useRef<VoiceSession | null>(null);
+  const goTimer = useRef<number | undefined>(undefined);
+  const askRef = useRef<((q: string, u?: string | null, asRoute?: boolean) => void) | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (voiceSupported()) {
+      voiceConfigured().then((ok) => {
+        if (!live) return;
+        setVoiceOk(ok);
+        if (ok) prefetchToken();
+      });
+    }
+    return () => {
+      live = false;
+      session.current?.cancel();
+      window.clearTimeout(goTimer.current);
+    };
+  }, []);
 
   const commit = useCallback((next: Applied, mode: "push" | "replace") => {
     const href = urlFor(next);
@@ -290,6 +315,51 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     if (st && !/\d/.test(q) && u === null) commit({ q: st.name, u: null, s: st.name, r: false }, "push");
     else commit({ q, u, s: null, r: false }, "push");
   }
+  askRef.current = ask;
+
+  function startVoice() {
+    session.current?.cancel();
+    window.clearTimeout(goTimer.current);
+    window.clearTimeout(timer.current);
+    setOpen(false);
+    input.current?.blur();
+    warm();
+    warmStops();
+    setVoice({ phase: "starting" });
+    const s = new VoiceSession({
+      onListening: () => setVoice({ phase: "listening", partial: "" }),
+      onPartial: (partial) => setVoice({ phase: "listening", partial }),
+      onFinal: (raw) => void finishVoice(raw),
+      onError: (error) => setVoice({ phase: "error", error }),
+    });
+    session.current = s;
+    s.start();
+  }
+
+  function stopVoice() {
+    session.current?.stop();
+  }
+
+  function closeVoice() {
+    session.current?.cancel();
+    window.clearTimeout(goTimer.current);
+    setVoice({ phase: "idle" });
+  }
+
+  /** The words are in: turn them into a search, show what was understood for a moment, then run it. */
+  async function finishVoice(raw: string) {
+    let idx = stopsRef.current;
+    if (!idx) idx = await loadStops().catch(() => null);
+    const heard = interpretSpoken(idx, raw, lang);
+    if (!heard.text) return setVoice({ phase: "error", error: "nospeech" });
+    setVoice({ phase: "heard", text: heard.text });
+    setText(heard.text);
+    const asRoute = heard.kind === "route" || Boolean(idx && parseRoute(idx, heard.text));
+    goTimer.current = window.setTimeout(() => {
+      setVoice({ phase: "idle" });
+      askRef.current?.(heard.text, null, asRoute);
+    }, 900);
+  }
 
   function clear() {
     window.clearTimeout(timer.current);
@@ -348,6 +418,15 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
               ×
             </button>
           ) : null}
+          {voiceOk ? (
+            <button type="button" className={styles.mic} onClick={startVoice} aria-label={t("voice.start")} data-on={voice.phase !== "idle" || undefined}>
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0" />
+                <path d="M12 18v3" />
+              </svg>
+            </button>
+          ) : null}
           <button type="submit" className={styles.go}>
             {t("home.go")}
           </button>
@@ -364,7 +443,9 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
         ) : null}
       </form>
 
-      {!hasQuery && !showList ? (
+      <VoicePanel view={voice} lang={lang} getLevel={() => session.current?.level ?? 0} onStop={stopVoice} onCancel={closeVoice} onRetry={startVoice} />
+
+      {!hasQuery && !showList && voice.phase === "idle" ? (
         <div className={styles.try}>
           <span className={styles.tryLabel}>{t("home.try")}</span>
           {examples.map((ex) => (

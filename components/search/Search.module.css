@@ -470,3 +470,23 @@
   font-weight: 700;
   text-underline-offset: 3px;
 }
+
+.mic {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 56px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mic[data-on] {
+  color: var(--late);
+}
+.mic:active {
+  transform: scale(0.94);
+}

@@ -1,0 +1,18 @@
+export const voiceDe = {
+  "voice.start": "Suche per Sprache",
+  "voice.starting": "Einen Moment",
+  "voice.listening": "Ich höre zu",
+  "voice.heard": "Verstanden",
+  "voice.hint": "Sag es so: „Köln nach Berlin um 8:14 Uhr“.",
+  "voice.stop": "Stopp",
+  "voice.cancel": "Abbrechen",
+  "voice.close": "Schließen",
+  "voice.retry": "Nochmal",
+  "voice.privacy": "Deine Stimme wird zur Umwandlung in Text an ElevenLabs gesendet.",
+  "voice.err.denied": "Das Mikrofon ist blockiert. Erlaube es in den Browsereinstellungen oder tippe stattdessen.",
+  "voice.err.nomic": "Kein Mikrofon gefunden. Tippe stattdessen.",
+  "voice.err.unsupported": "Die Sprachsuche funktioniert in diesem Browser nicht. Tippe stattdessen.",
+  "voice.err.service": "Die Sprachsuche ist gerade nicht verfügbar. Tippe stattdessen.",
+  "voice.err.network": "Die Verbindung ist abgebrochen. Versuch es nochmal.",
+  "voice.err.nospeech": "Das habe ich nicht verstanden. Tippe auf Nochmal und sprich etwas lauter.",
+};
