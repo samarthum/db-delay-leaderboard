@@ -53,7 +53,7 @@ export const routesDe: Record<keyof typeof routes, string> = {
   "route.trains.less": "Weniger anzeigen",
   "route.reverse": "Die andere Richtung: {to} → {from}",
   "route.more": "Weitere Strecken ab {from}",
-  "route.method": "Es zählen nur Fahrten, die in {from} und später in {to} halten. {measured} von {runs} geplanten Fahrten wurden gemessen; die übrigen sind ausgefallen, oder ihre Ankunft fehlt in den Daten. Der Anteil berücksichtigt alle gemessenen Fahrten. Die Liste zeigt die Züge, die jetzt fahren; {unlisted} der gemessenen Fahrten waren auf Zügen, die nicht mehr fahren, nur gelegentlich verkehrten oder deren Nummer für eine andere Verbindung vergeben war. {span}.",
+  "route.method": "Es zählen nur Fahrten, die in {from} und später in {to} halten. {measured} von {runs} geplanten Fahrten wurden gemessen; die übrigen sind ausgefallen, oder ihre Ankunft fehlt in den Daten. Die Verspätungsquote umfasst alle gemessenen Fahrten. Die Liste zeigt die Züge, die in den letzten drei Monaten regelmäßig gefahren sind; {unlisted} der gemessenen Fahrten entfallen auf Züge, die nicht mehr fahren, nur gelegentlich fuhren oder deren Nummer zeitweise ein anderer Zug trug. Zeitraum: {span}.",
   "route.card.curve": "Verspätungsquote, Halt für Halt ({train})",
   "route.card.facts": "{trains} Züge · {trips} Fahrten",
   "route.card.db6": "{pct} nach der 6-Minuten-Regel der Deutschen Bahn",
