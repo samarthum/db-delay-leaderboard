@@ -5,19 +5,26 @@ import { successColor } from "@/lib/colors";
 import {
   BUSY,
   LADDER,
+  PARTS,
   WALK_FAST,
   WALK_SLOW,
   ladder,
   loadConnections,
+  loadDayparts,
   matchStations,
   readGap,
+  readPart,
   readSlow,
   readStation,
+  stationAt,
   stationFor,
   writeGap,
+  writePart,
   writeSlow,
   writeStation,
   type ConnFile,
+  type DaypartFile,
+  type Part,
 } from "@/lib/connections";
 import { fmtInt, fmtShare, spanLabel } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
@@ -40,9 +47,15 @@ export function ConnectionTool({ lang, station: preset, heading = "h2", title, s
   const [slow, setSlow] = useState(false);
   const [typing, setTyping] = useState(false);
   const [query, setQuery] = useState("");
+  const [part, setPart] = useState<Part | null>(null);
+  const [parts, setParts] = useState<DaypartFile | null>(null);
+  const [partsFailed, setPartsFailed] = useState(false);
 
   useEffect(() => {
     setSlow(readSlow());
+    const remembered = readPart();
+    setPart(remembered);
+    if (remembered) loadDayparts().then(setParts, () => setPartsFailed(true));
     setGap(readGap());
     // A link can name the station ("?s=Berlin+Hbf", from a route page); otherwise the one remembered on this phone.
     const fromUrl = new URLSearchParams(window.location.search).get("s");
@@ -52,7 +65,13 @@ export function ConnectionTool({ lang, station: preset, heading = "h2", title, s
 
   const walk = slow ? WALK_SLOW : WALK_FAST;
   const st = useMemo(() => (file && name ? stationFor(file, name) : null), [file, name]);
-  const rows = useMemo(() => (file && st ? ladder(st, walk, file.params.walk) : []), [file, st, walk]);
+  const stPart = useMemo(() => (st && part && parts ? stationAt(parts, st, part) : null), [st, part, parts]);
+  const waitingForPart = Boolean(part && !parts && !partsFailed);
+  const rows = useMemo(() => {
+    if (!file || !st) return [];
+    if (part) return stPart ? ladder(stPart, walk, file.params.walk) : [];
+    return ladder(st, walk, file.params.walk);
+  }, [file, st, part, stPart, walk]);
   const found = useMemo(() => (file && query.trim() ? matchStations(file, query) : []), [file, query]);
   const row = rows.find((r) => r.gap === gap) ?? null;
   const span = file ? spanLabel(file.window.firstMonth, file.window.lastMonth, lang) : "";
@@ -71,6 +90,11 @@ export function ConnectionTool({ lang, station: preset, heading = "h2", title, s
   function pickGap(g: number) {
     setGap(g);
     writeGap(g);
+  }
+  function pickPart(v: Part | null) {
+    setPart(v);
+    writePart(v);
+    if (v && !parts) loadDayparts().then(setParts, () => setPartsFailed(true));
   }
   function pickPace(v: boolean) {
     setSlow(v);
@@ -143,6 +167,22 @@ export function ConnectionTool({ lang, station: preset, heading = "h2", title, s
 
       {file && st ? (
         <>
+          <p className="seglabel" id={`${uid}-qp`}>
+            {t("conn.part.q")}
+          </p>
+          <div className="seg c5" role="group" aria-labelledby={`${uid}-qp`}>
+            <button type="button" aria-pressed={part === null} onClick={() => pickPart(null)}>
+              {t("conn.part.any")}
+            </button>
+            {PARTS.map((p) => (
+              <button key={p} type="button" aria-pressed={part === p} onClick={() => pickPart(p)}>
+                {t(`conn.part.${p}`)}
+              </button>
+            ))}
+          </div>
+          {partsFailed ? <p className="note">{t("conn.failed")}</p> : null}
+          {waitingForPart ? <p className="note">{t("conn.loading")}</p> : null}
+
           <p className="seglabel" id={`${uid}-q2`}>
             {steps ? "2. " : ""}{t("conn.q2")}
           </p>
@@ -169,7 +209,11 @@ export function ConnectionTool({ lang, station: preset, heading = "h2", title, s
           <div className={styles.answer} aria-live="polite">
             {row ? (
               <>
-                <p className={styles.sentence}>{t("conn.answer", { station: label, gap: row.gap, pct: fmtShare(row.pct, lang) })}</p>
+                <p className={styles.sentence}>
+                  {part
+                    ? t("conn.answer.part", { station: label, gap: row.gap, pct: fmtShare(row.pct, lang), when: t(`conn.part.when.${part}`) })
+                    : t("conn.answer", { station: label, gap: row.gap, pct: fmtShare(row.pct, lang) })}
+                </p>
                 <p className="basis">{t("conn.answerSub", { ok: fmtInt(row.ok, lang), n: fmtInt(row.n, lang), walk, canc: fmtInt(row.cancelled, lang) })}</p>
               </>
             ) : (

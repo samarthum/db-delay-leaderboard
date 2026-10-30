@@ -52,6 +52,14 @@ try {
   console.log("connections: data/connections.json not found, the connection card will show an error (run scripts/connections.py)");
 }
 
+// The station ladder split by the time of day of the next train (scripts/connections.py): the "typical change" guide offers it.
+try {
+  await fs.copyFile(path.join(ROOT, "data", "connections-daypart.json"), path.join(TO, "connections-daypart.json"));
+  console.log(`connection dayparts: ${((await fs.stat(path.join(TO, "connections-daypart.json"))).size / 1e3).toFixed(0)} kB copied`);
+} catch {
+  console.log("connection dayparts: data/connections-daypart.json not found, the time-of-day choice will be unavailable");
+}
+
 // Train-to-train connection odds (scripts/connections.py): the "Change trains" page asks for the arriving and the next train.
 try {
   await fs.copyFile(path.join(ROOT, "data", "connection-pairs.json"), path.join(TO, "connection-pairs.json"));

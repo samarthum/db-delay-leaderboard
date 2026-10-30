@@ -87,6 +87,36 @@ export function matchStations(file: ConnFile, input: string, limit = 5): ConnSta
     .slice(0, limit);
 }
 
+/** The time of day the next train leaves (local time): morning 5 to 10, midday 10 to 16, evening 16 to 21, night 21 to 5. */
+export type Part = "morning" | "midday" | "evening" | "night";
+export const PARTS: Part[] = ["morning", "midday", "evening", "night"];
+/** { station: { part: { planned change time: [pairs, cancelled, worked with 0 / 2 / 4 / 6 / 8 min to spare] } } } */
+export type DaypartFile = Record<string, Partial<Record<Part, Record<string, number[]>>>>;
+
+/** The same station, with only the trains that leave in one part of the day, ready for ladder(). */
+export function stationAt(file: DaypartFile, st: ConnStation, part: Part): ConnStation | null {
+  const rows = file[st.name]?.[part];
+  if (!rows) return null;
+  const gaps = Object.entries(rows).map(([g, v]) => [Number(g), ...v] as GapRow);
+  return { name: st.name, runs: st.runs, gaps };
+}
+
+let daypartLoading: Promise<DaypartFile> | undefined;
+
+/** About 100 kB gzipped; fetched the first time a time of day is chosen. */
+export function loadDayparts(): Promise<DaypartFile> {
+  if (!daypartLoading) {
+    daypartLoading = fetch("/search/connections-daypart.json").then((r) => {
+      if (!r.ok) throw new Error(`dayparts ${r.status}`);
+      return r.json() as Promise<DaypartFile>;
+    });
+    daypartLoading.catch(() => {
+      daypartLoading = undefined;
+    });
+  }
+  return daypartLoading;
+}
+
 let loading: Promise<ConnFile> | undefined;
 
 /** About 50 kB gzipped; fetched the first time the card is used. */
@@ -108,6 +138,24 @@ export function loadConnections(): Promise<ConnFile> {
 const KEY_STATION = "gp-conn-station";
 const KEY_SLOW = "gp-conn-slow";
 const KEY_GAP = "gp-conn-gap";
+const KEY_PART = "gp-conn-part";
+
+export function readPart(): Part | null {
+  try {
+    const v = window.localStorage.getItem(KEY_PART);
+    return PARTS.includes(v as Part) ? (v as Part) : null;
+  } catch {
+    return null;
+  }
+}
+export function writePart(v: Part | null): void {
+  try {
+    if (v) window.localStorage.setItem(KEY_PART, v);
+    else window.localStorage.removeItem(KEY_PART);
+  } catch {
+    // ignore
+  }
+}
 
 export function readStation(): string | null {
   try {
