@@ -48,20 +48,6 @@
   display: none;
 }
 
-/* Identity line: what this site is, on every page. ------------------- */
-.identity {
-  padding-block: 12px;
-  border-bottom: 1px solid var(--rule);
-  font-size: 14px;
-  line-height: 1.4;
-  color: var(--ink-2);
-}
-
-.identity strong {
-  font-weight: 650;
-  color: var(--ink);
-}
-
 /* Bottom tab bar (phones) -------------------------------------------- */
 .tabbar {
   position: fixed;
@@ -112,25 +98,6 @@
   background: var(--ink);
 }
 
-/* Footer ------------------------------------------------------------- */
-.footer {
-  margin-top: 56px;
-  padding-block: 18px 22px;
-  border-top: 1px solid var(--rule);
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--ink-2);
-}
-
-.footerInner p + p {
-  margin-top: 6px;
-}
-
-.footer a {
-  color: var(--ink);
-  text-underline-offset: 3px;
-}
-
 @media (min-width: 960px) {
   .tabbar {
     display: none;
@@ -179,16 +146,4 @@
     border-left: 1px solid var(--rule);
   }
 
-  .footer {
-    margin-top: 72px;
-  }
-
-  .footerInner {
-    display: flex;
-    gap: 40px;
-  }
-
-  .footerInner p + p {
-    margin-top: 0;
-  }
 }

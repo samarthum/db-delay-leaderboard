@@ -378,7 +378,7 @@
 
 /* Page layout ------------------------------------------------------------ */
 .page {
-  padding-block: 8px 0;
+  padding-block: 8px 56px;
 }
 
 @media (min-width: 960px) {
@@ -560,4 +560,17 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.credits {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.credits a {
+  color: var(--ink);
+  text-underline-offset: 3px;
 }

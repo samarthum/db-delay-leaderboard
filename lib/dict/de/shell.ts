@@ -11,7 +11,6 @@ export const shellDe: Record<keyof typeof shell, string> = {
   "nav.network": "Netz",
   "nav.recap": "Rückblick",
   "nav.method": "Methode",
-  identity: "Wie pünktlich die Fernzüge der Deutschen Bahn waren, {span}, aus den offenen Daten der DB. Keine Live-Daten.",
   "lang.label": "Sprache",
   "lang.en": "English",
   "lang.de": "Deutsch",
@@ -31,4 +30,5 @@ export const shellDe: Record<keyof typeof shell, string> = {
   "rule.db": "Regel der DB",
   "rule.db6": "ab 6 Min. verspätet",
   "card.data": "Daten: Deutsche Bahn über piebro/deutsche-bahn-data, CC BY 4.0. Kein Angebot der Deutschen Bahn.",
+  "credits.title": "Quellen und Lizenzen",
 };

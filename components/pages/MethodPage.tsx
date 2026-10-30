@@ -4,6 +4,7 @@ import { getMonthly, getStations, getStats } from "@/lib/data";
 import { DATA_SOURCE_URL } from "@/lib/site";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
+import { Credits } from "../Credits";
 import { Rich } from "../Rich";
 import styles from "./Method.module.css";
 
@@ -165,6 +166,8 @@ export function MethodPage({ lang }: { lang: Lang }) {
           <p>{t("method.a.cant")}</p>
         </Item>
       </div>
+
+      <Credits lang={lang} generatedAt={stats.generatedAt} />
     </main>
   );
 }
