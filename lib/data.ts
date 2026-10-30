@@ -14,7 +14,7 @@ let monthlyCache: Monthly | undefined;
 let stationsCache: StationsFile | undefined;
 const unitCache = new Map<string, UnitDetail>();
 let routesCache: RoutesFile | undefined;
-let pairsCache: Record<string, Record<string, unknown[][]>> | undefined;
+let pairsCache: Record<string, unknown> | undefined;
 
 export function getStats(): Stats {
   return (statsCache ??= readJson<Stats>("stats.json"));
@@ -81,12 +81,22 @@ export function getReverseRoute(r: RouteEntry): RouteEntry | null {
   return getRoutes().routes.find((x) => x.from === r.to && x.to === r.from) ?? null;
 }
 
-/** Connections from one arriving train: { station: [[departing train, usual planned gap, days, cancelled, ok@2, ok@6, departs, to], ...] }. */
-export function getConnectionsFrom(train: string): Record<string, unknown[][]> {
+/** True when the connection data has changes counted from this arriving train (the train page then links to the flow). */
+export function hasConnectionsFrom(train: string): boolean {
   try {
-    pairsCache ??= readJson<Record<string, Record<string, unknown[][]>>>("connection-pairs.json");
+    pairsCache ??= readJson<Record<string, unknown>>("connection-pairs.json");
   } catch {
-    return {};
+    return false;
   }
-  return pairsCache[train] ?? {};
+  return Boolean(pairsCache[train]);
+}
+
+/** The months the connection data covers, or null when it is missing. */
+export function getConnectionsMeta(): { firstMonth: string; lastMonth: string } | null {
+  try {
+    const c = readJson<{ window: { firstMonth: string; lastMonth: string } }>("connections.json");
+    return c.window;
+  } catch {
+    return null;
+  }
 }

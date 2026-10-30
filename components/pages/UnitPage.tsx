@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Category, HistBin, UnitDetail } from "@/lib/types";
-import { getConnectionsFrom, getLatePct, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
+import { getLatePct, hasConnectionsFrom, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
 import { lateShareColor, delayColor, LATE } from "@/lib/colors";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
@@ -10,7 +10,6 @@ import { makeT } from "@/lib/t";
 import { shortStation } from "@/lib/routeSlug";
 import { Arrow, RouteName } from "../Arrow";
 import { BackLink } from "../BackLink";
-import { ChangeFromTrain, type PairRow } from "../ChangeFromTrain";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { RouteText } from "../RouteText";
@@ -52,7 +51,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const span = spanLabel(w.firstMonth, w.lastMonth, lang);
   const min = tr("unit.min");
 
-  const changes = (isLine ? {} : getConnectionsFrom(t.name)) as Record<string, PairRow[]>;
+  const canChange = !isLine && hasConnectionsFrom(t.name);
   // Same number as the search result for this unit; the histogram is the fallback.
   const latePct = getLatePct(slug) ?? shareOf(t.histogram, 15);
 
@@ -195,7 +194,15 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
         </div>
 
         <div className="aside">
-          {!isLine && Object.keys(changes).length > 0 ? <ChangeFromTrain train={t.name} latePct={latePct} lists={changes} lang={lang} /> : null}
+          {canChange ? (
+            <section className="sec" aria-labelledby="change-from">
+              <h2 id="change-from">{tr("conn.train.title", { train: t.name })}</h2>
+              <p className="sec-sub">{tr("cx.train.sub")}</p>
+              <Link href={`${route(lang, "change")}?t=${encodeURIComponent(t.name)}`} className="more" prefetch={false}>
+                {tr("cx.train.link")} <Arrow />
+              </Link>
+            </section>
+          ) : null}
         </div>
       </div>
 

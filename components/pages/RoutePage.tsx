@@ -162,7 +162,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
       <section className="sec" aria-labelledby="own">
         <h2 id="own">{t("route.ownTitle")}</h2>
         <Search lang={lang} variant="inline" />
-        <Link href={`${route(lang, "change")}?s=${encodeURIComponent(r.to)}`} className="tl" prefetch={false}>
+        <Link href={`${route(lang, "change")}?s=${encodeURIComponent(r.to)}#typical`} className="tl" prefetch={false}>
           {t("route.changes", { to: r.to })} <Arrow />
         </Link>
       </section>

@@ -21,8 +21,16 @@ These are all such pairs of trains, not only the ones people really change betwe
 connecting train for a late one, and that only happens for real connections, so a real change may do a little better.
 
 Output: data/connections.json        { window, params, stations: [{ name, runs, gaps: [[gap, n, cancelled, ok@0, ok@2, ok@4, ok@6, ok@8]] }] }
-        data/connection-pairs.json   { "ICE 1541": { "Hannover Hbf": [["ICE 845", gap, n, cancelled, ok@2, ok@6, departs (minutes), "to"], ...] } }
+        data/connection-pairs.json   { "ICE 1541": { "o": origin, "d": destination, "s": { "Hannover Hbf": {
+                                       "i": stop number along the route,
+                                       "a": [days, median min late, 90th percentile min late, % 6+ min late, % 15+ min late]  (the arriving train there),
+                                       "b": [["ICE 845", planned gap, days, cancelled, departs (minutes), "to", ok@0, ok@2, ok@4, ok@6, ok@8,
+                                              [days, median min late leaving, % 6+ min late leaving]], ...] } } } }
                                      the departures within PAIR_MAX_GAP minutes of each arriving train, by station
+        connections-daypart.json     the station ladder split by the time of day of the next train (analysis; not shipped)
+
+Ghost entries are dropped: a cancelled departure with no next stop, and a pair whose next train was cancelled on every one
+of its days (20 or more; for example "ICE 147 from Berlin Hbf to Berlin Hbf"). Nobody could take them.
 """
 import argparse
 import json
@@ -74,7 +82,7 @@ def main():
     tmp = Path(tempfile.gettempdir()) / "db-delay-duckdb"
     tmp.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    con.execute(f"set memory_limit = {sql_str(args.memory_limit)}; set temp_directory = {sql_str(str(tmp))}; set preserve_insertion_order = false")
+    con.execute(f"set memory_limit = {sql_str(args.memory_limit)}; set temp_directory = {sql_str(str(tmp))}; set preserve_insertion_order = false; set max_temp_directory_size = '3GB'")
     ld = ", ".join(sql_str(t) for t in p["longDistanceTypes"])
     months = "[" + ", ".join(sql_str(m) for m in window["months"]) + "]"
     srcs = "[" + ", ".join(sql_str(s) for s in sources) + "]"
@@ -99,12 +107,13 @@ def main():
 
     # Arrivals and departures of the major stations. A departure 2..60 minutes after an arrival is in the same or the next
     # 64-minute bucket, so the join compares only neighbours instead of whole days.
-    con.execute("""create table a as select name, run, tt, num, ap, aa, prv, nxt, cast(epoch(ap) / 3840 as bigint) bk from s
+    con.execute("""create table a as select name, run, tt, num, seq, ap, aa, prv, nxt, cast(epoch(ap) / 3840 as bigint) bk from s
                    where ap is not null and aa is not null and not ac and name in (select name from major)""")
     con.execute("""create table b as select name, run, tt, num, dp, da, dc, nxt, dest, cast(epoch(dp) / 3840 as bigint) bk from s
                    where dp is not null and da is not null and name in (select name from major)""")
     log(f"arrivals {con.execute('select count(*) from a').fetchone()[0]}, departures {con.execute('select count(*) from b').fetchone()[0]}")
-
+    gh = con.execute("select count(*), count(*) filter (where dc) from b where nxt is null").fetchone()
+    log(f"departures with no next stop: {gh[0]}, of which cancelled: {gh[1]} (the cancelled ones are dropped)")
     ok = ", ".join(f"count(*) filter (where not dc and change >= {m}) ok{m}" for m in WALK)
     con.execute(f"""
     create table g as
@@ -114,9 +123,15 @@ def main():
         date_diff('minute', a.aa, b.da) change, b.dc, hour(b.dp) * 60 + minute(b.dp) dep, b.dest
       from a join b on a.name = b.name and (b.bk = a.bk or b.bk = a.bk + 1) and a.run <> b.run
       where b.dp >= a.ap + interval {MIN_GAP} minute and b.dp <= a.ap + interval {MAX_GAP} minute
-        and b.nxt is distinct from a.prv and b.nxt is distinct from a.nxt and not (a.tt = b.tt and a.num = b.num))
+        and b.nxt is distinct from a.prv and b.nxt is distinct from a.nxt and not (a.tt = b.tt and a.num = b.num)
+        and not (b.nxt is null and b.dc))
     group by name, atr, btr, gap
     """)
+    # A pair whose next train was cancelled on every one of its days (20 or more) is a ghost: a planned train with nothing
+    # behind it ("ICE 147 from Berlin Hbf to Berlin Hbf"). Nobody could take it, so it is not a connection.
+    gh = con.execute("select count(*), coalesce(sum(n), 0) from g where cancelled = n and n >= 20").fetchone()
+    con.execute("delete from g where cancelled = n and n >= 20")
+    log(f"ghost pairs dropped: {gh[0]} ({gh[1]} pair-days)")
     log(f"(station, A, B, gap) groups {con.execute('select count(*) from g').fetchone()[0]} in {time.time() - t0:.0f}s")
 
     sums = ", ".join(f"sum(ok{m})" for m in WALK)  # (dep and dest are only kept per pair, not per station and gap)
@@ -137,21 +152,46 @@ def main():
     Path(args.out).write_text(payload)
     log(f"connections: {len(out)} stations, {len(payload) / 1e6:.2f} MB -> {args.out} in {time.time() - t0:.0f}s")
 
+    # The ladder split by the time of day of the next train (to see whether it matters; not shipped).
+    part = "case when dep >= 300 and dep < 600 then 'morning' when dep >= 600 and dep < 960 then 'midday' when dep >= 960 and dep < 1260 then 'evening' else 'night' end"
+    dpart = {}
+    for r in con.execute(f"select name, {part} p, gap, sum(n), sum(cancelled), {sums} from g group by 1, 2, 3 having sum(n) >= {MIN_N} order by 1, 2, 3").fetchall():
+        dpart.setdefault(r[0], {}).setdefault(r[1], {})[int(r[2])] = [int(x) for x in r[3:]]
+    Path(args.out).with_name("connections-daypart.json").write_text(json.dumps(dpart, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+    # The arriving train at each station (how late it really is there) and the ends of each train.
+    asum = {}
+    for name, atr, n, seq, q50, q90, l6, l15 in con.execute("""select name, tt || ' ' || num, count(*), mode(seq),
+        quantile_cont(date_diff('minute', ap, aa), 0.5), quantile_cont(date_diff('minute', ap, aa), 0.9),
+        count(*) filter (where date_diff('minute', ap, aa) >= 6), count(*) filter (where date_diff('minute', ap, aa) >= 15)
+        from a group by 1, 2""").fetchall():
+        asum[(atr, name)] = [int(n), int(seq or 0), round(q50), round(q90), round(100 * l6 / n), round(100 * l15 / n)]
+    ends = {atr: (o or "", d or "") for atr, o, d in con.execute("""select atr, mode(o), mode(d) from (
+        select tt || ' ' || num atr, run, arg_min(name, seq) o, arg_max(name, seq) d from s group by 1, 2) group by 1""").fetchall()}
+    # How late the next train really leaves from that station (cancelled ones are counted in the pair, not here).
+    bsum = {}
+    for name, btr, n, q50, l6 in con.execute("""select name, tt || ' ' || num, count(*), quantile_cont(date_diff('minute', dp, da), 0.5),
+        count(*) filter (where date_diff('minute', dp, da) >= 6) from b where not dc group by 1, 2""").fetchall():
+        bsum[(btr, name)] = [int(n), round(q50), round(100 * l6 / n)]
+    log(f"arriving-train summaries {len(asum)}, departing-train summaries {len(bsum)}, train ends {len(ends)} in {time.time() - t0:.0f}s")
+
     # Per arriving train: its departures at each station, the planned gap that pair has most often.
     rows = con.execute(f"""
-    select atr, name, btr, gap, n, cancelled, ok2, ok6, dep, dest from (
-      select atr, name, btr, gap, n, cancelled, ok2, ok6, dep, dest, row_number() over (partition by atr, name, btr order by n desc) r from g)
+    select atr, name, btr, gap, n, cancelled, ok0, ok2, ok4, ok6, ok8, dep, dest from (
+      select atr, name, btr, gap, n, cancelled, ok0, ok2, ok4, ok6, ok8, dep, dest, row_number() over (partition by atr, name, btr order by n desc) r from g)
     where r = 1 and n >= {PAIR_MIN_N} and gap <= {PAIR_MAX_GAP} order by atr, name, gap, btr""").fetchall()
     pairs = {}
-    for atr, name, btr, gap, n, canc, ok2, ok6, dep, dest in rows:
-        lst = pairs.setdefault(atr, {}).setdefault(name, [])
-        if len(lst) < PAIR_MAX_B:
-            lst.append([btr, int(gap), int(n), int(canc), int(ok2), int(ok6), int(dep), dest or ""])
+    for atr, name, btr, gap, n, canc, ok0, ok2, ok4, ok6, ok8, dep, dest in rows:
+        o, d = ends.get(atr, ("", ""))
+        t = pairs.setdefault(atr, {"o": o, "d": d, "s": {}})
+        a_ = asum[(atr, name)]
+        st = t["s"].setdefault(name, {"i": a_[1], "a": [a_[0]] + a_[2:], "b": []})
+        if len(st["b"]) < PAIR_MAX_B:
+            st["b"].append([btr, int(gap), int(n), int(canc), int(dep), dest or "", int(ok0), int(ok2), int(ok4), int(ok6), int(ok8), bsum.get((btr, name), [0, 0, 0])])
     ppath = Path(args.out).with_name("connection-pairs.json")
     ppayload = json.dumps(pairs, ensure_ascii=False, separators=(",", ":")) + "\n"
     ppath.write_text(ppayload)
-    log(f"pairs: {len(pairs)} arriving trains, {sum(len(v) for v in pairs.values())} (train, station) lists, {len(ppayload) / 1e6:.2f} MB -> {ppath} in {time.time() - t0:.0f}s")
-
+    log(f"pairs: {len(pairs)} arriving trains, {sum(len(v['s']) for v in pairs.values())} (train, station) lists, {len(ppayload) / 1e6:.2f} MB -> {ppath} in {time.time() - t0:.0f}s")
 
 if __name__ == "__main__":
     main()

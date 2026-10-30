@@ -30,7 +30,7 @@ import styles from "./ConnectionTool.module.css";
  * they need to walk), one sentence back, and the whole ladder underneath for the other change times.
  * Everything is remembered on the phone, so the second visit opens on the answer.
  */
-export function ConnectionTool({ lang, station: preset, heading = "h2" }: { lang: Lang; station?: string; heading?: "h1" | "h2" }) {
+export function ConnectionTool({ lang, station: preset, heading = "h2", title, sub, steps = true, hideTitle = false }: { lang: Lang; station?: string; heading?: "h1" | "h2"; title?: string; sub?: string; steps?: boolean; hideTitle?: boolean }) {
   const t = makeT(lang);
   const uid = useRef(`conn-${Math.random().toString(36).slice(2, 7)}`).current;
   const [file, setFile] = useState<ConnFile | null>(null);
@@ -82,13 +82,13 @@ export function ConnectionTool({ lang, station: preset, heading = "h2" }: { lang
 
   return (
     <section className={styles.tool} aria-labelledby={`${uid}-h`}>
-      <Head id={`${uid}-h`} className={heading === "h1" ? "h1" : styles.title}>
-        {t("conn.title")}
+      <Head id={`${uid}-h`} className={hideTitle ? "visually-hidden" : heading === "h1" ? "h1" : styles.title}>
+        {title ?? t("conn.title")}
       </Head>
-      <p className="sec-sub">{t("conn.sub")}</p>
+      <p className="sec-sub">{sub ?? t("conn.sub")}</p>
 
       <p className="seglabel" id={`${uid}-q1`}>
-        1. {t("conn.q1")}
+        {steps ? "1. " : ""}{t("conn.q1")}
       </p>
       <div className="seg c2" role="group" aria-labelledby={`${uid}-q1`}>
         {chips.map((n) => (
@@ -144,7 +144,7 @@ export function ConnectionTool({ lang, station: preset, heading = "h2" }: { lang
       {file && st ? (
         <>
           <p className="seglabel" id={`${uid}-q2`}>
-            2. {t("conn.q2")}
+            {steps ? "2. " : ""}{t("conn.q2")}
           </p>
           <div className="seg c5" role="group" aria-labelledby={`${uid}-q2`}>
             {LADDER.map((g) => (
@@ -155,7 +155,7 @@ export function ConnectionTool({ lang, station: preset, heading = "h2" }: { lang
           </div>
 
           <p className="seglabel" id={`${uid}-q3`}>
-            3. {t("conn.q3")}
+            {steps ? "3. " : ""}{t("conn.q3")}
           </p>
           <div className="seg c2" role="group" aria-labelledby={`${uid}-q3`}>
             <button type="button" aria-pressed={!slow} onClick={() => pickPace(false)}>

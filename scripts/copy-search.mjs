@@ -52,6 +52,14 @@ try {
   console.log("connections: data/connections.json not found, the connection card will show an error (run scripts/connections.py)");
 }
 
+// Train-to-train connection odds (scripts/connections.py): the "Change trains" page asks for the arriving and the next train.
+try {
+  await fs.copyFile(path.join(ROOT, "data", "connection-pairs.json"), path.join(TO, "connection-pairs.json"));
+  console.log(`connection pairs: ${((await fs.stat(path.join(TO, "connection-pairs.json"))).size / 1e6).toFixed(2)} MB copied`);
+} catch {
+  console.log("connection pairs: data/connection-pairs.json not found, the Change trains flow will show an error (run scripts/connections.py)");
+}
+
 // Record layout: [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
 const trains = [];
 for (const name of shards.sort()) {
