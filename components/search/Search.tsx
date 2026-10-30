@@ -7,20 +7,43 @@ import { SEARCH_INDEX, loadRouteTable, loadStops, loadTypeahead, pickByKey, runS
 import { routeSlug } from "@/lib/routeSlug";
 import { pageFor, timeParam } from "@/lib/routePage";
 import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
-import { unitName, type SearchUnit } from "@/lib/searchCore";
-import { findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
+import { splitLive, unitName, type SearchUnit } from "@/lib/searchCore";
+import { didYouMean, findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
 import { fmt1, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
 import { lateShareColor } from "@/lib/colors";
 import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
 import { VoiceSession, prefetchToken, voiceConfigured, voiceSupported } from "@/lib/voice";
 import { interpretSpoken } from "@/lib/spoken";
+import { unitHref } from "@/lib/site";
+import { Arrow } from "../Arrow";
 import { SearchResult, kindLabel, routeText } from "./SearchResult";
 import { VoicePanel, type VoiceView } from "./VoicePanel";
 import styles from "./Search.module.css";
 
-const EXAMPLES = ["Köln to Berlin", "ICE 1541", "Köln Hbf"];
-const EXAMPLES_DE = ["Köln nach Berlin", "ICE 1541", "Köln Hbf"];
+/** Examples are typed the way the parser understands them; each says what kind of thing it is, so a chip can never be misread. */
+type ExampleKind = "route" | "train" | "station";
+interface Example {
+  text: string;
+  kind: ExampleKind;
+}
+const EXAMPLES: Example[] = [
+  { text: "Köln to Berlin", kind: "route" },
+  { text: "ICE 1541", kind: "train" },
+  { text: "Hannover Hbf", kind: "station" },
+];
+const EXAMPLES_DE: Example[] = [
+  { text: "Köln nach Berlin", kind: "route" },
+  { text: "ICE 1541", kind: "train" },
+  { text: "Hannover Hbf", kind: "station" },
+];
+/** What the box understands, one line each: shown when the box is focused and empty, and when a search finds nothing. */
+const HELP: { en: string; de: string; kind: ExampleKind; key: Key }[] = [
+  { en: "ICE 1541", de: "ICE 1541", kind: "train", key: "help.train" },
+  { en: "Köln to Berlin", de: "Köln nach Berlin", kind: "route", key: "help.route" },
+  { en: "8:14 Köln to Berlin", de: "8:14 Köln nach Berlin", kind: "route", key: "help.time" },
+  { en: "Hannover Hbf", de: "Hannover Hbf", kind: "station", key: "help.station" },
+];
 const TYPING_DELAY_MS = 220;
 
 interface Applied {
@@ -55,18 +78,33 @@ function readUrl(): Applied {
   return { q: (p.get("q") ?? "").trim(), u: p.get("u"), s: p.get("s"), r: p.get("r") === "1" };
 }
 
-function urlFor(a: Applied): string {
+function urlFor(a: Applied, path?: string): string {
   const p = new URLSearchParams();
   if (a.q) p.set("q", a.q);
   if (a.q && a.u) p.set("u", a.u);
   if (a.s) p.set("s", a.s);
   if (a.q && a.r) p.set("r", "1");
   const s = p.toString();
-  return `${window.location.pathname}${s ? `?${s}` : ""}${window.location.hash}`;
+  return path ? `${path}${s ? `?${s}` : ""}` : `${window.location.pathname}${s ? `?${s}` : ""}${window.location.hash}`;
 }
 
 /** The home page's search: a big box, live suggestions under it, and the answer below. */
-export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.ReactNode; title: string; sub: string }) {
+export function Search({
+  lang,
+  idle,
+  figure,
+  title,
+  variant = "home",
+}: {
+  lang: Lang;
+  /** Blocks under the box while nothing is searched (the change tool, the top routes). */
+  idle?: React.ReactNode;
+  /** The answer a page opens with, shown above the box while nothing is searched. */
+  figure?: React.ReactNode;
+  title?: string;
+  /** "inline" is the compact "Your own trip?" box on route and train pages. */
+  variant?: "home" | "inline";
+}) {
   const t = makeT(lang);
   const uid = useId();
   const [text, setText] = useState("");
@@ -110,13 +148,18 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   }, []);
 
   const commit = useCallback((next: Applied, mode: "push" | "replace") => {
+    // The compact box on a route or train page answers on the home page, so the page the visitor came from stays as it was.
+    if (variant === "inline") {
+      if (next.q || next.s) router.push(urlFor(next, route(lang, "home")));
+      return;
+    }
     const href = urlFor(next);
     if (href !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
       if (mode === "push") window.history.pushState(null, "", href);
       else window.history.replaceState(null, "", href);
     }
     setApplied(next);
-  }, []);
+  }, [variant, router, lang]);
 
   // The page's own address is the state: read it on load and on back/forward.
   useEffect(() => {
@@ -144,22 +187,23 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     if (applied.r) warmStops();
   }, [applied.q, applied.s, applied.r, warm, warmStops]);
 
+  const live = useMemo(() => splitLive(applied.q), [applied.q]);
   useEffect(() => {
-    if (!applied.q || applied.s || applied.r) {
+    if (!applied.q || applied.s || applied.r || !live.text) {
       setAnswer(null);
       setFailed(false);
       return;
     }
     let current = true;
     setFailed(false);
-    runSearch(applied.q).then(
+    runSearch(live.text).then(
       (outcome) => current && setAnswer({ q: applied.q, outcome }),
       () => current && setFailed(true),
     );
     return () => {
       current = false;
     };
-  }, [applied.q, applied.s, applied.r]);
+  }, [applied.q, applied.s, applied.r, live.text]);
 
   const suggestions = useMemo(() => (ta && text.trim() ? suggest(ta, text) : null), [ta, text]);
   const routeItem = useMemo<RouteItem | null>(() => {
@@ -250,9 +294,12 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
   function submit(e: React.FormEvent) {
     e.preventDefault();
     window.clearTimeout(timer.current);
-    const value = text.trim();
-    if (!value) return;
+    const raw = text.trim();
+    if (!raw) return;
     if (active >= 0 && flat[active]) return pick(flat[active]);
+    // Words about right now ("today", "heute") are taken out for the lookup; a train query keeps them so the page can say it is not live.
+    const sl = splitLive(raw);
+    const value = sl.text || raw;
     // "Köln to" with nothing after it is not a question yet: keep the destinations on screen.
     const partial = stops ? destinations(stops, value) : null;
     if (partial && !partial.prefix) {
@@ -264,7 +311,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     // A route wins over a lookalike: "Köln Berlin" is a trip, not a station.
     if (routeItem || (stops && splitRoute(value))) return openRoute(value);
     // The per-stop data may still be loading, or the text may only look like a route: decide once it is here.
-    if (!stops && /\s|→|->|\d:\d/.test(value)) {
+    if (!stops && /\s|→|->|\d:\d/.test(value) && /\s(to|nach)\s|→|->/i.test(value)) {
       loadStops().then(
         (idx) => {
           setStops(idx);
@@ -276,9 +323,9 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
           }
           const query = parseRoute(idx, value);
           if (query || splitRoute(value)) openRoute(value);
-          else commit({ q: value, u: null, s: null, r: false }, "push");
+          else commit({ q: raw, u: null, s: null, r: false }, "push");
         },
-        () => commit({ q: value, u: null, s: null, r: false }, "push"),
+        () => commit({ q: raw, u: null, s: null, r: false }, "push"),
       );
       return;
     }
@@ -288,7 +335,7 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
       setText(st.name);
       commit({ q: st.name, u: null, s: st.name, r: false }, "push");
     } else {
-      commit({ q: value, u: null, s: null, r: false }, "push");
+      commit({ q: raw, u: null, s: null, r: false }, "push");
     }
   }
 
@@ -316,6 +363,20 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
     else commit({ q, u, s: null, r: false }, "push");
   }
   askRef.current = ask;
+
+  /** A station is a station: no guessing from the text, so an example chip works before the index has loaded. */
+  function askStation(name: string) {
+    window.clearTimeout(timer.current);
+    setText(name);
+    setOpen(false);
+    input.current?.blur();
+    commit({ q: name, u: null, s: name, r: false }, "push");
+  }
+  function askExample(kind: ExampleKind, text: string) {
+    if (kind === "station") askStation(text);
+    else if (kind === "route") ask(text, null, true);
+    else ask(text);
+  }
 
   function startVoice() {
     session.current?.cancel();
@@ -371,20 +432,50 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
 
   const ready = answer !== null && answer.q === applied.q ? answer.outcome : null;
   const examples = lang === "de" ? EXAMPLES_DE : EXAMPLES;
+  const routeish = /\s|→|->|\d:\d/.test(text.trim());
+  const indexLoading = !ta || (routeish && !stops && !stopsFailed);
+  const showHelp = open && !text.trim() && !applied.q && !applied.s && voice.phase === "idle";
   const stationEntry: TaStationEntry | null = ta && applied.s ? (ta.stations.find((s) => s.name === applied.s) ?? null) : null;
   const span = spanLabel(SEARCH_INDEX.window.firstMonth, SEARCH_INDEX.window.lastMonth, lang);
   const listId = `${uid}-list`;
 
   const hasQuery = Boolean(applied.q || applied.s);
+
+  // A train or line that resolves to one page opens that page, like a route does: the visitor lands on the destination, not on a copy of it.
+  const shown = ready && ready.matches.length > 0 ? (ready.matches.length === 1 ? ready.matches[0] : pickByKey(ready.matches, applied.u)) : null;
+  // A corrected type ("ICEE 1541" -> ICE) stays here with its note: a silent jump would hide that the visitor typed something else.
+  const pageHref = shown?.slug && !ready?.typeNote ? unitHref({ category: shown.kind === 0 ? "longDistance" : "regional", slug: shown.slug }, lang) : null;
+  useEffect(() => {
+    if (pageHref) router.replace(pageHref);
+  }, [pageHref, router]);
+
+  // A name that is exactly one station ("Köln Hbf" from a link or an example) is that station's view, not a train query.
+  const noMatch = ready?.problem === "no-match" ? live.text : null;
+  const station1 = useMemo(() => (noMatch && ta ? findStation(ta, noMatch) : null), [noMatch, ta]);
+  useEffect(() => {
+    if (station1 && !applied.s) {
+      setText(station1.name);
+      commit({ q: station1.name, u: null, s: station1.name, r: false }, "replace");
+    }
+  }, [station1, applied.s, commit]);
+
   return (
-    <div className={styles.root} data-active={hasQuery || undefined}>
-      <div className={styles.intro}>
-        <h1 className={styles.title}>{title}</h1>
-        {hasQuery ? null : <p className={styles.sub}>{sub}</p>}
-      </div>
+    <div className={styles.root} data-active={hasQuery || undefined} data-variant={variant}>
+      {title ? (
+        <div className={styles.intro}>
+          <h1 className="h1">{title}</h1>
+        </div>
+      ) : null}
+      {hasQuery || !figure ? null : <div className={styles.figureWrap}>{figure}</div>}
       <form className={styles.field} role="search" onSubmit={submit} autoComplete="off">
         <label htmlFor={`${uid}-q`} className={styles.label}>
-          {t("home.label")}
+          {variant === "inline" ? (
+            <>
+              {t("own.label")}
+            </>
+          ) : (
+            t("home.sub2")
+          )}
         </label>
         <div className={styles.inputWrap}>
           <input
@@ -427,14 +518,16 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
               </svg>
             </button>
           ) : null}
-          <button type="submit" className={styles.go}>
-            {t("home.go")}
+          <button type="submit" className={styles.go} aria-label={t("home.go")}>
+            <Arrow />
           </button>
         </div>
 
         {showList ? (
           <div id={listId} className={styles.list} role="listbox" aria-label={t("sug.list")}>
-            {!ta && !routeItem && dests.length === 0 ? null : flat.length === 0 ? (
+            {flat.length === 0 && indexLoading ? (
+              <p className={styles.hint}>{t("sug.loading")}</p>
+            ) : flat.length === 0 ? (
               <p className={styles.hint}>{t("sug.empty", { q: text.trim() })}</p>
             ) : (
               <Groups suggestions={suggestions && dests.length === 0 && !routeItem ? suggestions : { trains: [], lines: [], stations: [] }} route={routeItem} dests={dests} stops={stops} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
@@ -443,23 +536,44 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
         ) : null}
       </form>
 
-      <VoicePanel view={voice} lang={lang} getLevel={() => session.current?.level ?? 0} onStop={stopVoice} onCancel={closeVoice} onRetry={startVoice} />
-
-      {!hasQuery && !showList && voice.phase === "idle" ? (
-        <div className={styles.try}>
-          <span className={styles.tryLabel}>{t("home.try")}</span>
-          {examples.map((ex) => (
-            <button key={ex} type="button" className={styles.chip} onClick={() => ask(ex, null, /\s(to|nach)\s/.test(ex))}>
-              {ex}
-            </button>
-          ))}
+      {showHelp ? (
+        <div className={styles.help} role="group" aria-label={t("help.title")}>
+          <p className={styles.helpTitle}>{t("help.title")}</p>
+          <ul>
+            {HELP.map((h) => (
+              <li key={h.key}>
+                <button type="button" className={styles.helpItem} onMouseDown={(e) => e.preventDefault()} onClick={() => askExample(h.kind, lang === "de" ? h.de : h.en)}>
+                  <b>{lang === "de" ? h.de : h.en}</b>
+                  <span>{t(h.key)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
-      {!hasQuery && !showList ? idle : null}
+      <VoicePanel view={voice} lang={lang} getLevel={() => session.current?.level ?? 0} onStop={stopVoice} onCancel={closeVoice} onRetry={startVoice} />
+
+      {!hasQuery && !showList && !showHelp && voice.phase === "idle" ? (
+        <p className={styles.eg}>
+          <span>{t("home.egLabel")}:</span>
+          {examples.map((ex) => (
+            <button key={ex.text} type="button" className={styles.egLink} onClick={() => askExample(ex.kind, ex.text)}>
+              {ex.text}
+            </button>
+          ))}
+        </p>
+      ) : null}
+
+      {!hasQuery && !showList && idle ? <div className={styles.idle}>{idle}</div> : null}
 
       <div className={styles.results} aria-live="polite">
-        {failed ? (
+        {live.live && applied.q && !applied.s && !applied.r ? (
+          <p className={styles.live} role="note">
+            {t("q.live", { span })}
+          </p>
+        ) : null}
+        {applied.q && !live.text && !applied.s && !applied.r ? <NoMatch q={applied.q} ta={ta} lang={lang} askStation={askStation} askExample={askExample} /> : failed ? (
           <p className={styles.message}>{t("q.failed")}</p>
         ) : applied.r ? (
           stops && table ? (
@@ -481,8 +595,10 @@ export function Search({ lang, idle, title, sub }: { lang: Lang; idle?: React.Re
           )
         ) : applied.q && !ready ? (
           <p className={styles.loading}>{t("q.loading", { q: applied.q })}</p>
+        ) : ready && (pageHref || station1) ? (
+          <p className={styles.loading}>{t("q.loading", { q: applied.q })}</p>
         ) : ready ? (
-          <Answer outcome={ready} u={applied.u} lang={lang} span={span} ask={ask} />
+          <Answer outcome={ready} u={applied.u} lang={lang} span={span} ask={ask} ta={ta} askStation={askStation} askExample={askExample} />
         ) : null}
       </div>
     </div>
@@ -835,22 +951,97 @@ function keyFor(u: SearchUnit): string | null {
   return u.kind === 0 ? null : u.key;
 }
 
+/**
+ * A query that is not a train: a city with several stations gets a picker, a near miss gets "did you mean", anything
+ * else gets the list of what the box understands. Never "add the train number after BERLIN".
+ */
+function NoMatch({
+  q,
+  ta,
+  lang,
+  askStation,
+  askExample,
+}: {
+  q: string;
+  ta: TaIndex | null;
+  lang: Lang;
+  askStation: (name: string) => void;
+  askExample: (kind: ExampleKind, text: string) => void;
+}) {
+  const t = makeT(lang);
+  const found = ta && q.trim() ? suggest(ta, q).stations.map((s) => (s.kind === "station" ? s.station : null)).filter((s): s is TaStationEntry => s !== null) : [];
+  if (found.length > 1) {
+    return (
+      <section className={styles.picker} aria-labelledby="pick-title">
+        <h2 id="pick-title" className={styles.pickerTitle}>
+          {t("pick.title", { q })}
+        </h2>
+        <ul>
+          {found.map((s) => (
+            <li key={s.name}>
+              <button type="button" className={styles.pickerRow} onClick={() => askStation(s.name)}>
+                <b>{s.name}</b>
+                <span>{t("pick.trains", { n: s.trains.length })}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  const near = ta ? didYouMean(ta.stations.map((s) => s.name), q) : [];
+  return (
+    <div className={styles.none}>
+      <p className={styles.noneTitle}>{t("q.noneHelp", { q })}</p>
+      {near.length > 0 ? (
+        <Suggestions title={t("q.didYouMean")}>
+          {near.map((n) => (
+            <button key={n} type="button" className={styles.chip} onClick={() => askStation(n)}>
+              {n}
+            </button>
+          ))}
+        </Suggestions>
+      ) : null}
+      <ul className={styles.helpList}>
+        {HELP.map((h) => (
+          <li key={h.key}>
+            <button type="button" className={styles.helpItem} onClick={() => askExample(h.kind, lang === "de" ? h.de : h.en)}>
+              <b>{lang === "de" ? h.de : h.en}</b>
+              <span>{t(h.key)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Answer({
   outcome,
   u,
   lang,
   span,
   ask,
+  ta,
+  askStation,
+  askExample,
 }: {
   outcome: SearchOutcome;
   u: string | null;
   lang: Lang;
   span: string;
   ask: (q: string, u?: string | null) => void;
+  ta: TaIndex | null;
+  askStation: (name: string) => void;
+  askExample: (kind: ExampleKind, text: string) => void;
 }) {
   const t = makeT(lang);
   const { parsed, matches } = outcome;
   const min = SEARCH_INDEX.params.searchMinRuns;
+
+  if (outcome.problem === "no-match") {
+    return <NoMatch q={parsed.raw} ta={ta} lang={lang} askStation={askStation} askExample={askExample} />;
+  }
 
   if (outcome.problem === "need-number") {
     return <p className={styles.message}>{t("q.needNumber", { type: parsed.type ?? "" })}</p>;

@@ -218,3 +218,31 @@ export function routesMetadata(lang: Lang): Metadata {
     imageAlt: t("seo.routes.alt", { span }),
   });
 }
+
+export function changeMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const title = t("seo.change.title");
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.change.desc", { span: windowSpan(lang) }),
+    path: route(lang, "change"),
+    image: "home",
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
+  });
+}
+
+export function moreMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const title = t("seo.more.title");
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.more.desc"),
+    path: route(lang, "more"),
+    image: "home",
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
+  });
+}

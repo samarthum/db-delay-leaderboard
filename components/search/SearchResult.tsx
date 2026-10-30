@@ -8,8 +8,9 @@ import { fmt1, fmtDate, fmtDuration, fmtInt, fmtShare1, spanLabel } from "@/lib/
 import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
 import { absoluteUrl, unitHref } from "@/lib/site";
-import { renderResultCard } from "@/lib/shareImage";
-import { LateLead } from "../LateLead";
+import { Arrow } from "../Arrow";
+import { Figure } from "../Figure";
+import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
 import styles from "./SearchResult.module.css";
 
@@ -86,7 +87,6 @@ export function SearchResult({
   const name = unitName(unit);
   const few = unit.measured < params.searchFewRuns;
   const [line, setLine] = useState<SearchUnit | null>(null);
-  const [imageStatus, setImageStatus] = useState("");
 
   useEffect(() => {
     let current = true;
@@ -106,37 +106,6 @@ export function SearchResult({
     canc: fmtShare1(unit.cancelled, lang),
     span,
   });
-
-  async function saveImage() {
-    setImageStatus(t("res.making"));
-    try {
-      const blob = await renderResultCard(unit, { kind: kindLabel(unit, lang), span, lang });
-      const file = new File([blob], `${unit.key}.png`, { type: "image/png" });
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], text: shareText, url: shareUrl(unit, lang) });
-          setImageStatus("");
-          return;
-        } catch (err) {
-          if ((err as DOMException).name === "AbortError") {
-            setImageStatus("");
-            return;
-          }
-        }
-      }
-      const href = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = `${unit.key}-delays.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
-      setImageStatus(t("res.saved"));
-    } catch {
-      setImageStatus(t("res.saveFail"));
-    }
-  }
 
   const fullHref = unit.slug ? unitHref({ category: unit.kind === 0 ? "longDistance" : "regional", slug: unit.slug }, lang) : null;
 
@@ -171,7 +140,13 @@ export function SearchResult({
       ) : null}
 
       <div className={styles.leadWrap}>
-        <LateLead pct={unit.late} measured={unit.measured} lang={lang} basis={t("res.basis", { span })} />
+        <Figure
+          pct={unit.late}
+          pct6={unit.late6}
+          lang={lang}
+          sentence={<Rich text={t("res.figure")} />}
+          basis={t("res.exact", { pct: fmtShare1(unit.late, lang), n: fmtInt(unit.measured, lang) }) + " " + t("res.basis", { span })}
+        />
       </div>
 
       {few ? <p className={styles.warning}>{t("res.few", { n: fmtInt(unit.measured, lang), min: params.searchMinRuns, fewMin: params.searchFewRuns })}</p> : null}
@@ -199,20 +174,11 @@ export function SearchResult({
 
       <Weekdays unit={unit} lang={lang} />
 
-      <div className={styles.actions}>
-        <ShareButton lang={lang} title={`${name} · German Punctuality`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")}>
-          <button type="button" className={styles.imageButton} onClick={saveImage}>
-            {t("res.save")}
-          </button>
-        </ShareButton>
-        {imageStatus ? (
-          <p className={styles.status} role="status">
-            {imageStatus}
-          </p>
-        ) : null}
+      <div className="actions">
+        <ShareButton lang={lang} title={`${name} · German Punctuality`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")} />
         {fullHref ? (
-          <Link className={styles.full} href={fullHref} prefetch={false}>
-            {unit.kind === 0 ? t("res.fullTrain") : t("res.fullLine")} <span aria-hidden="true">→</span>
+          <Link className="tl" href={fullHref} prefetch={false}>
+            {unit.kind === 0 ? t("res.fullTrain") : t("res.fullLine")} <Arrow />
           </Link>
         ) : null}
       </div>

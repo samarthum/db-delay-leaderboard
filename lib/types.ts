@@ -180,6 +180,8 @@ export interface UnitDetail extends UnitSummary {
   /** Number of runs that used exactly this stop sequence. */
   stopsSequenceRuns: number;
   worstRun: WorstRun | null;
+  /** Share of measured runs 6+ min late (Deutsche Bahn's own rule). */
+  late6Pct: number | null;
 }
 
 /** A typical trip in the last `Params.headlineMonths` months of the window. */
@@ -207,8 +209,11 @@ export interface RecapCategory {
   /** Measured runs that arrived `lateMinutes` or more late, and an hour or more late. */
   lateRuns: number;
   late60Runs: number;
+  late6Runs: number;
   latePct: number;
   late60Pct: number;
+  /** Share of measured runs 6+ min late: Deutsche Bahn's own rule. */
+  late6Pct: number;
   cancelledPct: number;
   avgDelayMin: number;
 }

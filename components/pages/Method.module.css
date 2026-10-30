@@ -1,13 +1,11 @@
 .list {
-  display: grid;
-  gap: 10px;
-  max-width: 820px;
+  max-width: 760px;
+  margin-top: 20px;
+  border-top: 2px solid var(--ink);
 }
 
 .item {
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  box-shadow: var(--shadow);
+  border-bottom: 1px solid var(--rule);
 }
 
 .summary {
@@ -16,11 +14,11 @@
   justify-content: space-between;
   gap: 16px;
   min-height: 56px;
-  padding: 12px 18px;
-  font-family: var(--font-display);
+  padding: 10px 0;
+  font-size: 19px;
   font-weight: 700;
-  font-size: 21px;
-  line-height: 1.2;
+  font-stretch: 90%;
+  line-height: 1.25;
   cursor: pointer;
   list-style: none;
 }
@@ -29,17 +27,11 @@
   display: none;
 }
 
-.summary:focus-visible {
-  outline-offset: -3px;
-}
-
 .icon {
   position: relative;
   flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--bg);
+  width: 20px;
+  height: 20px;
 }
 
 .icon::before,
@@ -48,16 +40,15 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 12px;
-  height: 2.5px;
-  border-radius: 2px;
-  background: var(--amber);
+  width: 14px;
+  height: 2px;
+  background: var(--ink);
   transform: translate(-50%, -50%);
-  transition: transform 0.2s ease;
 }
 
 .icon::after {
   transform: translate(-50%, -50%) rotate(90deg);
+  transition: transform 0.15s ease;
 }
 
 .item[open] .icon::after {
@@ -65,8 +56,9 @@
 }
 
 .body {
-  padding: 0 18px 18px;
+  padding: 0 0 18px;
   color: var(--ink-2);
+  max-width: 64ch;
 }
 
 .body p + p,
@@ -75,7 +67,6 @@
 }
 
 .body a {
-  text-decoration-color: var(--late);
   text-underline-offset: 3px;
 }
 
@@ -96,6 +87,5 @@
   top: 0.62em;
   width: 7px;
   height: 7px;
-  border-radius: 2px;
-  background: var(--amber);
+  background: var(--ink);
 }

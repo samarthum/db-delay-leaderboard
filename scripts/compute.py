@@ -488,6 +488,10 @@ def details(con, units, months, p):
     for h in rows(con, f"select unit, {bin_index(HIST_BINS)} bin, count(*) n from r where valid and {in_sel} group by all"):
         out[h["unit"]]["hist"][h["bin"]] = h["n"]
 
+    # Deutsche Bahn's own rule counts a train as late from 6 minutes; the site shows it next to the 15-minute share.
+    for h in rows(con, f"select unit, count(*) n, count(*) filter (where delay >= 6) l6 from r where valid and {in_sel} group by unit"):
+        out[h["unit"]]["late6"] = rnd(100 * h["l6"] / h["n"]) if h["n"] else None
+
     for w in rows(con, f"""
         select unit, delay, start_plan::date::varchar AS date,
           case when cat = 'longDistance' then origin else o.name end origin,
@@ -546,6 +550,7 @@ def details(con, units, months, p):
             "histogram": [{"label": label, "lo": lo, "hi": hi, "count": n,
                            "share": rnd(100 * n / measured) if measured else 0.0}
                           for (label, lo, hi), n in zip(HIST_BINS, d["hist"])],
+            "late6Pct": d.get("late6"),
             "stops": d["stops"],
             "stopsSequenceRuns": d["seq_runs"],
             "worstRun": d["worst"],
@@ -573,7 +578,7 @@ def search_units(con, p, page_slug):
 
     page_slug maps a unit (or a train number merged into one) to the slug of its full page.
     Record layout (positional, see lib/search.ts):
-      [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
+      [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line, late6]
     """
     in_clamp = f"delay between {p['clampMinMinutes']} and {p['clampMaxMinutes']}"
     min_runs, min_wd, late = p["searchMinRuns"], p["searchMinWeekdayRuns"], p["lateMinutes"]
@@ -585,6 +590,7 @@ def search_units(con, p, page_slug):
               count(*) runs, count(*) filter (where valid) measured,
               avg(delay) filter (where valid) avg_min,
               100.0 * count(*) filter (where valid and delay >= {late}) / nullif(count(*) filter (where valid), 0) late,
+              100.0 * count(*) filter (where valid and delay >= 6) / nullif(count(*) filter (where valid), 0) late6,
               100 * avg(all_canc::int) full_canc
             from r where {cond} group by grp
             having count(*) filter (where valid) >= {min_runs}""")}
@@ -640,6 +646,7 @@ def search_units(con, p, page_slug):
                 typ, num, h = s["line"].split(" ", 1)[0], s["num"], short_hash(s["line"], s["num"], o, d)
             kind_records.append({"kind": kind, "unit": s["unit"], "group": g, "type": typ, "num": num, "hash": h,
                                  "line": s["line"] if kind == 2 else None,
+                                 "late6": rnd(s["late6"]),
                                  "rec": [typ, num, kind, s["runs"], s["measured"], rnd(s["avg_min"]), rnd(s["late"]),
                                          rnd(s["full_canc"]), weekday.get(g, [None] * 7), o, d, wr]})
         log(f"search kind {kind}: {len(kind_records)} of {len(stats)} units with >= {min_runs} measured runs in {time.time() - t0:.1f}s")
@@ -668,10 +675,9 @@ def search_units(con, p, page_slug):
     line_hash = {r_["unit"]: r_["hash"] for r_ in records if r_["kind"] == 1}
     for r_ in records:
         rec = r_["rec"]
+        # ... slug, hash, lineHash, line, late6 (Deutsche Bahn's 6-minute rule). The tail stays padded so late6 keeps its place.
         rec += [page_slug.get(r_["unit"]) if r_["kind"] != 2 else None, r_["hash"],
-                line_hash.get(r_["unit"]) if r_["kind"] == 2 else None, r_["line"]]
-        while rec[-1] is None:
-            rec.pop()
+                line_hash.get(r_["unit"]) if r_["kind"] == 2 else None, r_["line"], r_["late6"]]
     return records
 
 
@@ -713,11 +719,13 @@ def recap_stats(con, p):
     for c in rows(con, f"""
         select cat, count(*) runs, count(*) filter (where all_canc) cancelled, count(*) filter (where valid) measured,
           count(*) filter (where valid and delay >= {late}) late, count(*) filter (where valid and delay >= 60) late60,
+          count(*) filter (where valid and delay >= 6) late6,
           avg(delay) filter (where valid) avg_min
         from r group by cat"""):
         out[c["cat"]] = {"runs": c["runs"], "cancelled": c["cancelled"], "measured": c["measured"],
-                         "lateRuns": c["late"], "late60Runs": c["late60"],
+                         "lateRuns": c["late"], "late60Runs": c["late60"], "late6Runs": c["late6"],
                          "latePct": rnd(100 * c["late"] / c["measured"]), "late60Pct": rnd(100 * c["late60"] / c["measured"]),
+                         "late6Pct": rnd(100 * c["late6"] / c["measured"]),
                          "cancelledPct": rnd(100 * c["cancelled"] / c["runs"]), "avgDelayMin": rnd(c["avg_min"])}
     return out
 

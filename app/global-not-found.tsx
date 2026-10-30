@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { fontClasses } from "@/lib/fonts";
 import { makeT } from "@/lib/t";
+import { NotFoundSearch } from "@/components/NotFoundSearch";
 import "./globals.css";
+import "./ui.css";
 import styles from "./not-found.module.css";
 
-export const metadata = { title: "Platform not found · Gleis nicht gefunden" };
+export const metadata = { title: "Page not found · Seite nicht gefunden" };
 
-/** Shown for every unknown address. Shows both languages, since the visitor's language is not known here. */
+/** Shown for every unknown address, in both languages: the visitor's language is not known here. A plain message and a search box. */
 export default function GlobalNotFound() {
   const en = makeT("en");
   const de = makeT("de");
@@ -14,25 +16,16 @@ export default function GlobalNotFound() {
     <html lang="en" className={fontClasses}>
       <body>
         <main className={`container ${styles.main}`}>
-          <div className={`board ${styles.board}`}>
-            <p className={styles.code} aria-hidden="true">
-              404
-            </p>
-            <h1 className={styles.title}>{en("notfound.title")}</h1>
-            <p className={styles.text}>{en("notfound.text")}</p>
-            <Link href="/" className={styles.link}>
-              {en("notfound.home")} <span aria-hidden="true">→</span>
-            </Link>
-            <hr className={styles.rule} />
-            <p className={styles.titleDe} lang="de">
-              {de("notfound.title")}
-            </p>
-            <p className={styles.text} lang="de">
-              {de("notfound.text")}
-            </p>
-            <Link href="/de/" className={styles.link} lang="de">
-              {de("notfound.home")} <span aria-hidden="true">→</span>
-            </Link>
+          <Link href="/" className={styles.brand}>
+            German Punctuality
+          </Link>
+          <h1 className={`h1 ${styles.title}`}>{en("notfound.title2")}</h1>
+          <p className={styles.text}>{en("notfound.text2")}</p>
+          <NotFoundSearch action="/" label={en("notfound.go")} placeholder={en("home.placeholder")} />
+          <div className={styles.de} lang="de">
+            <h2 className="sec-h">{de("notfound.title2")}</h2>
+            <p className={styles.text}>{de("notfound.text2")}</p>
+            <NotFoundSearch action="/de/" label={de("notfound.go")} placeholder={de("home.placeholder")} />
           </div>
         </main>
       </body>

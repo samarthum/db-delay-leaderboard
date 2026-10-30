@@ -3,6 +3,7 @@
  * Data: data/connections.json (scripts/connections.py), copied to /search/connections.json. No I/O except the fetch.
  */
 import { fold, words } from "./typeahead";
+import { shortStation } from "./routeSlug";
 
 /** [planned change time (min), pairs of trains, next train cancelled, worked with 0 / 2 / 4 / 6 / 8 min to spare] */
 export type GapRow = [number, number, number, number, number, number, number, number];
@@ -55,6 +56,17 @@ export function findStation(file: ConnFile, name: string): ConnStation | null {
   return file.stations.find((s) => s.name === name) ?? null;
 }
 
+/** The station a page names ("Berlin Hbf" on a route page, "Berlin Hauptbahnhof" in the data), or null when no changes were counted there. */
+export function stationFor(file: ConnFile, name: string): ConnStation | null {
+  const exact = findStation(file, name);
+  if (exact) return exact;
+  const want = shortStation(name);
+  return file.stations.find((s) => shortStation(s.name) === want) ?? null;
+}
+
+/** The change times the picker offers: the ladder rows. */
+export const PICKER = LADDER;
+
 function prefixes(q: string[], name: string[]): boolean {
   const used = new Set<number>();
   return q.every((qw) => {
@@ -95,6 +107,7 @@ export function loadConnections(): Promise<ConnFile> {
 
 const KEY_STATION = "gp-conn-station";
 const KEY_SLOW = "gp-conn-slow";
+const KEY_GAP = "gp-conn-gap";
 
 export function readStation(): string | null {
   try {
@@ -120,6 +133,22 @@ export function readSlow(): boolean {
 export function writeSlow(v: boolean): void {
   try {
     window.localStorage.setItem(KEY_SLOW, v ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
+
+export function readGap(): number | null {
+  try {
+    const v = Number(window.localStorage.getItem(KEY_GAP));
+    return LADDER.includes(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+export function writeGap(v: number): void {
+  try {
+    window.localStorage.setItem(KEY_GAP, String(v));
   } catch {
     // ignore
   }

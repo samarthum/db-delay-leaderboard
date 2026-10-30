@@ -1,22 +1,54 @@
-import { route, type Lang, type RouteKey } from "@/lib/i18n";
+import { route, type Lang } from "@/lib/i18n";
 import type { Key } from "@/lib/t";
 
 export interface NavItem {
-  key: Exclude<RouteKey, "train" | "line" | "recap" | "routes" | "route">;
+  key: "home" | "change" | "ranking" | "more" | "network" | "recap" | "method";
   label: Key;
   href: (lang: Lang) => string;
+  /** Address prefixes (without language) where this item counts as the current place. */
+  match: string[];
 }
 
-export const NAV: NavItem[] = [
-  { key: "home", label: "nav.search", href: (l) => route(l, "home") },
-  { key: "ranking", label: "nav.ranking", href: (l) => route(l, "ranking") },
-  { key: "network", label: "nav.network", href: (l) => route(l, "network") },
-  { key: "method", label: "nav.method", href: (l) => route(l, "method") },
+const at = (key: Parameters<typeof route>[1]) => (l: Lang) => route(l, key);
+
+/** The four places on a phone. */
+export const TABS: NavItem[] = [
+  { key: "home", label: "nav.search", href: at("home"), match: ["", "route", "train", "line"] },
+  { key: "change", label: "nav.change", href: at("change"), match: ["change"] },
+  { key: "ranking", label: "nav.ranking", href: at("ranking"), match: ["routes", "ranking"] },
+  { key: "more", label: "nav.more", href: at("more"), match: ["more", "network", "recap", "method"] },
 ];
 
-/** Is this nav item the current page? Home matches only "/" and "/de/"; the rest match their folder. */
-export function isActive(item: NavItem, lang: Lang, pathname: string): boolean {
-  const href = item.href(lang);
-  const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
-  return item.key === "home" ? p === href : p.startsWith(href);
+/** The same places in the header on wide screens, with the pages behind "More" listed out. */
+export const DESKTOP: NavItem[] = [
+  TABS[0],
+  TABS[1],
+  TABS[2],
+  { key: "network", label: "nav.network", href: at("network"), match: ["network"] },
+  { key: "recap", label: "nav.recap", href: at("recap"), match: ["recap"] },
+  { key: "method", label: "nav.method", href: at("method"), match: ["method"] },
+];
+
+/** First path segment of the page in either language: "/de/zug/ice-1541/" -> "zug", "/" -> "". */
+function firstSegment(pathname: string): string {
+  const parts = pathname.split("/").filter(Boolean);
+  return parts[0] === "de" ? (parts[1] ?? "") : (parts[0] ?? "");
+}
+
+const GERMAN: Record<string, string> = {
+  strecke: "route",
+  strecken: "routes",
+  zug: "train",
+  linie: "line",
+  netz: "network",
+  methode: "method",
+  rueckblick: "recap",
+  umsteigen: "change",
+  mehr: "more",
+};
+
+/** Is this item where the visitor is? Route, train and line pages count as Search: that is where you look things up. */
+export function isActive(item: NavItem, pathname: string): boolean {
+  const seg = firstSegment(pathname);
+  return item.match.includes(GERMAN[seg] ?? seg);
 }

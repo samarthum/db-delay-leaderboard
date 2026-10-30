@@ -218,3 +218,34 @@ export function findStation(index: TaIndex, input: string): TaStationEntry | nul
   const hbf = starts.filter((s) => s.words.includes("hbf") && s.words[0] === q[0]);
   return hbf.length === 1 ? hbf[0] : null;
 }
+
+/** Edit distance, capped: returns cap + 1 when it is bigger. Small inputs only (station names). */
+function distance(a: string, b: string, cap: number): number {
+  if (Math.abs(a.length - b.length) > cap) return cap + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Station names close to what was typed, for "Berln" -> "Berlin Hbf". Compares the typed words with the first word of
+ * each name (the city), allowing one slip in short words and two in longer ones. Biggest stations first.
+ */
+export function didYouMean(names: string[], typed: string, limit = 3): string[] {
+  const q = words(fold(typed));
+  if (q.length === 0 || q[0].length < 3) return [];
+  const cap = q[0].length >= 7 ? 2 : 1;
+  const scored: { name: string; d: number; hbf: number }[] = [];
+  for (const name of names) {
+    const w = words(fold(name));
+    if (w.length === 0) continue;
+    const d = distance(q[0], w[0], cap);
+    if (d > 0 && d <= cap) scored.push({ name, d, hbf: w.includes("hbf") ? 0 : 1 });
+  }
+  scored.sort((a, b) => a.d - b.d || a.hbf - b.hbf || a.name.length - b.name.length);
+  return scored.slice(0, limit).map((s) => s.name);
+}

@@ -1,24 +1,14 @@
-import { Barlow, Barlow_Condensed, Roboto_Mono } from "next/font/google";
+import { Archivo } from "next/font/google";
 
-export const display = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-barlow-condensed",
+/**
+ * One family for the whole site: Archivo, with its width axis. The condensed cut sets headlines and figures,
+ * the normal width sets text. Its Latin subset has no arrow, so arrows are drawn (components/Arrow.tsx).
+ */
+export const archivo = Archivo({
+  subsets: ["latin", "latin-ext"],
+  axes: ["wdth"],
+  variable: "--font-archivo",
   display: "swap",
 });
 
-export const body = Barlow({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-barlow",
-  display: "swap",
-});
-
-export const mono = Roboto_Mono({
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-roboto-mono",
-  display: "swap",
-});
-
-export const fontClasses = `${display.variable} ${body.variable} ${mono.variable}`;
+export const fontClasses = archivo.variable;

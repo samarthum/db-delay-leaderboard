@@ -7,6 +7,7 @@ import { SiteHeader } from "./SiteHeader";
 import { TabBar } from "./TabBar";
 import { Footer } from "./Footer";
 import "@/app/globals.css";
+import "@/app/ui.css";
 
 /** The <html> document for one language: skip link, header, page, footer, and the bottom tab bar on phones. */
 export function RootShell({ lang, children }: { lang: Lang; children: ReactNode }) {

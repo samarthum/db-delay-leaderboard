@@ -1,0 +1,563 @@
+/* Shared pieces of the "printed timetable": figure with its two rules, bar tables, segmented controls, charts.
+   Global on purpose: every page uses them, and a row is a row, not a component per page. */
+
+/* Figure + rule bars ---------------------------------------------------- */
+.fig {
+  margin-top: 18px;
+}
+.figrow {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.big {
+  font-size: 84px;
+  line-height: 0.86;
+  font-weight: 800;
+  font-stretch: 76%;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.big .u {
+  font-size: 0.56em;
+  font-stretch: 80%;
+  margin-left: 0.02em;
+}
+.figtext {
+  padding-bottom: 2px;
+  font-size: 17px;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+.figtext strong {
+  font-weight: 650;
+}
+.rules {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.rb {
+  display: grid;
+  grid-template-columns: 1fr 54px;
+  grid-template-rows: auto 10px;
+  column-gap: 10px;
+  row-gap: 5px;
+  align-items: center;
+}
+.rb-l {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.rb-l small {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.rb-t {
+  grid-column: 1;
+  grid-row: 2;
+  position: relative;
+  height: 10px;
+  background: var(--track);
+}
+.rb-t i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ink);
+}
+.rb-t i.db {
+  background: repeating-linear-gradient(135deg, var(--ink) 0 3px, #6b7079 3px 5px);
+}
+.rb-v {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: end;
+  text-align: right;
+  font-size: 22px;
+  font-weight: 750;
+  font-stretch: 84%;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Facts: two or three figures with their own basis ---------------------- */
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+.facts.three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.facts > div {
+  padding: 10px 0 0;
+}
+.facts > div + div {
+  padding-left: 14px;
+  border-left: 1px solid var(--rule);
+}
+.facts dt {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.facts dd {
+  font-size: 24px;
+  font-weight: 750;
+  font-stretch: 84%;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.facts dd small {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  font-stretch: 100%;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+/* Bar table ------------------------------------------------------------- */
+.bt {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.bt th,
+.bt td {
+  padding: 0;
+  text-align: left;
+  font-weight: 400;
+}
+.bt thead th {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--ink-2);
+  vertical-align: bottom;
+}
+.bt thead th.r,
+.bt td.r {
+  text-align: right;
+}
+.bt tbody tr {
+  border-bottom: 1px solid var(--rule);
+}
+.bt tbody tr.tap {
+  height: 44px;
+}
+.bt tbody tr.ro {
+  height: 40px;
+}
+.bt .k {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bt .rk {
+  width: 28px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.bt .bar {
+  padding: 0 12px 0 8px;
+}
+.bt .bar span {
+  display: block;
+  position: relative;
+  height: 10px;
+  background: var(--track);
+}
+.bt .bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+}
+.bt .v {
+  text-align: right;
+  font-size: 16px;
+  font-weight: 650;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.bt .v small,
+.bt th small {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.bt .two {
+  padding: 8px 0;
+  line-height: 1.2;
+}
+.bt .two b,
+.bt .two a b {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.bt .two span {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.bt .two a {
+  display: block;
+  text-decoration: none;
+  min-height: 44px;
+  padding: 8px 0;
+  margin: -8px 0;
+}
+.bt tr.few .v,
+.bt tr.few .k {
+  color: var(--muted);
+  font-weight: 400;
+}
+.bt tr.sel {
+  background: var(--mark);
+}
+.bt tr.sel td:first-child {
+  padding-left: 10px;
+}
+.bt tr.sel td:last-child {
+  padding-right: 10px;
+}
+.bt tr.sel .bar span {
+  background: rgba(20, 22, 26, 0.12);
+}
+.bt tr.det {
+  background: var(--mark);
+  border-bottom-color: var(--ink);
+}
+.bt tr.det td {
+  padding: 2px 10px 12px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.bt .rowbtn {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+/* Segmented control ------------------------------------------------------ */
+.seglabel {
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.seg {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.seg.c2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+.seg.c3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.seg.c4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+.seg.c5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+.seg.c5 button {
+  padding-inline: 2px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.seg button,
+.seg a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 15.5px;
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.seg button[aria-pressed="true"],
+.seg a[aria-current="true"] {
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 500;
+  text-underline-offset: 4px;
+}
+
+/* Charts (server-drawn SVG) --------------------------------------------- */
+.sl {
+  margin-top: 16px;
+}
+.sl svg,
+.cols svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.sl text {
+  font-size: 14px;
+  fill: var(--ink);
+}
+.sl .ax,
+.cols .ax {
+  fill: var(--muted);
+  font-size: 13px;
+}
+.sl .val {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.cols {
+  margin-top: 16px;
+}
+.cols text {
+  font-size: 13px;
+  fill: var(--ink-2);
+}
+.cols .lab {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+/* Page layout ------------------------------------------------------------ */
+.page {
+  padding-block: 8px 0;
+}
+
+@media (min-width: 960px) {
+  .big {
+    font-size: 120px;
+  }
+  .figtext {
+    font-size: 19px;
+  }
+  .page {
+    padding-top: 24px;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 32px;
+    align-items: start;
+  }
+  .two-col > .main {
+    grid-column: 1 / 7;
+  }
+  .two-col > .aside {
+    grid-column: 8 / 13;
+  }
+  .two-col.wide > .main {
+    grid-column: 1 / 8;
+  }
+  .two-col.wide > .aside {
+    grid-column: 9 / 13;
+  }
+  .two-col > .aside > .sec:first-child {
+    margin-top: 44px;
+  }
+}
+
+.bt tr.wide-only {
+  display: none;
+}
+@media (min-width: 960px) {
+  .bt tr.wide-only {
+    display: table-row;
+  }
+}
+
+/* Train and departure tables */
+.tt td {
+  vertical-align: middle;
+}
+.tt .time {
+  padding: 7px 0;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.tt .time span {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.tt .tn {
+  font-size: 15.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tt .tn a {
+  display: inline-block;
+  padding: 11px 0;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.picks {
+  margin-top: 12px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.picks strong {
+  font-weight: 650;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 20px;
+}
+.disc {
+  margin-top: 8px;
+}
+.disc summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+/* "All the numbers": a disclosure with plain label/value rows */
+.numbers {
+  margin-top: 36px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ink);
+}
+.numbers .groups {
+  display: grid;
+  gap: 18px;
+  margin-top: 8px;
+}
+.numbers h3 {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.numbers dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 15px;
+}
+.numbers dd {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.numbers .note {
+  margin-top: 12px;
+}
+@media (min-width: 960px) {
+  .numbers .groups {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+}
+
+/* A plain list of links, one line each with a short description */
+.linklist {
+  margin-top: 20px;
+  border-top: 2px solid var(--ink);
+  max-width: 720px;
+}
+.linklist a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+.linklist b {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+  font-stretch: 90%;
+}
+.linklist small {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.plain > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.plain dt {
+  color: var(--ink-2);
+}
+.plain dd {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

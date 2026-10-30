@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { fmt1, fmtInt, fmtShare1, monthLabel } from "@/lib/format";
+import { fmt1, fmtInt, fmtShare1, monthLabel, monthShort } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import type { Category, MonthPoint } from "@/lib/types";
-import { MonthBars, MonthReadout, type MonthColumn, type MonthFlag } from "./MonthBars";
-import { Toggle } from "./Toggle";
+import { Columns } from "./charts";
 import { categoryCopy } from "./pageFormat";
-import styles from "./MonthlyChart.module.css";
 
 export interface MonthlyChartProps {
   /** One point per window month per category, ascending. */
@@ -27,44 +25,29 @@ export function extremes(values: number[]): { worst: number; best: number } {
   return { worst, best };
 }
 
+/** Average delay per month for long-distance trains or regional trains. Every figure is also in the table below it. */
 export function MonthlyChart({ series, lang }: MonthlyChartProps) {
   const t = makeT(lang);
   const [category, setCategory] = useState<Category>("longDistance");
   const months = series[category];
-  const [selected, setSelected] = useState(months.length - 1);
   if (months.length === 0) return null;
-
   const { worst, best } = extremes(months.map((m) => m.avgDelayMin));
-  const flagOf = (i: number): MonthFlag | undefined => (worst === best ? undefined : i === worst ? "worst" : i === best ? "best" : undefined);
   const copy = categoryCopy(lang, category);
-
-  const columns: MonthColumn[] = months.map((m, i) => ({
-    month: m.month,
-    value: m.avgDelayMin,
-    flag: flagOf(i),
-    ariaLabel: t("network.monthly.row", {
-      month: monthLabel(m.month, lang),
-      avg: fmt1(m.avgDelayMin, lang),
-      canc: fmtShare1(m.fullCancelPct, lang),
-      flag: flagOf(i) === "worst" ? t("network.monthly.flagWorst") : flagOf(i) === "best" ? t("network.monthly.flagBest") : "",
-    }),
-  }));
-
-  const sel = months[Math.min(selected, months.length - 1)];
+  const cats: Category[] = ["longDistance", "regional"];
 
   return (
-    <div className={styles.root}>
-      <Toggle
-        label={t("network.monthly.show")}
-        idPrefix="monthly"
-        value={category}
-        onChange={setCategory}
-        options={[
-          { value: "longDistance", label: categoryCopy(lang, "longDistance").tab },
-          { value: "regional", label: categoryCopy(lang, "regional").tab },
-        ]}
-      />
-      <p className={styles.summary}>
+    <div>
+      <p className="seglabel" id="monthly-show">
+        {t("network.monthly.show")}
+      </p>
+      <div className="seg c2" role="group" aria-labelledby="monthly-show">
+        {cats.map((c) => (
+          <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}>
+            {categoryCopy(lang, c).tab}
+          </button>
+        ))}
+      </div>
+      <p className="sec-sub" style={{ marginTop: 14 }}>
         {t("network.monthly.summary", {
           plural: copy.plural,
           worstMonth: monthLabel(months[worst].month, lang),
@@ -73,56 +56,37 @@ export function MonthlyChart({ series, lang }: MonthlyChartProps) {
           bestVal: fmt1(months[best].avgDelayMin, lang),
         })}
       </p>
-
-      <figure className={styles.card} aria-label={t("network.monthly.aria", { plural: copy.plural })}>
-        <MonthReadout
-          lang={lang}
-          month={sel.month}
-          flag={flagOf(selected)}
-          value={fmt1(sel.avgDelayMin, lang)}
-          unit={t("unit.min")}
-          noun={t("network.monthly.noun")}
-          sub={t("network.monthly.cancelled", { pct: fmtShare1(sel.fullCancelPct, lang) })}
-        />
-
-        <MonthBars
-          lang={lang}
-          columns={columns}
-          selected={selected}
-          onSelect={setSelected}
-          unit={t("unit.min")}
-          format={(v) => fmt1(v, lang)}
-          groupLabel={t("network.monthly.group")}
-        />
-
-        <p className={styles.hint} aria-hidden="true">
-          {t("network.monthly.hint")}
-        </p>
-
-        <table className="visually-hidden">
-          <caption>{t("network.monthly.tableCaption", { cat: copy.tab })}</caption>
+      <Columns
+        items={months.map((m, i) => ({ label: monthShort(m.month, lang).charAt(0), value: m.avgDelayMin, color: i === worst ? "#14161A" : "#9AA0A8" }))}
+        lang={lang}
+        unit="min"
+        height={210}
+        gap={5}
+        label={t("network.monthly.aria", { plural: copy.plural })}
+      />
+      <details className="disc">
+        <summary>{t("network.monthly.tableCaption", { cat: copy.tab })}</summary>
+        <table className="bt">
           <thead>
             <tr>
               <th scope="col">{t("network.monthly.colMonth")}</th>
-              <th scope="col">{t("network.monthly.colAvg")}</th>
-              <th scope="col">{t("network.monthly.colMedian")}</th>
-              <th scope="col">{t("network.monthly.colCanc")}</th>
-              <th scope="col">{t("network.monthly.colRuns")}</th>
+              <th scope="col" className="r">{t("network.monthly.colAvg")}</th>
+              <th scope="col" className="r">{t("network.monthly.colCanc")}</th>
+              <th scope="col" className="r">{t("network.monthly.colRuns")}</th>
             </tr>
           </thead>
           <tbody>
             {months.map((m) => (
-              <tr key={m.month}>
-                <th scope="row">{monthLabel(m.month, lang)}</th>
-                <td>{fmt1(m.avgDelayMin, lang)}</td>
-                <td>{fmt1(m.medianDelayMin, lang)}</td>
-                <td>{fmt1(m.fullCancelPct, lang)}</td>
-                <td>{fmtInt(m.runs, lang)}</td>
+              <tr key={m.month} className="ro">
+                <th scope="row" style={{ fontWeight: 600 }}>{monthLabel(m.month, lang)}</th>
+                <td className="v">{fmt1(m.avgDelayMin, lang)}</td>
+                <td className="v">{fmtShare1(m.fullCancelPct, lang)}</td>
+                <td className="v">{fmtInt(m.runs, lang)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </figure>
+      </details>
     </div>
   );
 }

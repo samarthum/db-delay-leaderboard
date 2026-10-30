@@ -5,7 +5,6 @@ import { DATA_SOURCE_URL } from "@/lib/site";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { Rich } from "../Rich";
-import page from "./Page.module.css";
 import styles from "./Method.module.css";
 
 function Item({ q, children }: { q: string; children: React.ReactNode }) {
@@ -48,11 +47,15 @@ export function MethodPage({ lang }: { lang: Lang }) {
   const rec = recap.longDistance;
 
   return (
-    <main id="main" className={`container ${page.page}`}>
-      <h1 className={page.title}>{t("method.title")}</h1>
-      <p className={page.sub}>{t("method.sub")}</p>
+    <main id="main" className="container page">
+      <h1 className="h1" style={{ marginTop: 20 }}>
+        {t("method.title")}
+      </h1>
+      <p className="lead" style={{ marginTop: 8 }}>
+        {t("method.sub")}
+      </p>
 
-      <div className={`${styles.list} ${page.block}`}>
+      <div className={styles.list}>
         <Item q={t("method.q.source")}>
           <p>
             <Rich
@@ -75,6 +78,10 @@ export function MethodPage({ lang }: { lang: Lang }) {
               measured: fmtInt(rec.measured, lang),
             })}
           </p>
+        </Item>
+
+        <Item q={t("method.q.rule")}>
+          <p>{t("method.a.rule")}</p>
         </Item>
 
         <Item q={t("method.q.search")}>

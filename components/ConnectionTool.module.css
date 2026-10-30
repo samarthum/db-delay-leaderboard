@@ -1,0 +1,79 @@
+.tool {
+  display: grid;
+  gap: 0;
+}
+
+.title {
+  font-size: 24px;
+  line-height: 1.15;
+  font-stretch: 84%;
+  font-weight: 740;
+  letter-spacing: -0.008em;
+  text-wrap: balance;
+}
+
+.find {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.input {
+  height: 52px;
+  padding: 0 14px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.input:focus {
+  outline: 3px solid var(--mark);
+  outline-offset: 1px;
+}
+
+.found button {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* One sentence back: the answer to the three questions. */
+.answer {
+  margin-top: 22px;
+  padding: 14px 0 12px;
+  border-top: 2px solid var(--ink);
+  display: grid;
+  gap: 4px;
+}
+
+.sentence {
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 700;
+  font-stretch: 90%;
+  text-wrap: balance;
+}
+
+.others {
+  margin-top: 18px;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+@media (min-width: 960px) {
+  .title {
+    font-size: 30px;
+  }
+}

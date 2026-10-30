@@ -5,7 +5,7 @@ import { otherLangPath, type Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import styles from "./Shell.module.css";
 
-/** EN | DE. Goes to the same page in the other language and keeps the search in the address. */
+/** One link to the same page in the other language. It keeps the search and the place on the page in the address. */
 export function LangSwitch({ lang }: { lang: Lang }) {
   const pathname = usePathname() ?? "/";
   const t = makeT(lang);
@@ -19,26 +19,8 @@ export function LangSwitch({ lang }: { lang: Lang }) {
   }
 
   return (
-    <div className={styles.lang} role="group" aria-label={t("lang.label")}>
-      {(["en", "de"] as const).map((l) =>
-        l === lang ? (
-          <span key={l} className={`${styles.langItem} ${styles.langOn}`} aria-current="true" lang={l}>
-            {l.toUpperCase()}
-          </span>
-        ) : (
-          <a
-            key={l}
-            href={other.path}
-            hrefLang={to}
-            lang={to}
-            className={styles.langItem}
-            onClick={go}
-            aria-label={to === "de" ? t("lang.de") : t("lang.en")}
-          >
-            {l.toUpperCase()}
-          </a>
-        ),
-      )}
-    </div>
+    <a href={other.path} hrefLang={to} lang={to} className={styles.langLink} onClick={go}>
+      {to === "de" ? t("lang.de") : t("lang.en")}
+    </a>
   );
 }

@@ -1,40 +1,50 @@
-/* Design tokens + shared primitives. Component styles live in CSS modules next to the component. */
+/* Design tokens + shared primitives. Component styles live in CSS modules next to the component.
+   "Printed timetable": paper and ink, one family, hairline rules. Colour only where it carries data;
+   yellow only marks what the visitor picked. */
 :root {
-  /* Departure board: near-black, warm white, one amber. Red only for brand and for "late". */
-  --db-red: #ec0016;
-  --db-red-dark: #c40012;
-  --db-red-soft: rgba(255, 90, 77, 0.12);
-  --late: #ff6a5c;
-  --amber: #ffc72c;
-  --amber-soft: rgba(255, 199, 44, 0.12);
-  --ink: #f4f1e8;
-  --ink-2: #cfccc2;
-  --muted: #a1a7b2;
-  --line: #262c35;
-  --bg: #0a0c0f;
-  --card: #13171d;
-  --board: #13171d;
-  --board-2: #1a1f27;
-  --board-line: #2b323c;
-  --good: #46d081;
-  --good-ink: #46d081;
-  --on-accent: #ffffff;
+  --paper: #fafaf8;
+  --ink: #14161a;
+  --ink-2: #40464f;
+  --muted: #5e656f;
+  --rule: #dadde1;
+  --track: #eceef0;
+  --mark: #ffe14d;
+  /* data only */
+  --safe: #1d7a49;
+  --fair: #7f9a1c;
+  --warn: #d46a00;
+  --late: #c42b1c;
 
-  --font-display: var(--font-barlow-condensed), "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
-  --font-body: var(--font-barlow), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --font-mono: var(--font-roboto-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Names the older component styles still use, pointed at the new palette. */
+  --bg: var(--paper);
+  --line: var(--rule);
+  --card: #ffffff;
+  --board: var(--paper);
+  --board-2: var(--track);
+  --board-line: var(--rule);
+  --amber: var(--ink);
+  --amber-soft: var(--mark);
+  --good: var(--safe);
+  --good-ink: var(--safe);
+  --db-red: var(--late);
+  --db-red-soft: var(--track);
+  --on-accent: var(--paper);
 
-  --radius: 12px;
-  --radius-sm: 8px;
+  --font-display: var(--font-archivo), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-body: var(--font-archivo), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: var(--font-archivo), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --radius: 4px;
+  --radius-sm: 4px;
   --shadow: none;
-  --container: 1040px;
-  --gutter: 18px;
+  --container: 1280px;
+  --gutter: 20px;
   --tabbar-h: 64px;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 960px) {
   :root {
-    --gutter: 28px;
+    --gutter: 40px;
   }
 }
 
@@ -47,25 +57,27 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scroll-behavior: smooth;
-  background: var(--bg);
-  color-scheme: dark;
+  background: var(--paper);
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 17px;
   line-height: 1.5;
+  font-stretch: 100%;
+  font-weight: 400;
+  font-variant-numeric: lining-nums;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   /* Room for the bottom tab bar on phones. */
   padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
 }
 
-@media (min-width: 900px) {
+@media (min-width: 960px) {
   body {
     padding-bottom: 0;
   }
@@ -106,9 +118,9 @@ svg {
 }
 
 :focus-visible {
-  outline: 3px solid var(--amber);
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .container {
@@ -118,43 +130,12 @@ svg {
   padding-inline: var(--gutter);
 }
 
-.section {
-  padding-block: 40px;
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
-@media (min-width: 720px) {
-  .section {
-    padding-block: 64px;
-  }
-}
-
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.section-title {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(30px, 7vw, 46px);
-  line-height: 1.02;
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
-}
-
-.section-sub {
-  margin-top: 8px;
-  max-width: 62ch;
-  color: var(--ink-2);
-}
-
-.mono {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+.nobr {
+  white-space: nowrap;
 }
 
 .visually-hidden {
@@ -174,12 +155,100 @@ table.visually-hidden {
   display: block;
 }
 
-/* Dark "departure board" panel used for headline numbers. */
-.board {
-  background: var(--board);
-  color: var(--ink);
-  border: 1px solid var(--board-line);
+/* Type roles. */
+.h1 {
+  font-size: 34px;
+  line-height: 1.04;
+  font-stretch: 80%;
+  font-weight: 780;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.lead {
+  font-size: 19px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.basis {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.note {
+  max-width: 62ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* A section: a 2 px ink rule at the top, then its heading. */
+.sec {
+  margin-top: 44px;
+  padding-top: 14px;
+  border-top: 2px solid var(--ink);
+}
+
+.sec > h2,
+.sec-h {
+  font-size: 24px;
+  line-height: 1.15;
+  font-stretch: 84%;
+  font-weight: 740;
+  letter-spacing: -0.008em;
+  text-wrap: balance;
+}
+
+.sec-sub {
+  margin-top: 6px;
+  max-width: 62ch;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+@media (min-width: 960px) {
+  .h1 {
+    font-size: 54px;
+    line-height: 1;
+  }
+
+  .sec > h2,
+  .sec-h {
+    font-size: 30px;
+  }
+}
+
+/* Buttons: one primary style, everything else is an underlined text link. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
   border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tl {
+  display: inline-block;
+  padding: 11px 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
 }
 
 .skip {
@@ -188,9 +257,9 @@ table.visually-hidden {
   top: -60px;
   z-index: 100;
   padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--amber);
-  color: #111;
+  border-radius: var(--radius);
+  background: var(--mark);
+  color: var(--ink);
   font-weight: 700;
   text-decoration: none;
 }

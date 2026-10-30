@@ -61,7 +61,7 @@ function loadNums(type: string): Promise<Set<string>> {
 
 export interface SearchOutcome {
   parsed: Parsed;
-  problem: null | "empty" | "need-number" | "unsupported";
+  problem: null | "empty" | "need-number" | "no-match" | "unsupported";
   /** For problem "unsupported": what the typed type is ("S-Bahn"). */
   unsupported: UnsupportedKind | null;
   /** Exact matches, most measured runs first. */
@@ -92,7 +92,8 @@ export async function runSearch(input: string): Promise<SearchOutcome> {
   if (parsed.type && !(parsed.type in SEARCH_INDEX.types) && UNSUPPORTED_TYPES[parsed.type]) {
     return { ...out, problem: "unsupported", unsupported: UNSUPPORTED_TYPES[parsed.type] };
   }
-  if (parsed.num === null) return { ...out, problem: "need-number" };
+  // "Köln" or "is my train late" is not a train type: say how to ask, never "add the number after KÖLN".
+  if (parsed.num === null) return { ...out, problem: parsed.type && parsed.type in SEARCH_INDEX.types ? "need-number" : "no-match" };
 
   const units = await loadShard(shardKey(parsed.num));
   const typeKnown = parsed.type === null || parsed.type in SEARCH_INDEX.types;

@@ -3,7 +3,7 @@
  * suggest fixes for typos. The records are written by scripts/compute.py into data/search/.
  *
  * A record is a positional array (see search_units in compute.py):
- *   [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
+ *   [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line, late6]
  */
 
 /** 0: a long-distance train number ("ICE 1541"), 1: a regional line ("RE 19"), 2: a regional train number ("RE 4930"). */
@@ -23,6 +23,8 @@ export interface SearchUnit {
   avg: number;
   /** Percent of measured runs that arrived at least `lateMinutes` late. */
   late: number;
+  /** Percent of measured runs 6+ min late: Deutsche Bahn's own rule. */
+  late6: number | null;
   /** Percent of runs that were cancelled entirely. */
   cancelled: number;
   /** Mean delay per weekday, Monday first. null where there were too few measured runs. */
@@ -59,6 +61,7 @@ export type RawUnit = [
   (string | null)?,
   (string | null)?,
   (string | null)?,
+  (number | null)?,
 ];
 
 const PREFIX: Record<Kind, string> = { 0: "", 1: "line-", 2: "rt-" };
@@ -82,6 +85,7 @@ export function decode(r: RawUnit): SearchUnit {
     measured,
     avg,
     late,
+    late6: r[16] ?? null,
     cancelled,
     weekday,
     origin,
@@ -154,6 +158,19 @@ export function parseQuery(input: string): Parsed {
     else extra.push(t);
   }
   return { raw, type, num, extra };
+}
+
+/**
+ * Words that ask about right now ("ICE 1541 today", "Verspätung heute"). This site is a record, not live, so they are
+ * taken out of the query and the page says so, instead of answering a question nobody asked or calling "Verspätung" a train type.
+ */
+const LIVE_WORDS = new Set(["today", "now", "live", "currently", "heute", "jetzt", "aktuell", "gerade", "verspatung", "verspaetung", "delay", "delayed", "late", "tonight", "heutige"]);
+
+export function splitLive(input: string): { text: string; live: boolean } {
+  const words = input.trim().split(/\s+/).filter(Boolean);
+  const fold = (w: string) => w.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
+  const kept = words.filter((w) => !LIVE_WORDS.has(fold(w)));
+  return { text: kept.join(" "), live: kept.length !== words.length };
 }
 
 /** Shards are keyed by the first two digits of a number. */
