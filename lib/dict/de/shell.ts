@@ -30,4 +30,5 @@ export const shellDe: Record<keyof typeof shell, string> = {
   "rule.ours15": "ab 15 Min. verspätet",
   "rule.db": "Regel der DB",
   "rule.db6": "ab 6 Min. verspätet",
+  "card.data": "Daten: Deutsche Bahn über piebro/deutsche-bahn-data, CC BY 4.0. Kein Angebot der Deutschen Bahn.",
 };

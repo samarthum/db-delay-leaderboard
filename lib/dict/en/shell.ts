@@ -28,4 +28,5 @@ export const shell = {
   "rule.ours15": "15+ min late",
   "rule.db": "DB’s own rule",
   "rule.db6": "6+ min late",
+  "card.data": "Data: Deutsche Bahn via piebro/deutsche-bahn-data, CC BY 4.0. Not affiliated with Deutsche Bahn.",
 } as const;

@@ -1,7 +1,13 @@
 // Share images, built at deploy time with satori + resvg, English and German:
 //   public/og/<lastMonth>/<name>.png        English (home, recap, recap-tall, one per train and line)
 //   public/og/<lastMonth>/de/<name>.png     German
+//   public/og/routes/<lastMonth>/[de/]<slug>[-portrait].png   one wide and one portrait card per route, plus the ranking
 // Every number comes from data/; every sentence from lib/dict/{en,de}, so the cards say what the site says.
+// Look: the site's. Paper, ink, Archivo; one big number; two bars on one scale (our 15-minute count, Deutsche Bahn's
+// 6-minute rule, hatched); colour only on the bars and dots that carry data.
+//
+//   node scripts/og.mjs                      everything (deploy)
+//   OG_SAMPLE=/some/dir node scripts/og.mjs  a fixed handful of hard cases into that folder, nothing else touched
 import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -9,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 
-// Route cards are flat dark colours with a few accents: a 128-colour palette PNG is a third of the size and looks the same.
+// Route cards are flat colours with a few accents: a palette PNG is a third of the size and looks the same.
 // Without sharp the build still works, the files are just bigger.
 let sharp = null;
 try {
@@ -23,30 +29,32 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DATA_DIR = path.join(ROOT, "data");
 const FONT_DIR = path.join(ROOT, "scripts", "fonts");
 const OUT_DIR = path.join(ROOT, "public", "og");
+const SAMPLE = process.env.OG_SAMPLE || "";
 const W = 1200;
 const H = 630;
 
+// Static cuts: satori cannot use a variable font's width axis, so the narrow headline is the Condensed family.
 const FONTS = [
-  { file: "BarlowCondensed-ExtraBold.ttf", name: "Barlow Condensed", weight: 800 },
-  { file: "Barlow-Medium.ttf", name: "Barlow", weight: 500 },
-  { file: "Barlow-SemiBold.ttf", name: "Barlow", weight: 600 },
+  { file: "Archivo-Medium.ttf", name: "Archivo", weight: 500 },
+  { file: "Archivo-SemiBold.ttf", name: "Archivo", weight: 600 },
+  { file: "ArchivoCondensed-Bold.ttf", name: "Archivo Condensed", weight: 700 },
+  { file: "ArchivoCondensed-ExtraBold.ttf", name: "Archivo Condensed", weight: 800 },
 ];
+const SANS = "Archivo";
+const COND = "Archivo Condensed";
 
 const C = {
-  paper: "#0a0c0f",
-  card: "#13171d",
-  board: "#13171d",
-  boardLine: "#2b323c",
-  tile: "#232a34",
-  tileEdge: "#323a46",
-  ink: "#f4f1e8",
-  ink2: "#cfccc2",
-  muted: "#a1a7b2",
-  line: "#262c35",
-  amber: "#ffc72c",
+  paper: "#fafaf8",
+  ink: "#14161a",
+  ink2: "#40464f",
+  muted: "#5d646e",
+  rule: "#dadde1",
+  track: "#eceef0",
+  safe: "#1d7a49",
+  fair: "#7f9a1c",
+  warn: "#d46a00",
+  late: "#c42b1c",
 };
-const SANS = "Barlow";
-const COND = "Barlow Condensed";
 
 const MONTHS = {
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
@@ -57,411 +65,152 @@ const monthLabel = (m, lang) => `${MONTHS[lang][Number(m.slice(5, 7)) - 1]} ${m.
 const spanLabel = (a, b, lang) => `${monthLabel(a, lang)} ${lang === "de" ? "bis" : "to"} ${monthLabel(b, lang)}`;
 const dec = (lang) => (lang === "de" ? "," : ".");
 const fmt1 = (n, lang) => n.toFixed(1).replace(".", dec(lang));
+const fmtShare = (n, lang) => (lang === "de" ? `${Math.round(n)}${NBSP}%` : `${Math.round(n)}%`);
 const fmtShare1 = (n, lang) => (lang === "de" ? `${fmt1(n, lang)}${NBSP}%` : `${fmt1(n, lang)}%`);
 const fmtInt = (n, lang) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, lang === "de" ? "." : ",");
 const clip = (s, max) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
 
+/** Same steps as the site's lateShareColor. */
 function lateColor(pct) {
-  if (pct < 10) return "#34c36b";
-  if (pct < 20) return "#a6d43a";
-  if (pct < 35) return C.amber;
-  if (pct < 55) return "#ff8a2b";
-  return "#ff4b3e";
+  if (pct < 20) return C.safe;
+  if (pct < 35) return C.fair;
+  if (pct < 50) return C.warn;
+  return C.late;
 }
 
 function h(type, props, ...children) {
   const kids = children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false);
-  return {
-    type,
-    props: { ...props, children: kids.length === 0 ? undefined : kids.length === 1 ? kids[0] : kids },
-  };
+  return { type, props: { ...props, children: kids.length === 0 ? undefined : kids.length === 1 ? kids[0] : kids } };
 }
 
-const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app")
-  .replace(/^https?:\/\//, "")
-  .replace(/\/+$/, "");
+/** A flex box: satori needs display:flex on anything with more than one child. */
+const d = (style, ...kids) => h("div", { style: { display: "flex", ...style } }, ...kids);
+
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app").replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
 // ---------------------------------------------------------------- building blocks
 
-function frame(eyebrowText, main, w = W, hh = H) {
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        width: w,
-        height: hh,
-        background: C.paper,
-        fontFamily: SANS,
-        fontWeight: 500,
-        color: C.ink,
-      },
-    },
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column", flexGrow: 1, padding: "40px 60px 28px" } },
-      eyebrow(eyebrowText),
-      h("div", { style: { display: "flex", flexGrow: 1, alignItems: "center", justifyContent: "space-between" } }, main),
-      footer(),
-    ),
+/** Words as separate boxes so a sentence wraps at any space; **bold** parts are semibold. */
+function rich(text, size, color = C.ink, bold = 600) {
+  const words = [];
+  text.split("**").forEach((part, i) => {
+    part
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach((w) => words.push({ w, b: i % 2 === 1 }));
+  });
+  return d(
+    { flexWrap: "wrap", fontSize: size, lineHeight: 1.22, color },
+    words.map((x, i) => d({ marginRight: Math.round(size * 0.27), fontWeight: x.b ? bold : 500 }, x.w)),
   );
 }
 
-function eyebrow(text) {
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        fontSize: 22,
-        fontWeight: 600,
-        letterSpacing: 3,
-        color: C.muted,
-        textTransform: "uppercase",
-      },
-    },
-    h("div", { style: { display: "flex", width: 14, height: 14, borderRadius: 7, background: C.amber, marginRight: 14 } }),
-    text,
-  );
-}
-
-function footer() {
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderTop: `2px solid ${C.line}`,
-        paddingTop: 16,
-      },
-    },
-    h(
-      "div",
-      {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          fontFamily: COND,
-          fontWeight: 800,
-          fontSize: 30,
-          letterSpacing: 2,
-          textTransform: "uppercase",
-        },
-      },
-      h("div", { style: { display: "flex", width: 16, height: 16, borderRadius: 8, background: C.amber, marginRight: 12 } }),
-      "German Punctuality",
-    ),
-    h("div", { style: { display: "flex", fontSize: 24, fontWeight: 600, color: C.muted } }, SITE_HOST),
-  );
-}
-
-/** One-way arrow for a train, two-way for a line. */
-function arrow(size, bothWays) {
+function arrow(size, color = C.ink, bothWays = false) {
   return h(
     "svg",
-    { width: size, height: Math.round(size * 0.6), viewBox: "0 0 40 24", style: { margin: "0 12px" } },
+    { width: size, height: size, viewBox: "0 0 24 24", style: { flexShrink: 0 } },
     h("path", {
-      d: bothWays ? "M5 12h30M14 3l-9 9 9 9M26 3l9 9-9 9" : "M2 12h33M25 3l10 9-10 9",
-      stroke: C.amber,
-      strokeWidth: 4,
+      d: bothWays ? "M3 12h18M9 6l-6 6 6 6M15 6l6 6-6 6" : "M2 12h18M13 5l7 7-7 7",
       fill: "none",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
+      stroke: color,
+      strokeWidth: 2.6,
+      strokeLinecap: "square",
+      strokeLinejoin: "miter",
     }),
   );
 }
 
-function route(t) {
-  const len = t.origin.length + t.dest.length;
-  const size = len <= 30 ? 34 : len <= 40 ? 30 : 26;
-  return h(
-    "div",
-    { style: { display: "flex", flexWrap: "wrap", alignItems: "center", fontSize: size, fontWeight: 600, lineHeight: 1.2, marginTop: 14 } },
-    h("div", {}, clip(t.origin, 30)),
-    arrow(size, t.category === "regional"),
-    h("div", {}, clip(t.dest, 30)),
-  );
-}
-
-function trainName(name) {
-  return h(
-    "div",
-    {
-      style: {
-        fontFamily: COND,
-        fontWeight: 800,
-        fontSize: name.length <= 8 ? 140 : 116,
-        lineHeight: 0.95,
-        color: C.amber,
-        marginTop: 6,
-      },
-    },
-    name,
-  );
-}
-
-function tile(ch, w, color) {
-  const tileH = Math.round(w * 1.4);
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        position: "relative",
-        width: ch === "%" ? Math.round(w * 1.15) : w,
-        height: tileH,
-        alignItems: "center",
-        justifyContent: "center",
-        background: C.tile,
-        border: `2px solid ${C.tileEdge}`,
-        borderRadius: 12,
-        margin: "0 5px",
-      },
-    },
-    h("div", { style: { fontFamily: COND, fontWeight: 800, fontSize: Math.round(w * 1.4), lineHeight: 1, color } }, ch),
-    h("div", {
-      style: { display: "flex", position: "absolute", left: 0, top: Math.round(tileH / 2) - 2, width: "100%", height: 4, background: "#000000" },
-    }),
-  );
-}
-
-/** The one number every card leads with: the share of trips that arrive 15+ min late, on split-flap tiles. */
-function lateBoard(pct, t, sub) {
-  const text = `${pct > 0 && pct < 1 ? pct.toFixed(1) : Math.round(pct)}%`;
-  const chars = Array.from(text);
-  const w = chars.length > 3 ? 84 : chars.length > 2 ? 110 : 134;
-  const color = lateColor(pct);
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        width: 470,
-        background: C.board,
-        border: `2px solid ${C.boardLine}`,
-        borderRadius: 24,
-        padding: "34px 28px 28px",
-      },
-    },
-    h("div", { style: { display: "flex" } }, chars.map((c) => tile(c, w, color))),
+function watermark(size = 34) {
+  return d(
+    { alignItems: "center", fontFamily: COND, fontWeight: 800, fontSize: size, color: C.ink },
     h(
-      "div",
-      {
-        style: {
-          display: "flex",
-          justifyContent: "center",
-          textAlign: "center",
-          fontFamily: COND,
-          fontWeight: 800,
-          fontSize: 38,
-          lineHeight: 1.05,
-          letterSpacing: 1,
-          color: C.ink,
-          textTransform: "uppercase",
-          marginTop: 22,
-        },
-      },
-      t("res.leadRest").toUpperCase(),
+      "svg",
+      { width: Math.round(size * 0.62), height: Math.round(size * 0.62), viewBox: "0 0 20 20", style: { marginRight: 12 } },
+      h("circle", { cx: 10, cy: 10, r: 4.2, fill: C.ink }),
+      h("circle", { cx: 10, cy: 10, r: 8.4, fill: "none", stroke: C.ink, strokeWidth: 1.8 }),
     ),
-    sub
-      ? [
-          h("div", { style: { display: "flex", width: "100%", height: 2, background: C.boardLine, margin: "18px 0 14px" } }),
-          h("div", { style: { display: "flex", textAlign: "center", fontSize: 22, fontWeight: 600, color: C.muted } }, sub),
-        ]
-      : null,
+    "German Punctuality",
   );
 }
 
-function pill(text, filled) {
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        fontFamily: COND,
-        fontWeight: 800,
-        fontSize: 28,
-        letterSpacing: 1.5,
-        textTransform: "uppercase",
-        padding: "4px 16px",
-        borderRadius: 999,
-        marginRight: 12,
-        color: filled ? "#14110a" : C.ink2,
-        background: filled ? C.amber : C.card,
-        border: `2px solid ${filled ? C.amber : C.boardLine}`,
-      },
-    },
-    text,
+function topBar(right, w) {
+  return d(
+    { width: w, alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: `3px solid ${C.ink}`, fontSize: 24, fontWeight: 500, color: C.ink2 },
+    watermark(),
+    d({}, right),
   );
 }
 
-// ---------------------------------------------------------------- cards
-
-function homeCard(stats, t, lang) {
-  const w = stats.window;
-  const ld = stats.recap.longDistance;
-  const span = spanLabel(w.firstMonth, w.lastMonth, lang);
-  return frame(
-    `Deutsche Bahn · ${span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 600 } },
-        h(
-          "div",
-          { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 84, lineHeight: 0.98, letterSpacing: 1, textTransform: "uppercase" } },
-          t("home.title"),
-        ),
-        h(
-          "div",
-          { style: { display: "flex", fontSize: 30, fontWeight: 600, lineHeight: 1.25, marginTop: 24, color: C.muted } },
-          t("home.networkBasis", { trips: fmtInt(ld.measured, lang), span }),
-        ),
-      ),
-      lateBoard(ld.latePct, t, null),
-    ],
+function footer(w, t, small = 20) {
+  return d(
+    { width: w, alignItems: "flex-end", justifyContent: "space-between", paddingTop: 14, borderTop: `2px solid ${C.rule}`, fontSize: small, color: C.muted, lineHeight: 1.3 },
+    d({ flexDirection: "column", maxWidth: w - 400 }, t("card.data")),
+    d({ fontSize: small + 4, fontWeight: 600, color: C.ink }, SITE_HOST),
   );
 }
 
-function unitCard(u, late, span, t, lang) {
-  const badges = [
-    u.rank.minutes != null && pill(t("unit.rankMinutes", { n: u.rank.minutes }), true),
-    u.rank.percent != null && pill(t("unit.rankPercent", { n: u.rank.percent }), u.rank.minutes == null),
-  ].filter(Boolean);
-  const kind = u.category === "longDistance" ? t("res.kind.0") : t("res.kind.1");
-  return frame(
-    `${kind} · ${span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 600 } },
-        badges.length > 0 && h("div", { style: { display: "flex", marginBottom: 10 } }, badges),
-        trainName(u.name),
-        route(u),
-      ),
-      lateBoard(late, t, t("res.exact", { pct: fmtShare1(late, lang), n: fmtInt(u.measured, lang) })),
-    ],
-  );
-}
-
-function recapFacts(stats, t, lang) {
-  const ld = stats.recap.longDistance;
-  const reg = stats.recap.regional;
-  return {
-    span: spanLabel(stats.window.firstMonth, stats.window.lastMonth, lang),
-    ld,
-    reg,
-    stats: [
-      { value: fmtShare1(ld.latePct, lang), unit: "", label: t("recap.fact.late"), color: lateColor(ld.latePct) },
-      { value: fmt1(ld.avgDelayMin, lang), unit: t("unit.min"), label: t("recap.fact.avg"), color: C.amber },
-      { value: fmtShare1(ld.late60Pct, lang), unit: "", label: t("recap.fact.late60"), color: "#ff4b3e" },
-      { value: fmtShare1(ld.cancelledPct, lang), unit: "", label: t("recap.fact.canc"), color: C.amber },
-    ],
-  };
-}
-
-function recapStat(s, big, gap) {
-  return h(
-    "div",
-    { style: { display: "flex", flexDirection: "column", marginBottom: gap } },
-    h(
-      "div",
-      { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, lineHeight: 1, color: s.color, fontSize: big } },
-      s.value,
-      s.unit && h("div", { style: { display: "flex", fontSize: Math.round(big * 0.45), marginLeft: 10, color: C.ink } }, s.unit),
+/** Page: top bar, content, footer. */
+function sheet(w, hh, pad, right, t, ...content) {
+  return d(
+    { flexDirection: "column", width: w, height: hh, background: C.paper, fontFamily: SANS, fontWeight: 500, color: C.ink },
+    d(
+      { flexDirection: "column", flexGrow: 1, padding: `${pad[0]}px ${pad[1]}px ${pad[2]}px` },
+      topBar(right, w - 2 * pad[1]),
+      d({ flexDirection: "column", flexGrow: 1 }, ...content),
+      footer(w - 2 * pad[1], t, w > 1100 && hh > 1300 ? 24 : 20),
     ),
-    h("div", { style: { display: "flex", fontSize: Math.round(big * 0.3), fontWeight: 600, color: C.muted, marginTop: 4 } }, s.label),
   );
 }
 
-function recapWide(f, t, lang) {
-  const box = (s, i) =>
-    h(
-      "div",
-      {
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          width: 270,
-          height: 168,
-          padding: "20px 22px",
-          marginLeft: i % 2 === 0 ? 0 : 16,
-          background: C.card,
-          border: `2px solid ${C.boardLine}`,
-          borderRadius: 18,
-        },
-      },
-      h(
-        "div",
-        { style: { display: "flex", alignItems: "baseline", fontFamily: COND, fontWeight: 800, fontSize: 68, lineHeight: 1, color: s.color } },
-        s.value,
-        s.unit && h("div", { style: { display: "flex", fontSize: 28, marginLeft: 8, color: C.ink } }, s.unit),
-      ),
-      h("div", { style: { display: "flex", fontSize: 21, fontWeight: 600, lineHeight: 1.2, marginTop: 8, color: C.muted } }, s.label),
-    );
-  const row = (items, first) => h("div", { style: { display: "flex", marginTop: first ? 0 : 16 } }, items.map((s, i) => box(s, i)));
-  return frame(
-    `Deutsche Bahn · ${f.span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 440 } },
-        h(
-          "div",
-          { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 64, lineHeight: 0.98, textTransform: "uppercase" } },
-          t("recap.title"),
-        ),
-        h(
-          "div",
-          { style: { display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1.25, marginTop: 18, color: C.muted } },
-          t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span }),
-        ),
-      ),
-      h("div", { style: { display: "flex", flexDirection: "column" } }, row(f.stats.slice(0, 2), true), row(f.stats.slice(2, 4), false)),
-    ],
-  );
-}
-
-function recapTall(f, t, lang) {
-  return frame(
-    `Deutsche Bahn · ${f.span}`,
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column", width: "100%" } },
-      h(
-        "div",
-        { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 116, lineHeight: 0.95, textTransform: "uppercase", marginBottom: 14 } },
-        t("recap.title"),
-      ),
-      h(
-        "div",
-        { style: { display: "flex", fontSize: 34, fontWeight: 600, color: C.muted, marginBottom: 56 } },
-        t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span }),
-      ),
-      f.stats.map((s) => recapStat(s, 170, 40)),
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", borderTop: `2px solid ${C.line}`, paddingTop: 26, marginTop: 6 } },
-        h(
-          "div",
-          { style: { display: "flex", fontSize: 32, fontWeight: 600, color: C.ink, lineHeight: 1.25 } },
-          t("recap.regional", { avg: fmt1(f.reg.avgDelayMin, lang), late: fmtShare1(f.reg.latePct, lang), canc: fmtShare1(f.reg.cancelledPct, lang) }),
-        ),
-      ),
+/** One of the two bars. */
+function ruleBar(label, small, value, text, o) {
+  const color = lateColor(o.colorFrom ?? value);
+  const fill = o.db
+    ? { backgroundImage: `repeating-linear-gradient(135deg, ${color} 0px, ${color} 7px, #ffffff 7px, #ffffff 12px)` }
+    : { background: color };
+  return d(
+    { alignItems: "center", marginTop: o.gap },
+    d(
+      { flexDirection: "column", width: o.labelW, fontSize: o.fs, fontWeight: 600, lineHeight: 1.15 },
+      d({}, label),
+      d({ fontSize: Math.round(o.fs * 0.82), fontWeight: 500, color: C.muted }, small),
     ),
-    1080,
-    1920,
+    d(
+      { flexGrow: 1, height: o.barH, background: C.track, position: "relative" },
+      d({ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.max(0.8, Math.min(100, value))}%`, ...fill }),
+    ),
+    d({ width: o.valW, justifyContent: "flex-end", fontFamily: COND, fontWeight: 800, fontSize: Math.round(o.fs * 1.7), lineHeight: 1 }, text),
   );
 }
 
+/** The answer: big number, what it counts, then both bars. */
+function figure(pct, pct6, sentence, t, lang, o) {
+  const num = pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct));
+  const big = d(
+    { alignItems: "flex-end", fontFamily: COND, fontWeight: 800, fontSize: o.big, lineHeight: 0.8, letterSpacing: -4, color: C.ink },
+    num,
+    d({ fontSize: Math.round(o.big * 0.5), lineHeight: 1, marginLeft: 4, letterSpacing: 0 }, "%"),
+  );
+  return d(
+    { flexDirection: "column", width: o.width },
+    o.stack
+      ? d({ flexDirection: "column" }, big, d({ marginTop: 18 }, rich(sentence, o.sentence)))
+      : d({ alignItems: "flex-end" }, big, d({ flexGrow: 1, marginLeft: o.gapText, paddingBottom: 4 }, rich(sentence, o.sentence))),
+    d(
+      { flexDirection: "column", marginTop: o.barsTop },
+      ruleBar(t("rule.ours"), t("rule.ours15"), pct, fmtShare(pct, lang), { ...o.bar, db: false }),
+      pct6 !== null && pct6 !== undefined ? ruleBar(t("rule.db"), t("rule.db6"), pct6, fmtShare(pct6, lang), { ...o.bar, db: true, colorFrom: pct }) : null,
+    ),
+  );
+}
 
-// ---------------------------------------------------------------- route cards
+const WIDE_FIG = { width: 560, stack: true, big: 190, sentence: 29, gapText: 22, barsTop: 26, bar: { gap: 14, labelW: 190, valW: 100, barH: 26, fs: 20 } };
+const TALL_FIG = { width: 952, big: 330, sentence: 44, gapText: 30, barsTop: 40, bar: { gap: 22, labelW: 290, valW: 150, barH: 34, fs: 30 } };
+
+const rule = (w, color = C.rule, hh = 2) => d({ width: w, height: hh, background: color });
+const vrule = () => d({ width: 2, background: C.rule, alignSelf: "stretch", margin: "0 40px" });
+
+// ---------------------------------------------------------------- names
 
 const SHORT = (n) => n.replace("Hauptbahnhof", "Hbf");
 
@@ -479,241 +228,268 @@ function cardName(n) {
 
 /** Font size (px) at which both lines fit `width` px on one line: the second line also carries the arrow. */
 function nameSize(r, width, max) {
-  const chars = Math.max(cardName(r.from).length, cardName(r.to).length + 1.6);
-  return Math.max(60, Math.min(max, Math.floor(width / (0.46 * chars))));
+  const chars = Math.max(cardName(r.from).length, cardName(r.to).length + 1.5);
+  return Math.max(46, Math.min(max, Math.floor(width / (0.5 * chars))));
 }
 
-/** Late share stop by stop, drawn as one line that changes colour with the share. Returns the svg and its scale. */
+function routeNames(r, size) {
+  return d(
+    { flexDirection: "column", fontFamily: COND, fontWeight: 800, fontSize: size, lineHeight: 0.98 },
+    d({ whiteSpace: "nowrap" }, cardName(r.from)),
+    d({ alignItems: "center", whiteSpace: "nowrap" }, arrow(Math.round(size * 0.72)), d({ marginLeft: Math.round(size * 0.12) }, cardName(r.to))),
+  );
+}
+
+function trainName(name, width, max) {
+  return d({ fontFamily: COND, fontWeight: 800, fontSize: Math.max(60, Math.min(max, Math.floor(width / (0.5 * name.length)))), lineHeight: 0.95 }, name);
+}
+
+// ---------------------------------------------------------------- cards
+
+function homeCard(stats, t, lang) {
+  const w = stats.window;
+  const ld = stats.recap.longDistance;
+  const span = spanLabel(w.firstMonth, w.lastMonth, lang);
+  return sheet(
+    W,
+    H,
+    [34, 60, 26],
+    span,
+    t,
+    d(
+      { flexGrow: 1, alignItems: "center" },
+      d(
+        { flexDirection: "column", width: 480 },
+        d({ fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 84 : 92, lineHeight: 0.98 }, t("home.title")),
+        d({ fontSize: 24, color: C.ink2, marginTop: 22, lineHeight: 1.3 }, t("home.networkBasis", { trips: fmtInt(ld.measured, lang), span })),
+      ),
+      vrule(),
+      figure(ld.latePct, ld.late6Pct, t("home.figure"), t, lang, WIDE_FIG),
+    ),
+  );
+}
+
+function unitCard(u, late, span, t, lang) {
+  const kind = u.category === "longDistance" ? t("res.kind.0") : t("res.kind.1");
+  const kindLine = u.rank.minutes != null && u.category === "longDistance" ? t("unit.rankLine", { kind, n: u.rank.minutes }) : kind;
+  const regional = u.category === "regional";
+  return sheet(
+    W,
+    H,
+    [34, 60, 26],
+    span,
+    t,
+    d(
+      { flexGrow: 1, alignItems: "center" },
+      d(
+        { flexDirection: "column", width: 480 },
+        d({ fontSize: 22, fontWeight: 600, color: C.ink2, marginBottom: 10 }, kindLine),
+        trainName(u.name, 480, 150),
+        d(
+          { flexWrap: "wrap", alignItems: "center", fontSize: 28, fontWeight: 500, lineHeight: 1.25, marginTop: 18, color: C.ink2 },
+          d({ marginRight: 10 }, clip(cardName(u.origin), 28)),
+          d({ marginRight: 10, alignItems: "center" }, arrow(26, C.ink2, regional)),
+          d({}, clip(cardName(u.dest), 28)),
+        ),
+        d({ fontSize: 22, color: C.muted, marginTop: 16 }, t("res.exact", { pct: fmtShare1(late, lang), n: fmtInt(u.measured, lang) })),
+      ),
+      vrule(),
+      figure(late, u.late6Pct, t("res.figure"), t, lang, WIDE_FIG),
+    ),
+  );
+}
+
+function recapFacts(stats, t, lang) {
+  return { span: spanLabel(stats.window.firstMonth, stats.window.lastMonth, lang), ld: stats.recap.longDistance, reg: stats.recap.regional };
+}
+
+function factRow(value, label, size) {
+  return d(
+    { alignItems: "baseline", justifyContent: "space-between", padding: `${Math.round(size * 0.32)}px 0`, borderBottom: `2px solid ${C.rule}`, fontSize: size },
+    d({ color: C.ink2, maxWidth: "70%" }, label),
+    d({ fontFamily: COND, fontWeight: 800, fontSize: Math.round(size * 1.6) }, value),
+  );
+}
+
+function recapWide(f, t, lang) {
+  return sheet(
+    W,
+    H,
+    [34, 60, 26],
+    f.span,
+    t,
+    d(
+      { flexGrow: 1, alignItems: "center" },
+      d(
+        { flexDirection: "column", width: 480 },
+        d({ fontFamily: COND, fontWeight: 800, fontSize: 70, lineHeight: 0.98 }, t("recap.title")),
+        d({ flexDirection: "column", marginTop: 22 }, [
+          factRow(`${fmt1(f.ld.avgDelayMin, lang)} ${t("unit.min")}`, t("recap.fact.avg"), 22),
+          factRow(fmtShare1(f.ld.late60Pct, lang), t("recap.fact.late60"), 22),
+          factRow(fmtShare1(f.ld.cancelledPct, lang), t("recap.fact.canc"), 22),
+        ]),
+      ),
+      vrule(),
+      figure(f.ld.latePct, f.ld.late6Pct, t("home.figure"), t, lang, WIDE_FIG),
+    ),
+  );
+}
+
+function recapTall(f, t, lang) {
+  return sheet(
+    1080,
+    1920,
+    [60, 64, 54],
+    f.span,
+    t,
+    d({ fontFamily: COND, fontWeight: 800, fontSize: 124, lineHeight: 0.96, marginTop: 56 }, t("recap.title")),
+    d({ fontSize: 32, color: C.ink2, marginTop: 20 }, t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span })),
+    d({ marginTop: 80 }, figure(f.ld.latePct, f.ld.late6Pct, t("home.figure"), t, lang, { ...TALL_FIG, big: 420, sentence: 48 })),
+    d(
+      { flexDirection: "column", marginTop: 90 },
+      factRow(`${fmt1(f.ld.avgDelayMin, lang)} ${t("unit.min")}`, t("recap.fact.avg"), 36),
+      factRow(fmtShare1(f.ld.late60Pct, lang), t("recap.fact.late60"), 36),
+      factRow(fmtShare1(f.ld.cancelledPct, lang), t("recap.fact.canc"), 36),
+    ),
+    d(
+      { fontSize: 32, lineHeight: 1.3, color: C.ink2, marginTop: 40, marginBottom: 20 },
+      t("recap.regional", { avg: fmt1(f.reg.avgDelayMin, lang), late: fmtShare1(f.reg.latePct, lang), canc: fmtShare1(f.reg.cancelledPct, lang) }),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------- route cards
+
+/** Late share stop by stop: one ink line, a dot per stop coloured by its share. Returns the svg and its scale. */
 function curveChart(points, w, hh) {
   const vals = points.map((p) => p[1]);
   const top = Math.max(...vals);
   const ymax = Math.min(100, Math.max(40, Math.ceil((top * 1.18) / 10) * 10));
-  const padX = 22;
-  const padY = 22;
+  const padX = 20;
+  const padY = 20;
   const x = (i) => padX + (i * (w - 2 * padX)) / (points.length - 1);
   const y = (v) => hh - padY - (v / ymax) * (hh - 2 * padY);
-  const grid = [0, 0.5, 1].map((f) => h("path", { d: `M${padX} ${y(ymax * f)}H${w - padX}`, stroke: C.line, strokeWidth: 2, strokeDasharray: f === 0 ? undefined : "6 8" }));
-  const area = h("path", {
-    d: `M${x(0)} ${y(0)} ${points.map((p, i) => `L${x(i)} ${y(p[1])}`).join(" ")} L${x(points.length - 1)} ${y(0)}Z`,
-    fill: "#ffffff",
-    fillOpacity: 0.05,
-  });
-  const segs = points.slice(1).map((p, i) =>
-    h("path", {
-      d: `M${x(i)} ${y(points[i][1])}L${x(i + 1)} ${y(p[1])}`,
-      stroke: lateColor((points[i][1] + p[1]) / 2),
-      strokeWidth: 9,
-      strokeLinecap: "round",
-    }),
-  );
-  const dots = points.map((p, i) =>
-    h("circle", { cx: x(i), cy: y(p[1]), r: i === points.length - 1 ? 13 : 8, fill: lateColor(p[1]), stroke: C.paper, strokeWidth: 4 }),
-  );
-  return { ymax, svg: h("svg", { width: w, height: hh, viewBox: `0 0 ${w} ${hh}` }, grid, area, segs, dots) };
+  const grid = [0, 0.5, 1].map((f) => h("path", { d: `M${padX} ${y(ymax * f)}H${w - padX}`, stroke: C.rule, strokeWidth: 2, strokeDasharray: f === 0 ? undefined : "6 8" }));
+  const line = h("path", { d: points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)} ${y(p[1])}`).join(" "), stroke: C.ink, strokeWidth: 5, fill: "none", strokeLinejoin: "round" });
+  const dots = points.map((p, i) => h("circle", { cx: x(i), cy: y(p[1]), r: i === points.length - 1 ? 12 : 8, fill: lateColor(p[1]), stroke: C.paper, strokeWidth: 3 }));
+  return { ymax, svg: h("svg", { width: w, height: hh, viewBox: `0 0 ${w} ${hh}` }, grid, line, dots) };
 }
 
-function bigTile(ch, w, color) {
-  const tileH = Math.round(w * 1.36);
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        position: "relative",
-        width: ch === "%" ? Math.round(w * 1.1) : w,
-        height: tileH,
-        alignItems: "center",
-        justifyContent: "center",
-        background: C.tile,
-        border: `3px solid ${C.tileEdge}`,
-        borderRadius: 18,
-        margin: "0 6px",
-      },
-    },
-    h("div", { style: { fontFamily: COND, fontWeight: 800, fontSize: Math.round(w * 1.38), lineHeight: 1, color } }, ch),
-    h("div", { style: { display: "flex", position: "absolute", left: 0, top: Math.round(tileH / 2) - 3, width: "100%", height: 6, background: "#000000" } }),
-  );
-}
-
-/** Portrait card shell: same structure as frame(), which is known to lay out right. */
-function portraitFrame(top, middle, bottom) {
-  return h(
-    "div",
-    { style: { display: "flex", flexDirection: "column", width: 1080, height: 1350, background: C.paper, fontFamily: SANS, fontWeight: 500, color: C.ink } },
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between", padding: "54px 64px 40px" } },
-      top,
-      middle,
-      bottom,
-      footer(),
-    ),
-  );
-}
-
-function routeNames(r, size) {
-  return h(
-    "div",
-    { style: { display: "flex", flexDirection: "column", fontFamily: COND, fontWeight: 800, fontSize: size, lineHeight: 0.93, textTransform: "uppercase" } },
-    h("div", { style: { display: "flex", whiteSpace: "nowrap" } }, cardName(r.from)),
-    h("div", { style: { display: "flex", alignItems: "center", color: C.amber, whiteSpace: "nowrap" } }, h("div", { style: { display: "flex", marginLeft: -10 } }, arrow(Math.round(size * 0.62), false)), cardName(r.to)),
+function pickRow(label, pick, color, lang) {
+  const [type, num, pct] = pick;
+  return d(
+    { alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `2px solid ${C.rule}` },
+    d({ flexDirection: "column" }, d({ fontSize: 24, fontWeight: 600, color: C.ink2 }, label), d({ fontFamily: COND, fontWeight: 800, fontSize: 52, lineHeight: 1.05 }, `${type} ${num}`)),
+    d({ fontFamily: COND, fontWeight: 800, fontSize: 72, color }, fmtShare1(pct, lang)),
   );
 }
 
 function routePortrait(r, t, lang, span) {
-  const pct = Math.round(r.late);
-  const chars = Array.from(`${pct}%`);
-  const color = lateColor(r.late);
-  const tileW = chars.length > 3 ? 150 : 178;
-  const chart = r.curve ? curveChart(r.curve.points, 952, 150) : null;
+  const chart = r.curve ? curveChart(r.curve.points, 952, 180) : null;
   const pts = r.curve ? r.curve.points : [];
-  const board = h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: C.board,
-        border: `3px solid ${C.boardLine}`,
-        borderRadius: 30,
-        padding: "34px 30px 30px",
-      },
-    },
-    h("div", { style: { display: "flex" } }, chars.map((c) => bigTile(c, tileW, color))),
-    h(
-      "div",
-      { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 52, letterSpacing: 1, textTransform: "uppercase", marginTop: 22, textAlign: "center" } },
-      t("res.leadRest"),
-    ),
-    h("div", { style: { display: "flex", width: "100%", height: 2, background: C.boardLine, margin: "20px 0 16px" } }),
-    h("div", { style: { display: "flex", fontSize: 30, fontWeight: 600, color: C.muted, textAlign: "center" } }, t("route.card.db6", { pct: fmtShare1(r.late6, lang) })),
-  );
   const picks =
     !chart && r.bestTrain && r.worstTrain
-      ? h(
-          "div",
-          { style: { display: "flex", flexDirection: "column", marginBottom: 10 } },
-          pickRow(t("route.picks.best"), r.bestTrain, r.to, lateColor(r.bestTrain[2]), lang),
-          pickRow(t("route.picks.worst"), r.worstTrain, r.to, lateColor(r.worstTrain[2]), lang),
+      ? d(
+          { flexDirection: "column", borderTop: `3px solid ${C.ink}` },
+          d({ fontSize: 26, fontWeight: 600, color: C.ink2, margin: "14px 0 4px" }, t("route.picks.title")),
+          pickRow(t("route.picks.best"), r.bestTrain, lateColor(r.bestTrain[2]), lang),
+          pickRow(t("route.picks.worst"), r.worstTrain, lateColor(r.worstTrain[2]), lang),
         )
       : null;
-  const curve = chart
-    ? h(
-        "div",
-        { style: { display: "flex", flexDirection: "column" } },
-        h(
-          "div",
-          { style: { display: "flex", justifyContent: "space-between", fontSize: 25, fontWeight: 600, color: C.muted, marginTop: 14, marginBottom: 6 } },
-          h("div", { style: { display: "flex" } }, t("route.card.curve", { train: r.curve.train })),
-          h("div", { style: { display: "flex" } }, t("route.card.scale", { pct: `${chart.ymax}%` })),
-        ),
-        chart.svg,
-        h(
-          "div",
-          { style: { display: "flex", justifyContent: "space-between", fontSize: 27, fontWeight: 600, color: C.ink2, marginTop: 4, marginBottom: 14 } },
-          h("div", { style: { display: "flex" } }, clip(pts[0][0], 26)),
-          h("div", { style: { display: "flex" } }, clip(pts[pts.length - 1][0], 26)),
-        ),
-      )
-    : null;
-  return portraitFrame(
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column" } },
-      eyebrow(`Deutsche Bahn · ${span}`),
-      h("div", { style: { display: "flex", marginTop: 30 } }, routeNames(r, nameSize(r, 950, 168))),
-      h("div", { style: { display: "flex", fontSize: 30, fontWeight: 600, color: C.muted, marginTop: 18, marginBottom: 18 } }, t("route.card.facts", { trains: fmtInt(r.trains, lang), trips: fmtInt(r.trips, lang) })),
+  return sheet(
+    1080,
+    1350,
+    [56, 64, 44],
+    span,
+    t,
+    d({ marginTop: 34 }, routeNames(r, nameSize(r, 950, 140))),
+    d({ fontSize: 28, color: C.ink2, marginTop: 16 }, t("route.card.facts", { trains: fmtInt(r.trains, lang), trips: fmtInt(r.trips, lang) })),
+    d({ marginTop: 34 }, figure(r.late, r.late6, t("route.figure", { to: cardName(r.to) }), t, lang, { ...TALL_FIG, big: 290, sentence: 40, barsTop: 32 })),
+    d(
+      { flexDirection: "column", flexGrow: 1, justifyContent: "flex-end", marginBottom: 18 },
+      chart
+        ? [
+            d({ justifyContent: "space-between", fontSize: 24, fontWeight: 600, color: C.ink2, marginBottom: 8 }, d({}, t("route.card.curve", { train: r.curve.train })), d({}, t("route.card.scale", { pct: `${chart.ymax}%` }))),
+            chart.svg,
+            d({ justifyContent: "space-between", fontSize: 26, fontWeight: 600, marginTop: 6 }, d({}, clip(pts[0][0], 26)), d({}, clip(pts[pts.length - 1][0], 26))),
+          ]
+        : picks,
     ),
-    board,
-    curve ?? picks ?? h("div", { style: { display: "flex" } }),
-  );
-}
-
-/** Used when the route has no stops in between (München → Nürnberg): the best and the worst train on it. */
-function pickRow(label, pick, to, color, lang) {
-  const [type, num, pct, n] = pick;
-  return h(
-    "div",
-    { style: { display: "flex", alignItems: "center", justifyContent: "space-between", height: 88, padding: "0 28px", borderRadius: 18, background: C.card, border: `2px solid ${C.boardLine}`, marginBottom: 12 } },
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column" } },
-      h("div", { style: { display: "flex", fontSize: 22, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: C.muted } }, label),
-      h("div", { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 44, lineHeight: 1.05, color: C.amber } }, `${type} ${num}`),
-    ),
-    h("div", { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 64, color } }, fmtShare1(pct, lang)),
   );
 }
 
 function routeWide(r, t, lang, span) {
-  return frame(
-    `Deutsche Bahn · ${span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 600 } },
-        routeNames(r, nameSize(r, 590, 100)),
-        h("div", { style: { display: "flex", fontSize: 28, fontWeight: 600, color: C.muted, marginTop: 22 } }, t("route.card.facts", { trains: fmtInt(r.trains, lang), trips: fmtInt(r.trips, lang) })),
-        h("div", { style: { display: "flex", fontSize: 25, fontWeight: 600, color: C.muted, marginTop: 8 } }, t("route.card.db6", { pct: fmtShare1(r.late6, lang) })),
+  return sheet(
+    W,
+    H,
+    [34, 60, 26],
+    span,
+    t,
+    d(
+      { flexGrow: 1, alignItems: "center" },
+      d(
+        { flexDirection: "column", width: 480 },
+        routeNames(r, nameSize(r, 480, 88)),
+        d({ fontSize: 24, color: C.ink2, marginTop: 22 }, t("route.card.facts", { trains: fmtInt(r.trains, lang), trips: fmtInt(r.trips, lang) })),
       ),
-      lateBoard(r.late, t, null),
-    ],
+      vrule(),
+      figure(r.late, r.late6, t("route.figure", { to: cardName(r.to) }), t, lang, WIDE_FIG),
+    ),
   );
 }
 
-function leagueRow(r, i, top, tone, big) {
+function leagueRow(r, i, top, o) {
   const color = lateColor(r.late);
-  const barW = Math.max(6, Math.round((r.late / top) * 100));
-  return h(
-    "div",
-    { style: { display: "flex", alignItems: "center", height: big ? 88 : 66, position: "relative", marginBottom: 10, borderRadius: 14, background: C.card, border: `2px solid ${C.boardLine}`, overflow: "hidden" } },
-    h("div", { style: { display: "flex", position: "absolute", left: 0, top: 0, bottom: 0, width: `${barW}%`, background: color, opacity: 0.2 } }),
-    h("div", { style: { display: "flex", width: big ? 70 : 54, justifyContent: "center", fontFamily: COND, fontWeight: 800, fontSize: big ? 44 : 34, color: tone } }, String(i)),
-    h(
-      "div",
-      { style: { display: "flex", alignItems: "center", flexGrow: 1, fontFamily: COND, fontWeight: 800, fontSize: big ? 42 : 32, textTransform: "uppercase", letterSpacing: 0.5 } },
-      clip(cardName(r.from), 19),
-      arrow(big ? 36 : 28, false),
-      clip(cardName(r.to), 19),
+  const barW = Math.max(3, Math.round((r.late / top) * 100));
+  return d(
+    { alignItems: "center", height: o.rowH, borderBottom: `2px solid ${C.rule}` },
+    d({ width: o.rankW, fontFamily: COND, fontWeight: 800, fontSize: o.fs + 6, color: C.ink2 }, String(i)),
+    d(
+      { flexDirection: "column", flexGrow: 1 },
+      d({ alignItems: "center", fontFamily: COND, fontWeight: 800, fontSize: o.fs, lineHeight: 1.05, whiteSpace: "nowrap" }, clip(cardName(r.from), 19), d({ margin: "0 8px" }, arrow(Math.round(o.fs * 0.74))), clip(cardName(r.to), 19)),
+      d({ width: o.barW, height: o.barH, background: C.track, marginTop: 6, position: "relative" }, d({ position: "absolute", left: 0, top: 0, bottom: 0, width: `${barW}%`, background: color })),
     ),
-    h("div", { style: { display: "flex", width: big ? 150 : 110, justifyContent: "flex-end", paddingRight: 22, fontFamily: COND, fontWeight: 800, fontSize: big ? 56 : 40, color } }, `${Math.round(r.late)}%`),
+    d({ flexDirection: "column", alignItems: "flex-end", width: o.valW }, d({ fontFamily: COND, fontWeight: 800, fontSize: o.fs + 12, lineHeight: 1 }, fmtShare(r.late, o.lang)), o.db ? d({ fontSize: o.fs * 0.55, color: C.muted, marginTop: 2 }, `DB ${fmtShare(r.late6, o.lang)}`) : null),
   );
 }
 
 function leaguePortrait(worst, best, t, lang, span, n) {
   const top = Math.max(...worst.map((r) => r.late));
-  return portraitFrame(
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column" } },
-      eyebrow(`Deutsche Bahn · ${span}`),
-      h("div", { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 98 : 124, lineHeight: 0.92, textTransform: "uppercase", marginTop: 30 } }, t("routes.card.title")),
-      h("div", { style: { display: "flex", fontSize: 29, fontWeight: 600, color: C.muted, marginTop: 18, marginBottom: 30 } }, t("routes.card.sub", { n })),
-    ),
-    h("div", { style: { display: "flex", flexDirection: "column" } }, worst.map((r, i) => leagueRow(r, i + 1, top, "#ff4b3e", true))),
-    h(
-      "div",
-      { style: { display: "flex", flexDirection: "column" } },
-      h("div", { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 36, letterSpacing: 2, textTransform: "uppercase", color: "#34c36b", marginTop: 8, marginBottom: 12 } }, t("routes.card.best")),
-      best.map((r, i) => leagueRow(r, n - best.length + i + 1, top, "#34c36b", false)),
-    ),
+  const o = { rowH: 104, rankW: 64, fs: 40, barW: 600, barH: 14, valW: 170, lang, db: true };
+  const o2 = { ...o, rowH: 84, fs: 34, barW: 560, db: true };
+  return sheet(
+    1080,
+    1350,
+    [56, 64, 44],
+    span,
+    t,
+    d({ fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 100 : 116, lineHeight: 0.96, marginTop: 34 }, t("routes.card.title")),
+    d({ fontSize: 28, color: C.ink2, marginTop: 14, marginBottom: 22 }, t("routes.card.sub", { n })),
+    d({ flexDirection: "column", borderTop: `3px solid ${C.ink}` }, worst.map((r, i) => leagueRow(r, i + 1, top, o))),
+    d({ fontFamily: COND, fontWeight: 800, fontSize: 36, marginTop: 24, marginBottom: 4, color: C.safe }, t("routes.card.best")),
+    d({ flexDirection: "column", flexGrow: 1 }, best.map((r, i) => leagueRow(r, n - best.length + i + 1, top, o2))),
   );
 }
 
 function leagueWide(worst, t, lang, span, n) {
   const top = Math.max(...worst.map((r) => r.late));
-  return frame(
-    `Deutsche Bahn · ${span}`,
-    [
-      h(
-        "div",
-        { style: { display: "flex", flexDirection: "column", width: 420 } },
-        h("div", { style: { display: "flex", fontFamily: COND, fontWeight: 800, fontSize: 84, lineHeight: 0.96, textTransform: "uppercase" } }, t("routes.card.title")),
-        h("div", { style: { display: "flex", fontSize: 25, fontWeight: 600, color: C.muted, marginTop: 18 } }, t("routes.card.sub", { n })),
+  const o = { rowH: 78, rankW: 48, fs: 31, barW: 400, barH: 12, valW: 120, lang, db: true };
+  return sheet(
+    W,
+    H,
+    [34, 60, 26],
+    span,
+    t,
+    d(
+      { flexGrow: 1, alignItems: "center" },
+      d(
+        { flexDirection: "column", width: 400 },
+        d({ fontFamily: COND, fontWeight: 800, fontSize: 80, lineHeight: 0.98 }, t("routes.card.title")),
+        d({ fontSize: 22, color: C.ink2, marginTop: 18, lineHeight: 1.3 }, t("routes.card.sub", { n })),
       ),
-      h("div", { style: { display: "flex", flexDirection: "column", width: 640 } }, worst.slice(0, 5).map((r, i) => leagueRow(r, i + 1, top, "#ff4b3e", false))),
-    ],
+      vrule(),
+      d({ flexDirection: "column", width: 600, borderTop: `3px solid ${C.ink}` }, worst.slice(0, 5).map((r, i) => leagueRow(r, i + 1, top, o))),
+    ),
   );
 }
 
@@ -769,8 +545,8 @@ async function loadFonts() {
  */
 function assertBottomMargin(rendered, file) {
   const { width, height, pixels } = rendered;
-  const strip = 14;
-  const bg = [0x0a, 0x0c, 0x0f];
+  const strip = 10;
+  const bg = [0xfa, 0xfa, 0xf8];
   for (let y = height - strip; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
@@ -785,7 +561,7 @@ function assertBottomMargin(rendered, file) {
 // A card is cached under a hash of everything that decides its pixels (the element tree, size, fonts, options), in
 // .next/cache, which Vercel keeps between builds. Cards not used by this run are deleted at the end, so it cannot grow.
 const CACHE_DIR = path.join(ROOT, ".next", "cache", "og-cards");
-const RENDER_VERSION = "1";
+const RENDER_VERSION = "2";
 const cacheUsed = new Set();
 const cacheStats = { hit: 0, drawn: 0 };
 let fontKey = "";
@@ -794,7 +570,7 @@ async function render(node, fonts, file, w = W, hh = H, compress = false) {
   const packed = compress && sharp ? 1 : 0;
   const key = createHash("sha1").update(RENDER_VERSION).update(fontKey).update(`${w}x${hh}:${packed}:`).update(JSON.stringify(node)).digest("hex").slice(0, 28);
   const cached = path.join(CACHE_DIR, `${key}.png`);
-  cacheUsed.add(cached);
+  if (!SAMPLE) cacheUsed.add(cached);
   try {
     await fs.copyFile(cached, file);
     cacheStats.hit += 1;
@@ -806,9 +582,9 @@ async function render(node, fonts, file, w = W, hh = H, compress = false) {
   const rendered = new Resvg(svg, { fitTo: { mode: "width", value: w }, font: { loadSystemFonts: false } }).render();
   assertBottomMargin(rendered, file);
   const png = rendered.asPng();
-  const out = packed ? await sharp(png).png({ palette: true, quality: 90, effort: 5, compressionLevel: 9, colours: 128, dither: 0.6 }).toBuffer() : png;
+  const out = packed ? await sharp(png).png({ palette: true, quality: 92, effort: 5, compressionLevel: 9, colours: 160, dither: 0.5 }).toBuffer() : png;
   await fs.writeFile(file, out);
-  await fs.writeFile(cached, out);
+  if (!SAMPLE) await fs.writeFile(cached, out);
   cacheStats.drawn += 1;
 }
 
@@ -824,6 +600,10 @@ async function pruneCache() {
   return removed;
 }
 
+// Hard cases for a quick look: the longest names, a short one, a route with and without stops in between, German.
+const SAMPLE_UNITS = new Set(["ice-1541", "rb-28-bad-koetzting-cham-oberpf", "ice-77"]);
+const SAMPLE_ROUTES = new Set(["koeln-hbf-berlin-hbf", "berlin-suedkreuz-lutherstadt-wittenberg-hbf", "muenchen-hbf-nuernberg-hbf", "aschaffenburg-hbf-frankfurt-flughafen"]);
+
 async function main() {
   const started = performance.now();
   const stats = await readJson(path.join(DATA_DIR, "stats.json"));
@@ -837,30 +617,37 @@ async function main() {
   const late = await lateBySlug();
   const fonts = await loadFonts();
   fontKey = createHash("sha1").update(Buffer.concat(fonts.map((f) => Buffer.from(f.data)))).digest("hex");
-  await fs.mkdir(CACHE_DIR, { recursive: true });
-  const dir = path.join(OUT_DIR, lastMonth);
-  await fs.rm(dir, { recursive: true, force: true });
-  await fs.mkdir(path.join(dir, "de"), { recursive: true });
+
+  const dir = SAMPLE || path.join(OUT_DIR, lastMonth);
+  if (SAMPLE) {
+    await fs.mkdir(SAMPLE, { recursive: true });
+  } else {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+    await fs.rm(dir, { recursive: true, force: true });
+    await fs.mkdir(path.join(dir, "de"), { recursive: true });
+  }
+  const where = (base, lang, name) => (SAMPLE ? path.join(SAMPLE, `${lang}-${name}.png`) : path.join(lang === "de" ? path.join(base, "de") : base, `${name}.png`));
 
   let count = 0;
   for (const lang of ["en", "de"]) {
     const t = makeT(lang);
-    const out = lang === "de" ? path.join(dir, "de") : dir;
     const span = spanLabel(firstMonth, lastMonth, lang);
     const facts = recapFacts(stats, t, lang);
     const jobs = [
       ["home", homeCard(stats, t, lang), W, H],
       ["recap", recapWide(facts, t, lang), W, H],
       ["recap-tall", recapTall(facts, t, lang), 1080, 1920],
-      ...units.map((u) => {
-        const share = late.get(u.slug);
-        if (share === undefined) throw new Error(`no search record for ${u.slug}, cannot read its late share`);
-        return [u.slug, unitCard(u, share, span, t, lang), W, H];
-      }),
+      ...units
+        .filter((u) => !SAMPLE || SAMPLE_UNITS.has(u.slug))
+        .map((u) => {
+          const share = late.get(u.slug);
+          if (share === undefined) throw new Error(`no search record for ${u.slug}, cannot read its late share`);
+          return [u.slug, unitCard(u, share, span, t, lang), W, H];
+        }),
     ];
     for (const [name, node, w, hh] of jobs) {
       try {
-        await render(node, fonts, path.join(out, `${name}.png`), w, hh);
+        await render(node, fonts, where(dir, lang, name), w, hh);
         count += 1;
       } catch (e) {
         throw new Error(`render ${lang}/${name}.png failed: ${e.message}`);
@@ -875,24 +662,27 @@ async function main() {
   if (hasRoutes) {
     const rd = await readJson(routesFile);
     const rdir = path.join(OUT_DIR, "routes", lastMonth);
-    await fs.rm(path.join(OUT_DIR, "routes"), { recursive: true, force: true });
-    await fs.mkdir(path.join(rdir, "de"), { recursive: true });
+    if (!SAMPLE) {
+      await fs.rm(path.join(OUT_DIR, "routes"), { recursive: true, force: true });
+      await fs.mkdir(path.join(rdir, "de"), { recursive: true });
+    }
     const league = rd.routes.filter((r) => r.rank !== null).sort((a, b) => a.rank - b.rank);
     for (const lang of ["en", "de"]) {
       const t = makeT(lang);
-      const out = lang === "de" ? path.join(rdir, "de") : rdir;
       const span = spanLabel(rd.window.firstMonth, rd.window.lastMonth, lang);
       const jobs = [
         ["ranking", leagueWide(league.slice(0, 5), t, lang, span, league.length), W, H],
         ["ranking-portrait", leaguePortrait(league.slice(0, 5), league.slice(-3), t, lang, span, league.length), 1080, 1350],
-        ...rd.routes.flatMap((r) => [
-          [r.slug, routeWide(r, t, lang, span), W, H],
-          [`${r.slug}-portrait`, routePortrait(r, t, lang, span), 1080, 1350],
-        ]),
+        ...rd.routes
+          .filter((r) => !SAMPLE || SAMPLE_ROUTES.has(r.slug))
+          .flatMap((r) => [
+            [r.slug, routeWide(r, t, lang, span), W, H],
+            [`${r.slug}-portrait`, routePortrait(r, t, lang, span), 1080, 1350],
+          ]),
       ];
       for (const [name, node, w, hh] of jobs) {
         try {
-          await render(node, fonts, path.join(out, `${name}.png`), w, hh, true);
+          await render(node, fonts, where(rdir, lang, name), w, hh, true);
           routeCount += 1;
         } catch (e) {
           throw new Error(`render routes/${lang}/${name}.png failed: ${e.message}`);
@@ -901,15 +691,17 @@ async function main() {
     }
   }
 
-  for (const entry of await fs.readdir(OUT_DIR, { withFileTypes: true })) {
-    if (entry.isDirectory() && /^\d{4}-\d{2}$/.test(entry.name) && entry.name !== lastMonth) {
-      await fs.rm(path.join(OUT_DIR, entry.name), { recursive: true, force: true });
+  if (!SAMPLE) {
+    for (const entry of await fs.readdir(OUT_DIR, { withFileTypes: true })) {
+      if (entry.isDirectory() && /^\d{4}-\d{2}$/.test(entry.name) && entry.name !== lastMonth) {
+        await fs.rm(path.join(OUT_DIR, entry.name), { recursive: true, force: true });
+      }
     }
   }
 
-  const pruned = await pruneCache();
+  const pruned = SAMPLE ? 0 : await pruneCache();
   const ms = Math.round(performance.now() - started);
-  console.log(`og: ${count} images -> public/og/${lastMonth}/, ${routeCount} route images -> public/og/routes/ in ${ms} ms (${cacheStats.hit} from cache, ${cacheStats.drawn} drawn, ${pruned} stale cache files removed)`);
+  console.log(`og: ${count} images -> ${SAMPLE ? SAMPLE : `public/og/${lastMonth}/`}, ${routeCount} route images in ${ms} ms (${cacheStats.hit} from cache, ${cacheStats.drawn} drawn, ${pruned} stale cache files removed)`);
 }
 
 main().catch((e) => {
