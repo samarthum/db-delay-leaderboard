@@ -4,27 +4,13 @@ import { routeSlug } from "./routeSlug";
 
 /**
  * The route page a search should open: the page of the two main stations the text names ("Köln" and "Berlin" are
- * Köln Hbf and Berlin Hbf), else the busiest page among the other station pairs, else null (no page for this pair,
- * or the trip ends abroad: then the search shows its own result).
+ * Köln Hbf and Berlin Hbf), or null. No page for those two stations means the search shows its own list, which covers
+ * every station of the city: opening the page of some other Köln station instead would answer a question nobody asked.
  */
 export function pageFor(idx: StopsIndex, q: RouteQuery, table: RouteTable): string | null {
   if (q.to.length === 0 || q.from.length === 0) return null;
-  const name = (i: number) => idx.raw.stations[i];
-  const primary = routeSlug(name(q.from[0]), name(q.to[0]));
-  if (table[primary]) return primary;
-  let best: string | null = null;
-  let bestTrips = -1;
-  for (const a of q.from) {
-    for (const b of q.to) {
-      const slug = routeSlug(name(a), name(b));
-      const e = table[slug];
-      if (e && e.n > bestTrips) {
-        best = slug;
-        bestTrips = e.n;
-      }
-    }
-  }
-  return best;
+  const slug = routeSlug(idx.raw.stations[q.from[0]], idx.raw.stations[q.to[0]]);
+  return table[slug] ? slug : null;
 }
 
 /** 494 -> "08:14", for the ?t= part of a route page address. */

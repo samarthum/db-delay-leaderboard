@@ -286,6 +286,8 @@ export interface RouteEntry {
   minutes: number;
   trains: number;
   rated: number;
+  /** Measured trips on trains that are not in the list: stopped running, ran rarely, or one number used for different services. */
+  unlisted: number;
   list: RouteTrain[];
   bestTrain: [string, string, number, number] | null;
   worstTrain: [string, string, number, number] | null;
@@ -297,7 +299,7 @@ export interface RouteEntry {
 export interface RoutesFile {
   generatedAt: string;
   window: WindowInfo;
-  params: { minMinutes: number; minTrips: number; minRated: number; minTrainRuns: number; leagueMinTrips: number; lateMinutes: number };
+  params: { minMinutes: number; minTrips: number; minRated: number; minTrainRuns: number; leagueMinTrips: number; lateMinutes: number; majorRuns: number; recentMonths: number };
   leagueSize: number;
   routes: RouteEntry[];
 }

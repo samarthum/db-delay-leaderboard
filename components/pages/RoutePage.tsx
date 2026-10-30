@@ -217,7 +217,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
         </section>
 
         <p className={styles.method}>
-          {t("route.method", { from: r.from, to: r.to, measured: fmtInt(r.trips, lang), runs: fmtInt(r.runs, lang), span })}
+          {t("route.method", { from: r.from, to: r.to, measured: fmtInt(r.trips, lang), runs: fmtInt(r.runs, lang), unlisted: fmtInt(r.unlisted, lang), span })}
         </p>
 
         <nav className={styles.links} aria-label={t("route.more", { from: r.from })}>

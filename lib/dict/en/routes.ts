@@ -51,7 +51,7 @@ export const routes = {
   "route.trains.less": "Show fewer",
   "route.reverse": "The other direction: {to} → {from}",
   "route.more": "More routes from {from}",
-  "route.method": "Only trips that stop at {from} and later at {to} count. {measured} of {runs} scheduled trips were measured; the rest were cancelled or have no recorded arrival. {span}.",
+  "route.method": "Only trips that stop at {from} and later at {to} count. {measured} of {runs} scheduled trips were measured; the rest were cancelled or have no recorded arrival. The share counts all measured trips. The list shows the trains that run now; {unlisted} of the measured trips were on trains that stopped running, ran only now and then, or shared their number with a different service. {span}.",
   "route.card.curve": "Late share, stop by stop ({train})",
   "route.card.facts": "{trains} trains · {trips} trips",
   "route.card.db6": "{pct} by Deutsche Bahn's own 6-minute rule",

@@ -7,6 +7,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
+
+// Route cards are flat dark colours with a few accents: a 128-colour palette PNG is a third of the size and looks the same.
+// Without sharp the build still works, the files are just bigger.
+let sharp = null;
+try {
+  sharp = (await import("sharp")).default;
+} catch {
+  console.warn("og: sharp not installed, route cards are written uncompressed");
+}
 import { makeT } from "./dict-load.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -771,11 +780,12 @@ function assertBottomMargin(rendered, file) {
   }
 }
 
-async function render(node, fonts, file, w = W, hh = H) {
+async function render(node, fonts, file, w = W, hh = H, compress = false) {
   const svg = await satori(node, { width: w, height: hh, fonts });
   const rendered = new Resvg(svg, { fitTo: { mode: "width", value: w }, font: { loadSystemFonts: false } }).render();
   assertBottomMargin(rendered, file);
-  await fs.writeFile(file, rendered.asPng());
+  const png = rendered.asPng();
+  await fs.writeFile(file, compress && sharp ? await sharp(png).png({ palette: true, quality: 90, effort: 5, compressionLevel: 9, colours: 128, dither: 0.6 }).toBuffer() : png);
 }
 
 async function main() {
@@ -844,7 +854,7 @@ async function main() {
       ];
       for (const [name, node, w, hh] of jobs) {
         try {
-          await render(node, fonts, path.join(out, `${name}.png`), w, hh);
+          await render(node, fonts, path.join(out, `${name}.png`), w, hh, true);
           routeCount += 1;
         } catch (e) {
           throw new Error(`render routes/${lang}/${name}.png failed: ${e.message}`);
