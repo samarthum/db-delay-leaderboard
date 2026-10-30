@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SEARCH_INDEX, loadRouteTable, loadStops, loadTypeahead, pickByKey, runSearch, type RouteTable, type SearchOutcome } from "@/lib/searchClient";
-import { routeSlug } from "@/lib/routeSlug";
+import { routeSlug, shortStation } from "@/lib/routeSlug";
 import { pageFor, timeParam } from "@/lib/routePage";
 import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
 import { splitLive, unitName, type SearchUnit } from "@/lib/searchCore";
@@ -477,6 +477,7 @@ export function Search({
             t("home.sub2")
           )}
         </label>
+        <div className={styles.anchor}>
         <div className={styles.inputWrap}>
           <input
             ref={input}
@@ -486,10 +487,12 @@ export function Search({
             name="q"
             value={text}
             onChange={(e) => onType(e.target.value)}
-            onFocus={() => {
+            onFocus={(e) => {
               warm();
               warmStops();
               setOpen(true);
+              // On a phone the suggestions float under the box: bring the box to the top so they fit above the tab bar.
+              if (window.innerWidth < 960) e.currentTarget.closest("form")?.scrollIntoView({ block: "start", behavior: "smooth" });
             }}
             onBlur={() => window.setTimeout(() => setOpen(false), 160)}
             onKeyDown={onKeyDown}
@@ -534,6 +537,7 @@ export function Search({
             )}
           </div>
         ) : null}
+        </div>
       </form>
 
       {showHelp ? (
@@ -565,7 +569,7 @@ export function Search({
         </p>
       ) : null}
 
-      {!hasQuery && !showList && idle ? <div className={styles.idle}>{idle}</div> : null}
+      {!hasQuery && idle ? <div className={styles.idle}>{idle}</div> : null}
 
       <div className={styles.results} aria-live="polite">
         {live.live && applied.q && !applied.s && !applied.r ? (
@@ -668,12 +672,12 @@ function RouteView({
   return (
     <section className={styles.station} aria-labelledby="route-name">
       <h2 id="route-name" className={styles.stationName}>
-        {from}
+        {shortStation(from)}
         <span className={styles.arrow} aria-hidden="true">
           {" → "}
         </span>
         <span className="visually-hidden"> {t("route.to")} </span>
-        {to}
+        {shortStation(to)}
       </h2>
       <p className={styles.stationSub}>
         {t(abroad ? "rt.subAbroad" : "rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
@@ -792,7 +796,7 @@ function Groups({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onPick(routeItem)}
           >
-            <span className={styles.optStation}>{routeHeading(stops, routeItem.query).join(" → ")}</span>
+            <span className={styles.optStation}>{routeHeading(stops, routeItem.query).map(shortStation).join(" → ")}</span>
             {routeItem.late !== null ? (
               <span className={styles.optStat} style={{ color: lateShareColor(routeItem.late) }}>
                 {t("rt.late", { pct: fmtShare(routeItem.late, lang) })}
@@ -823,7 +827,7 @@ function Groups({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onPick(d)}
               >
-                <span className={styles.optStation}>{d.name}</span>
+                <span className={styles.optStation}>{shortStation(d.name)}</span>
                 <span className={styles.optStat} style={{ color: "var(--muted)" }}>
                   {d.trains === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: d.trains })}
                 </span>
@@ -854,7 +858,7 @@ function Groups({
                 >
                   {s.kind === "station" ? (
                     <>
-                      <span className={styles.optStation}>{s.station.name}</span>
+                      <span className={styles.optStation}>{shortStation(s.station.name)}</span>
                       <span className={styles.optStat} style={{ color: "var(--muted)" }}>
                         {s.station.trains.length === 1 ? t("sug.stationOne") : t("sug.stationMany", { n: s.station.trains.length })}
                       </span>
@@ -862,7 +866,7 @@ function Groups({
                   ) : (
                     <>
                       <span className={styles.optName}>{unitName(s.train)}</span>
-                      <span className={styles.optRoute}>{`${s.train.origin} ${s.train.kind === 1 ? "↔" : "→"} ${s.train.dest}`}</span>
+                      <span className={styles.optRoute}>{`${shortStation(s.train.origin)} ${s.train.kind === 1 ? "↔" : "→"} ${shortStation(s.train.dest)}`}</span>
                       <span
                         className={styles.optStat}
                         style={{ color: lateShareColor(s.train.late) }}
@@ -901,7 +905,7 @@ function StationView({
   return (
     <section className={styles.station} aria-labelledby="station-name">
       <h2 id="station-name" className={styles.stationName}>
-        {station.name}
+        {shortStation(station.name)}
       </h2>
       <p className={styles.stationSub}>{t("st.sub", { span })}</p>
       {rows.length === 0 ? (
@@ -912,7 +916,7 @@ function StationView({
             <div key={tr.key} className={styles.row}>
               <button type="button" className={styles.option} onClick={() => ask(unitName(tr))}>
                 <span className={styles.optName}>{unitName(tr)}</span>
-                <span className={styles.optRoute}>{`${tr.origin} → ${tr.dest}`}</span>
+                <span className={styles.optRoute}>{`${shortStation(tr.origin)} → ${shortStation(tr.dest)}`}</span>
                 <span className={styles.optStat} style={{ color: lateShareColor(tr.late) }}>
                   {t("st.late", { pct: fmtShare(tr.late, lang) })}
                 </span>

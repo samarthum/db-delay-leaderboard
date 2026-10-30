@@ -12,6 +12,7 @@
 
 .field {
   position: relative;
+  scroll-margin-top: 72px;
 }
 
 .label {
@@ -24,6 +25,10 @@
 .labelSub {
   font-weight: 400;
   color: var(--ink-2);
+}
+
+.anchor {
+  position: relative;
 }
 
 .inputWrap {
@@ -210,6 +215,12 @@
 
 /* Suggestions ---------------------------------------------------------- */
 .list {
+  /* A floating panel under the box: opening it must not move anything else on the page. */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
   margin-top: 6px;
   max-height: min(56dvh, 440px);
   overflow-y: auto;
@@ -276,6 +287,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.optStation + .optStat {
+  grid-row: 1;
 }
 
 .optStat {

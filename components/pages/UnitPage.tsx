@@ -7,6 +7,7 @@ import { route, type Lang } from "@/lib/i18n";
 import { absoluteUrl, ogImagePath, unitHref } from "@/lib/site";
 import { rankSentence } from "@/lib/seo";
 import { makeT } from "@/lib/t";
+import { shortStation } from "@/lib/routeSlug";
 import { Arrow, RouteName } from "../Arrow";
 import { BackLink } from "../BackLink";
 import { ChangeFromTrain, type PairRow } from "../ChangeFromTrain";
@@ -74,7 +75,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const monthItems = t.monthly.map((m) => ({ label: monthShort(m.month, lang).charAt(0), value: m.avg, color: m.month === worstMonth?.month ? "#14161A" : "#9AA0A8" }));
   const emptyMonths = t.monthly.filter((m) => m.avg === null).map((m) => monthLabel(m.month, lang));
 
-  const where = tr(isLine ? "unit.where.line" : "unit.where.train", { o: t.origin, d: t.dest });
+  const where = tr(isLine ? "unit.where.line" : "unit.where.train", { o: shortStation(t.origin), d: shortStation(t.dest) });
   const shareText = tr("unit.shareText", { name: t.name, where, pct: fmtShare1(latePct, lang), avg: fmt1(t.minutes.avg, lang), rank: rankSentence(t, lang) }).trim();
 
   // Routes this train runs: route pages that list it, biggest first.
@@ -143,7 +144,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               <RouteText unit={t} lang={lang} />
             ) : (
               <>
-                <RouteName from={t.origin} to={t.dest} word={nameWord} />, {fmtDuration(t.avgScheduledMin, lang)}
+                <RouteName from={shortStation(t.origin)} to={shortStation(t.dest)} word={nameWord} />, {fmtDuration(t.avgScheduledMin, lang)}
               </>
             )}
           </p>
@@ -238,17 +239,17 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
         <div className="aside">
           {t.stops.length > 0 ? (
             <section className="sec" aria-labelledby="route">
-              <h2 id="route">{jump ? tr("unit.route.jump", { from: jump.from, to: jump.to, delta: fmt1(jump.delta, lang) }) : tr("unit.route.default")}</h2>
-              <p className="sec-sub">{tr("unit.stops.cap", { extra: isLine ? tr("unit.route.extra", { a: first.name, b: last.name }) : "" })}</p>
+              <h2 id="route">{jump ? tr("unit.route.jump", { from: shortStation(jump.from), to: shortStation(jump.to), delta: fmt1(jump.delta, lang) }) : tr("unit.route.default")}</h2>
+              <p className="sec-sub">{tr("unit.stops.cap", { extra: isLine ? tr("unit.route.extra", { a: shortStation(first.name), b: shortStation(last.name) }) : "" })}</p>
               <StopLine
-                points={t.stops.map((s) => ({ name: s.name, value: s.avgDelay }))}
+                points={t.stops.map((s) => ({ name: shortStation(s.name), value: s.avgDelay }))}
                 lang={lang}
                 unit="min"
                 xmax={Math.max(20, Math.ceil(Math.max(...t.stops.map((s) => s.avgDelay)) / 10) * 10)}
                 jump={jump?.i ?? null}
                 rowh={28}
                 labelW={160}
-                label={tr("unit.curve.aria", { name: t.name, list: t.stops.map((s) => `${s.name} ${fmt1(s.avgDelay, lang)}`).join(", ") })}
+                label={tr("unit.curve.aria", { name: t.name, list: t.stops.map((s) => `${shortStation(s.name)} ${fmt1(s.avgDelay, lang)}`).join(", ") })}
               />
             </section>
           ) : null}

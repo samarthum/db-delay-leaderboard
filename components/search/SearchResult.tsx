@@ -12,6 +12,7 @@ import { Arrow } from "../Arrow";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
+import { shortStation } from "@/lib/routeSlug";
 import styles from "./SearchResult.module.css";
 
 export function kindLabel(u: SearchUnit, lang: Lang): string {
@@ -19,7 +20,7 @@ export function kindLabel(u: SearchUnit, lang: Lang): string {
 }
 
 export function routeText(u: SearchUnit): string {
-  return `${u.origin} ${u.kind === 1 ? "↔" : "→"} ${u.dest}`;
+  return `${shortStation(u.origin)} ${u.kind === 1 ? "↔" : "→"} ${shortStation(u.dest)}`;
 }
 
 function shareUrl(u: SearchUnit, lang: Lang): string {

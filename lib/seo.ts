@@ -7,6 +7,7 @@ import { OG_SIZE, SITE_NAME, absoluteUrl, ogImagePath, routeImagePath, unitHref 
 import type { RouteEntry } from "./types";
 import { getRoutes } from "./data";
 import { makeT } from "./t";
+import { shortStation } from "./routeSlug";
 
 function windowSpan(lang: Lang): string {
   const w = getStats().window;
@@ -14,7 +15,7 @@ function windowSpan(lang: Lang): string {
 }
 
 function routeOf(t: UnitSummary): string {
-  return `${t.origin} ${t.category === "longDistance" ? "→" : "↔"} ${t.dest}`;
+  return `${shortStation(t.origin)} ${t.category === "longDistance" ? "→" : "↔"} ${shortStation(t.dest)}`;
 }
 
 /** "No. 3 of Germany's most delayed regional lines." or "" when unranked. */
