@@ -110,7 +110,7 @@ const AudioCtx: Ctor | undefined = typeof window === "undefined" ? undefined : (
 /** Asks the server whether voice search is set up (the key is configured). Answered once per tab. */
 export async function voiceConfigured(): Promise<boolean> {
   try {
-    const cached = sessionStorage.getItem("voice-ok");
+    const cached = sessionStorage.getItem("voice-ok-2");
     if (cached !== null) return cached === "1";
   } catch {
     // storage blocked: ask every time
@@ -119,7 +119,7 @@ export async function voiceConfigured(): Promise<boolean> {
     const r = await fetch(TOKEN_URL, { cache: "no-store" });
     const ok = r.ok && ((await r.json()) as { ok?: boolean }).ok === true;
     try {
-      sessionStorage.setItem("voice-ok", ok ? "1" : "0");
+      sessionStorage.setItem("voice-ok-2", ok ? "1" : "0");
     } catch {
       // ignore
     }
