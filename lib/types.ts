@@ -267,3 +267,37 @@ export interface Monthly {
   window: WindowInfo;
   series: Record<Category, MonthPoint[]>;
 }
+
+/** [type, number, departure minutes at A, arrival minutes at B, share 15+ min late at B (null when few trips), measured trips] */
+export type RouteTrain = [string, string, number, number, number | null, number];
+
+export interface RouteEntry {
+  slug: string;
+  from: string;
+  to: string;
+  /** Scheduled runs that stop at both stations, and the ones with a measured arrival at the second. */
+  runs: number;
+  trips: number;
+  late: number;
+  /** The same share with Deutsche Bahn's own 6-minute threshold. */
+  late6: number;
+  avg: number;
+  canc: number;
+  minutes: number;
+  trains: number;
+  rated: number;
+  list: RouteTrain[];
+  bestTrain: [string, string, number, number] | null;
+  worstTrain: [string, string, number, number] | null;
+  curve: { train: string; points: [string, number, number][] } | null;
+  /** 1 = most often late, among routes with enough trips; null when not ranked. */
+  rank: number | null;
+}
+
+export interface RoutesFile {
+  generatedAt: string;
+  window: WindowInfo;
+  params: { minMinutes: number; minTrips: number; minRated: number; minTrainRuns: number; leagueMinTrips: number; lateMinutes: number };
+  leagueSize: number;
+  routes: RouteEntry[];
+}

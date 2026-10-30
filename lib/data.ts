@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Category, Monthly, Stats, StationsFile, UnitDetail } from "./types";
+import type { Category, Monthly, RouteEntry, RoutesFile, Stats, StationsFile, UnitDetail } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CATEGORY_DIR: Record<Category, string> = { longDistance: "trains", regional: "lines" };
@@ -13,6 +13,7 @@ let statsCache: Stats | undefined;
 let monthlyCache: Monthly | undefined;
 let stationsCache: StationsFile | undefined;
 const unitCache = new Map<string, UnitDetail>();
+let routesCache: RoutesFile | undefined;
 
 export function getStats(): Stats {
   return (statsCache ??= readJson<Stats>("stats.json"));
@@ -62,4 +63,19 @@ export function getLatePct(slug: string): number | null {
     }
   }
   return lateBySlug.get(slug) ?? null;
+}
+
+export function getRoutes(): RoutesFile {
+  return (routesCache ??= readJson<RoutesFile>("routes.json"));
+}
+
+export function getRoute(slug: string): RouteEntry {
+  const r = getRoutes().routes.find((x) => x.slug === slug);
+  if (!r) throw new Error(`no route "${slug}" in data/routes.json`);
+  return r;
+}
+
+/** The route in the other direction, when it has a page too. */
+export function getReverseRoute(r: RouteEntry): RouteEntry | null {
+  return getRoutes().routes.find((x) => x.from === r.to && x.to === r.from) ?? null;
 }

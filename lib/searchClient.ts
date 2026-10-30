@@ -144,6 +144,16 @@ export function loadTypeahead(): Promise<TaIndex> {
   return typeahead;
 }
 
+/** Exact late share per train for routes that have a page: { slug: [[type, num, late %, measured], ...] }. */
+export type RouteTable = Record<string, [string, string, number | null, number][]>;
+let routeTable: Promise<RouteTable> | undefined;
+
+/** Small file next to the stops data. If it cannot be loaded the search simply keeps its own numbers. */
+export function loadRouteTable(): Promise<RouteTable> {
+  routeTable ??= getJson<RouteTable>("/search/routes.json").catch(() => ({}));
+  return routeTable;
+}
+
 let stops: Promise<StopsIndex> | undefined;
 
 /** Per-stop data for route search (long-distance trains). About 450 kB gzipped, fetched when a route is first needed. */

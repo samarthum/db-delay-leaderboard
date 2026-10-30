@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 import type { Category } from "@/lib/types";
-import { getStats, getUnitSlugs } from "@/lib/data";
+import { getRoutes, getStats, getUnitSlugs } from "@/lib/data";
 import { LANGS, route, type Lang, type RouteKey } from "@/lib/i18n";
 import { absoluteUrl, unitHref } from "@/lib/site";
 
 export const dynamic = "force-static";
 
-const PAGES: RouteKey[] = ["home", "ranking", "network", "method", "recap"];
+const PAGES: RouteKey[] = ["home", "ranking", "routes", "network", "method", "recap"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = getStats().generatedAt;
@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }));
   return [
     ...PAGES.flatMap((key) => entry((l) => route(l, key))),
+    ...getRoutes().routes.flatMap((r) => entry((l) => route(l, "route", r.slug))),
     ...categories.flatMap((category) => getUnitSlugs(category).flatMap((slug) => entry((l) => unitHref({ category, slug }, l)))),
   ];
 }

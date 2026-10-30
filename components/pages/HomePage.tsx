@@ -24,6 +24,9 @@ export function HomePage({ lang }: { lang: Lang }) {
       <Link href={route(lang, "recap")} className={styles.recap} prefetch={false}>
         {t("home.recap")} <span aria-hidden="true">→</span>
       </Link>
+      <Link href={route(lang, "routes")} className={styles.recap} prefetch={false}>
+        {t("home.routes")} <span aria-hidden="true">→</span>
+      </Link>
     </section>
   );
   return (

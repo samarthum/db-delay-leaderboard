@@ -25,4 +25,9 @@ export function ogImagePath(lastMonth: string, name: string, lang: Lang = "en"):
   return lang === "de" ? `/og/${lastMonth}/de/${name}.png` : `/og/${lastMonth}/${name}.png`;
 }
 
+/** Route pictures are built at deploy time too: public/og/routes/<lastMonth>/[de/]<name>.png (wide) and <name>-portrait.png. */
+export function routeImagePath(lastMonth: string, name: string, lang: Lang = "en"): string {
+  return `/og/routes/${lastMonth}/${lang === "de" ? "de/" : ""}${name}.png`;
+}
+
 export const OG_SIZE = { width: 1200, height: 630 } as const;

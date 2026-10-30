@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { SEARCH_INDEX, loadStops, loadTypeahead, pickByKey, runSearch, type SearchOutcome } from "@/lib/searchClient";
+import Link from "next/link";
+import { SEARCH_INDEX, loadRouteTable, loadStops, loadTypeahead, pickByKey, runSearch, type RouteTable, type SearchOutcome } from "@/lib/searchClient";
+import { routeSlug } from "@/lib/routeSlug";
 import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
 import { unitName, type SearchUnit } from "@/lib/searchCore";
 import { findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
@@ -386,8 +388,23 @@ function RouteView({
   const diag = useMemo(() => diagnoseRoute(idx, q), [idx, q]);
   const query = diag && "query" in diag ? diag.query : null;
   const found = useMemo(() => (query ? findTrains(idx, query) : []), [idx, query]);
-  const hits = found;
   const [all, setAll] = useState(false);
+  const [table, setTable] = useState<RouteTable | null>(null);
+  useEffect(() => {
+    loadRouteTable().then(setTable);
+  }, []);
+  // A pair with a route page: use that page's exact numbers (only trips that stop at both stations), so the two agree.
+  const heading = query ? routeHeading(idx, query) : null;
+  const pageSlug = heading && query && query.to.length ? routeSlug(heading[0], heading[1]) : null;
+  const exact = pageSlug && table ? table[pageSlug] : undefined;
+  const hits = useMemo(() => {
+    if (!exact) return found;
+    const byTrain = new Map(exact.map((e) => [`${e[0]} ${e[1]}`, e]));
+    return found.map((h) => {
+      const e = byTrain.get(`${h.type} ${h.num}`);
+      return e && routeSlug(h.fromName, h.toName) === pageSlug ? { ...h, late: e[2], measured: e[3] } : h;
+    });
+  }, [found, exact, pageSlug]);
   if (!query) {
     return (
       <div className={styles.none}>
@@ -425,6 +442,11 @@ function RouteView({
         {t(abroad ? "rt.subAbroad" : "rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
         {query.time !== null ? t("rt.nearTime", { time: clock(query.time) }) : t("rt.earliest")}
       </p>
+      {exact && pageSlug ? (
+        <Link href={route(lang, "route", pageSlug)} className={styles.full} prefetch={false}>
+          {t("route.full")} <span aria-hidden="true">→</span>
+        </Link>
+      ) : null}
       {hits.length === 0 ? (
         <div className={styles.none}>
           <p className={styles.message}>{t("rt.none", { from, to })}</p>

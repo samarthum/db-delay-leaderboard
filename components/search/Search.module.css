@@ -448,3 +448,25 @@
   font-size: 15px;
   color: var(--muted);
 }
+
+.full {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 10px;
+  color: var(--amber);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.full {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 6px;
+  color: var(--amber);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}

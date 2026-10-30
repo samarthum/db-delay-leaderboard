@@ -3,7 +3,9 @@ import type { UnitSummary } from "./types";
 import { getStats } from "./data";
 import { fmt1, fmtInt, fmtMin, fmtPct, fmtShare1, spanLabel } from "./format";
 import { OG_LOCALE, otherLangPath, route, type Lang } from "./i18n";
-import { OG_SIZE, SITE_NAME, absoluteUrl, ogImagePath, unitHref } from "./site";
+import { OG_SIZE, SITE_NAME, absoluteUrl, ogImagePath, routeImagePath, unitHref } from "./site";
+import type { RouteEntry } from "./types";
+import { getRoutes } from "./data";
 import { makeT } from "./t";
 
 function windowSpan(lang: Lang): string {
@@ -33,6 +35,8 @@ function pageMetadata(p: {
   description: string;
   path: string;
   image: string;
+  /** Full path of the image when it is not one of the month's cards (route pictures live elsewhere). */
+  imagePath?: string;
   imageAlt: string;
 }): Metadata {
   const url = absoluteUrl(p.path);
@@ -40,7 +44,7 @@ function pageMetadata(p: {
   const en = p.lang === "en" ? p.path : other.path;
   const de = p.lang === "de" ? p.path : other.path;
   const image = {
-    url: absoluteUrl(ogImagePath(getStats().window.lastMonth, p.image, p.lang)),
+    url: absoluteUrl(p.imagePath ?? ogImagePath(getStats().window.lastMonth, p.image, p.lang)),
     width: OG_SIZE.width,
     height: OG_SIZE.height,
     alt: p.imageAlt,
@@ -177,5 +181,40 @@ export function recapMetadata(lang: Lang): Metadata {
     path: route(lang, "recap"),
     image: "recap",
     imageAlt: t("seo.recap.alt", { span, avg: fmt1(ld.avgDelayMin, lang), late: fmtShare1(ld.latePct, lang) }),
+  });
+}
+
+export function routeMetadata(r: RouteEntry, lang: Lang): Metadata {
+  const t = makeT(lang);
+  const span = windowSpan(lang);
+  const vars = { from: r.from, to: r.to, pct: fmtShare1(r.late, lang), pct6: fmtShare1(r.late6, lang), n: fmtInt(r.trips, lang), span };
+  const title = t("seo.route.title", vars);
+  return pageMetadata({
+    lang,
+    title: { absolute: `${title} · ${SITE_NAME}` },
+    socialTitle: title,
+    description: t("seo.route.desc", vars),
+    path: route(lang, "route", r.slug),
+    image: "home",
+    imagePath: routeImagePath(getStats().window.lastMonth, r.slug, lang),
+    imageAlt: t("seo.route.alt", vars),
+  });
+}
+
+export function routesMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const data = getRoutes();
+  const worst = data.routes.find((r) => r.rank === 1);
+  const span = windowSpan(lang);
+  const title = t("seo.routes.title");
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.routes.desc", { n: data.leagueSize, from: worst?.from ?? "", to: worst?.to ?? "", pct: worst ? fmtShare1(worst.late, lang) : "", span }),
+    path: route(lang, "routes"),
+    image: "home",
+    imagePath: routeImagePath(getStats().window.lastMonth, "ranking", lang),
+    imageAlt: t("seo.routes.alt", { span }),
   });
 }

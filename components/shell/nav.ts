@@ -2,7 +2,7 @@ import { route, type Lang, type RouteKey } from "@/lib/i18n";
 import type { Key } from "@/lib/t";
 
 export interface NavItem {
-  key: Exclude<RouteKey, "train" | "line" | "recap">;
+  key: Exclude<RouteKey, "train" | "line" | "recap" | "routes" | "route">;
   label: Key;
   href: (lang: Lang) => string;
 }

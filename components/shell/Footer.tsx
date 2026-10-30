@@ -19,6 +19,11 @@ export function Footer({ lang, generatedAt }: { lang: Lang; generatedAt: string 
             </Link>
           </li>
           <li>
+            <Link href={route(lang, "routes")} prefetch={false}>
+              {t("footer.routes")}
+            </Link>
+          </li>
+          <li>
             <Rich text={t("footer.data", { dataUrl: DATA_SOURCE_URL })} />
           </li>
           <li>

@@ -31,6 +31,18 @@ try {
   console.log("stops: data/stops.json not found, route search will be off (run scripts/stops.py)");
 }
 
+// Exact per-train numbers for every route that has a page (scripts/routes.py): search shows these for the same pair,
+// so a search result and the route page never disagree. { slug: [[type, num, late %, measured], ...] }
+try {
+  const routes = JSON.parse(await fs.readFile(path.join(ROOT, "data", "routes.json"), "utf8"));
+  const table = {};
+  for (const r of routes.routes) table[r.slug] = r.list.map((x) => [x[0], x[1], x[4], x[5]]);
+  await fs.writeFile(path.join(TO, "routes.json"), JSON.stringify(table));
+  console.log(`routes: ${Object.keys(table).length} routes written to public/search/routes.json`);
+} catch {
+  console.log("routes: data/routes.json not found, search will use its own numbers (run scripts/routes.py)");
+}
+
 // Record layout: [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
 const trains = [];
 for (const name of shards.sort()) {
