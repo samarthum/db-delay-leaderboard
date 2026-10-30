@@ -15,9 +15,11 @@ function send(res, status, body) {
 module.exports = async function handler(req, res) {
   // Voice search is switched off unless the project sets VOICE_ENABLED=1 (Vercel > Settings > Environment Variables,
   // then redeploy). With it off, nothing here talks to ElevenLabs and the page shows no microphone button.
-  if (process.env.VOICE_ENABLED !== "1") return send(res, 503, { ok: false, error: "disabled" });
+  const on = process.env.VOICE_ENABLED === "1" && Boolean(process.env.ELEVENLABS_API_KEY);
   // GET: "is voice search set up here?" The page asks once, and shows the microphone only when the answer is yes.
-  if (req.method === "GET") return send(res, process.env.ELEVENLABS_API_KEY ? 200 : 503, { ok: Boolean(process.env.ELEVENLABS_API_KEY) });
+  // It answers 200 either way: a 503 would show up as an error in every visitor's browser console.
+  if (req.method === "GET") return send(res, 200, { ok: on });
+  if (!on) return send(res, 503, { ok: false, error: "disabled" });
   if (req.method !== "POST") {
     res.setHeader("Allow", "GET, POST");
     return send(res, 405, { error: "method" });

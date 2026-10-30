@@ -44,6 +44,14 @@ try {
   console.log("routes: data/routes.json not found, search will use its own numbers (run scripts/routes.py)");
 }
 
+// Connection odds by station (scripts/connections.py): the ladder of change times the home-page card shows.
+try {
+  await fs.copyFile(path.join(ROOT, "data", "connections.json"), path.join(TO, "connections.json"));
+  console.log(`connections: ${((await fs.stat(path.join(TO, "connections.json"))).size / 1e3).toFixed(0)} kB copied`);
+} catch {
+  console.log("connections: data/connections.json not found, the connection card will show an error (run scripts/connections.py)");
+}
+
 // Record layout: [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
 const trains = [];
 for (const name of shards.sort()) {

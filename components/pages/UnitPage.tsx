@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Category, HistBin, Mode, UnitDetail } from "@/lib/types";
-import { getLatePct, getMonthly, getStats, getUnit } from "@/lib/data";
+import { getConnectionsFrom, getLatePct, getMonthly, getStats, getUnit } from "@/lib/data";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare1, monthLabel, spanLabel } from "@/lib/format";
 import { absoluteUrl, unitHref } from "@/lib/site";
 import { rankSentence } from "@/lib/seo";
@@ -11,6 +11,7 @@ import { Histogram } from "../Histogram";
 import { TrainMonthChart } from "../TrainMonthChart";
 import { RouteStrip } from "../RouteStrip";
 import { RouteText } from "../RouteText";
+import { ChangeFromTrain, type PairRow } from "../ChangeFromTrain";
 import { ShareButton } from "../ShareButton";
 import { categoryCopy, unitKind } from "../pageFormat";
 import styles from "./UnitPage.module.css";
@@ -44,6 +45,8 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const isLine = category === "regional";
   const w = stats.window;
   const span = spanLabel(w.firstMonth, w.lastMonth, lang);
+
+  const changes = (isLine ? {} : getConnectionsFrom(t.name)) as Record<string, PairRow[]>;
 
   // Same number as the search result for this unit; the histogram is the fallback.
   const latePct = getLatePct(slug) ?? shareOf(t.histogram, 15);
@@ -171,6 +174,8 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             <p className={styles.worstText}>{tr("unit.worstText", { date: fmtDate(t.worstRun.date, lang), o: t.worstRun.origin, d: t.worstRun.dest })}</p>
           </section>
         ) : null}
+
+        {!isLine && Object.keys(changes).length > 0 ? <ChangeFromTrain train={t.name} lists={changes} lang={lang} /> : null}
 
         <section className={styles.section} aria-labelledby="distribution">
           <h2 id="distribution" className={styles.h2}>

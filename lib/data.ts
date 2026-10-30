@@ -14,6 +14,7 @@ let monthlyCache: Monthly | undefined;
 let stationsCache: StationsFile | undefined;
 const unitCache = new Map<string, UnitDetail>();
 let routesCache: RoutesFile | undefined;
+let pairsCache: Record<string, Record<string, unknown[][]>> | undefined;
 
 export function getStats(): Stats {
   return (statsCache ??= readJson<Stats>("stats.json"));
@@ -78,4 +79,14 @@ export function getRoute(slug: string): RouteEntry {
 /** The route in the other direction, when it has a page too. */
 export function getReverseRoute(r: RouteEntry): RouteEntry | null {
   return getRoutes().routes.find((x) => x.from === r.to && x.to === r.from) ?? null;
+}
+
+/** Connections from one arriving train: { station: [[departing train, usual planned gap, days, cancelled, ok@2, ok@6, departs, to], ...] }. */
+export function getConnectionsFrom(train: string): Record<string, unknown[][]> {
+  try {
+    pairsCache ??= readJson<Record<string, Record<string, unknown[][]>>>("connection-pairs.json");
+  } catch {
+    return {};
+  }
+  return pairsCache[train] ?? {};
 }
