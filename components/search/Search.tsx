@@ -568,6 +568,14 @@ export function Search({
         </p>
       ) : null}
 
+      {variant === "home" && !hasQuery && voice.phase === "idle" ? (
+        <p className={styles.change}>
+          <Link href={route(lang, "change")} prefetch={false}>
+            {t("conn.title")} <Arrow />
+          </Link>
+        </p>
+      ) : null}
+
       {!hasQuery && idle ? <div className={styles.idle}>{idle}</div> : null}
 
       <div className={styles.results} aria-live="polite">

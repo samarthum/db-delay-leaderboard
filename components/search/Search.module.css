@@ -141,6 +141,21 @@
   cursor: pointer;
 }
 
+/* One line to the change-trains page, under the examples. */
+.change {
+  margin-top: -4px;
+}
+
+.change a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 16px;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+
 /* The box is focused and empty: what it understands, one line each. A floating panel, like the suggestions: it must not move the page. */
 .help {
   position: absolute;
@@ -586,6 +601,13 @@
     grid-column: 8 / 13;
     grid-row: 3;
     padding-inline: 28px;
+  }
+
+  .root[data-variant="home"]:not([data-active]) > .change {
+    grid-column: 8 / 13;
+    grid-row: 4;
+    padding-inline: 28px;
+    margin-top: 0;
   }
 
   .root[data-variant="home"]:not([data-active]) > .idle {

@@ -5,7 +5,6 @@ import { fmtInt, fmtShare, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { Arrow, RouteName } from "../Arrow";
-import { ConnectionTool } from "../ConnectionTool";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { Search } from "../search/Search";
@@ -64,8 +63,8 @@ function TopRoutes({ lang }: { lang: Lang }) {
 }
 
 /**
- * The home page: the answer first (how late are long-distance trains, by our rule and by DB's), then the one box that
- * looks up a train, route or station, then "Will my connection work?", then where trains are late most often.
+ * The home page: the answer first (how late are long-distance trains, by our rule and by DB's), the one box that looks
+ * up a train, route or station with a one-line link to "Will my connection work?" under it, then where trains are late most often.
  */
 export function HomePage({ lang }: { lang: Lang }) {
   const t = makeT(lang);
@@ -81,14 +80,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       basis={t("home.basis", { trips: fmtInt(ld.measured, lang), span: spanLabel(w.firstMonth, w.lastMonth, lang) })}
     />
   );
-  const idle = (
-    <>
-      <section className="sec" id="connection">
-        <ConnectionTool lang={lang} />
-      </section>
-      <TopRoutes lang={lang} />
-    </>
-  );
+  const idle = <TopRoutes lang={lang} />;
   return (
     <main id="main" className="container page">
       <Search lang={lang} idle={idle} figure={figure} title={t("home.title")} />
