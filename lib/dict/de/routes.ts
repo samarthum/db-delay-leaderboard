@@ -70,7 +70,7 @@ export const routesDe: Record<keyof typeof routes, string> = {
   "home.routes": "Strecken im Ranking",
   "footer.routes": "Streckenranking",
   "route.full": "Streckenseite: Bild zum Teilen und alle Züge",
-  "route.near.title": "Rund um {time}",
-  "route.near.sub": "Die Züge, die in {from} am nächsten an deiner Zeit abfahren.",
+  "route.near.title": "Abfahrten rund um {time}",
+  "route.near.sub": "Die Abfahrten ab {from}, die am nächsten an deiner Uhrzeit liegen.",
   "route.search": "Eine andere Strecke suchen",
 };
