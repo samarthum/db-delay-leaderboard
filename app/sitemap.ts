@@ -6,7 +6,7 @@ import { absoluteUrl, unitHref } from "@/lib/site";
 
 export const dynamic = "force-static";
 
-const PAGES: RouteKey[] = ["home", "change", "ranking", "routes", "network", "method", "recap", "compensation", "more"];
+const PAGES: RouteKey[] = ["home", "change", "ranking", "routes", "network", "method", "recap", "compensation"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = getStats().generatedAt;

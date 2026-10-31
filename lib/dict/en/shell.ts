@@ -6,6 +6,7 @@ export const shell = {
   "nav.change": "Change trains",
   "nav.ranking": "Rankings",
   "nav.more": "More",
+  "nav.other": "Other pages",
   "nav.network": "Network",
   "nav.recap": "Recap",
   "nav.method": "Method",

@@ -74,7 +74,7 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   /* Room for the bottom tab bar on phones. */
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--tabbar-h) + 1px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 960px) {

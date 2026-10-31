@@ -7,28 +7,29 @@ export interface NavItem {
   href: (lang: Lang) => string;
   /** Address prefixes (without language) where this item counts as the current place. */
   match: string[];
+  /** Icon on the phone tab bar. */
+  icon?: "search" | "change" | "ranking" | "network";
 }
 
 const at = (key: Parameters<typeof route>[1]) => (l: Lang) => route(l, key);
 
-/** The four places on a phone. */
+/** The four places on a phone: each one a real page with its own icon. Everything else sits in the footer links below. */
 export const TABS: NavItem[] = [
-  { key: "home", label: "nav.search", href: at("home"), match: ["", "route", "train", "line"] },
-  { key: "change", label: "nav.change", href: at("change"), match: ["change"] },
-  { key: "ranking", label: "nav.ranking", href: at("ranking"), match: ["routes", "ranking"] },
-  { key: "more", label: "nav.more", href: at("more"), match: ["more", "network", "recap", "method", "compensation"] },
+  { key: "home", label: "nav.search", href: at("home"), match: ["", "route", "train", "line"], icon: "search" },
+  { key: "change", label: "nav.change", href: at("change"), match: ["change"], icon: "change" },
+  { key: "ranking", label: "nav.ranking", href: at("ranking"), match: ["routes", "ranking"], icon: "ranking" },
+  { key: "network", label: "nav.network", href: at("network"), match: ["network"], icon: "network" },
 ];
 
-/** The same places in the header on wide screens, with the pages behind "More" listed out. */
-export const DESKTOP: NavItem[] = [
-  TABS[0],
-  TABS[1],
-  TABS[2],
-  { key: "network", label: "nav.network", href: at("network"), match: ["network"] },
+/** The remaining pages, as a quiet row of links at the bottom of every page on phones. */
+export const FOOTER_LINKS: NavItem[] = [
   { key: "recap", label: "nav.recap", href: at("recap"), match: ["recap"] },
   { key: "compensation", label: "nav.compensation", href: at("compensation"), match: ["compensation"] },
   { key: "method", label: "nav.method", href: at("method"), match: ["method"] },
 ];
+
+/** The same places in the header on wide screens, with the footer pages listed after them. */
+export const DESKTOP: NavItem[] = [TABS[0], TABS[1], TABS[2], ...TABS.slice(3), ...FOOTER_LINKS];
 
 /** First path segment of the page in either language: "/de/zug/ice-1541/" -> "zug", "/" -> "". */
 function firstSegment(pathname: string): string {

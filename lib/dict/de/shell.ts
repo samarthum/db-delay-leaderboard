@@ -8,6 +8,7 @@ export const shellDe: Record<keyof typeof shell, string> = {
   "nav.change": "Umsteigen",
   "nav.ranking": "Rankings",
   "nav.more": "Mehr",
+  "nav.other": "Weitere Seiten",
   "nav.network": "Netz",
   "nav.recap": "Rückblick",
   "nav.method": "Methode",
