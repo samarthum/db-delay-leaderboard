@@ -7,9 +7,10 @@ import { fold } from "./typeahead";
 
 /**
  * [departing train, planned change time (min), days both ran, next train cancelled, departs (minutes after midnight), goes to,
- *  worked with 0 / 2 / 4 / 6 / 8 min to spare, [days it left, median min late leaving, % 6+ min late leaving]]
+ *  worked with 0 / 2 / 4 / 6 / 8 min to spare, [days it left, median min late leaving, % 6+ min late leaving],
+ *  by how late the arriving train was (LATE_BINS in lib/liveChange.ts): flat [days, worked @2, worked @6] per bin]
  */
-export type PairB = [string, number, number, number, number, string, number, number, number, number, number, [number, number, number]];
+export type PairB = [string, number, number, number, number, string, number, number, number, number, number, [number, number, number], number[]?];
 
 export interface PairStation {
   /** Stop number along the route: orders the stations the way the train calls at them. */
@@ -52,6 +53,8 @@ export interface PairRow {
   leftN: number;
   leftMed: number;
   left6: number;
+  /** Days split by how late the arriving train was (see PairB). */
+  bins?: number[];
 }
 
 /** Clock order after the arrival: a departure just after midnight sorts after one at 23:50. */
@@ -80,6 +83,7 @@ export function rowsFor(st: PairStation, walk: number): PairRow[] {
         leftN: left[0],
         leftMed: left[1],
         left6: left[2],
+        bins: b[12],
       };
     })
     .sort((x, y) => dayOrder(x.dep, st.t) - dayOrder(y.dep, st.t) || (x.train < y.train ? -1 : 1));

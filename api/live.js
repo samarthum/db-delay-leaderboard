@@ -261,6 +261,57 @@ async function trainNow(name) {
   };
 }
 
+// ---- one change: the arriving train A and the next train B at one station, today ---------------------------------
+// GET /api/live/?at=Berlin%20Hbf&a=ICE%201541&ta=348&b=ICE%20240&tb=374   (ta/tb: planned minutes after midnight, as in
+// connection-pairs.json). Answers only for a change whose planned arrival is between CHG_BACK minutes ago and CHG_AHEAD
+// minutes from now, so it is about the trip somebody is on or about to take.
+const CHG_AHEAD = 240;
+const CHG_BACK = 60;
+const TRAIN_RE = /^(ICE|IC|EC|ECE|RJ|RJX|TGV|FLX|NJ|EN) \d{1,5}$/;
+
+async function changeNow(st, an, ta, bn, tb) {
+  const nowStamp = stampOf(Date.now());
+  const nowMin = minutesOf(nowStamp);
+  const today = Math.floor(nowMin / 1440) * 1440;
+  let arr = null;
+  for (const day of [today - 1440, today, today + 1440]) {
+    const m = day + ta;
+    if (m >= nowMin - CHG_BACK && m <= nowMin + CHG_AHEAD) arr = m;
+  }
+  if (arr === null) return { run: null };
+  let dep = arr - ta + tb;
+  if (tb < ta - 600) dep += 1440; // B leaves after midnight
+  const hours = new Set([stampAt(arr), stampAt(dep)]);
+  const [plans, chg] = await Promise.all([Promise.all([...hours].map((h) => plan(st.eva, h))), changes(st.eva)]);
+  const all = plans.flat();
+  const [at, anum] = an.split(" ");
+  const [bt, bnum] = bn ? bn.split(" ") : [null, null];
+  const sa = all.find((x) => x.tl && x.tl.c === at && x.tl.n === anum && x.ar && x.ar.pt);
+  const sb = bn ? all.find((x) => x.tl && x.tl.c === bt && x.tl.n === bnum && x.dp && x.dp.pt) : null;
+  const byKey = new Map(chg.map((x) => [tripKey(x.id), x]));
+  const side = (s, k) => {
+    if (!s) return null;
+    const c = byKey.get(tripKey(s.id));
+    const ev = c && c[k];
+    const pt = s[k].pt;
+    const ct = ev && ev.ct ? ev.ct : null;
+    const canc = Boolean((ev && ev.cs === "c") || s[k].cs === "c");
+    return {
+      pt,
+      ct,
+      late: canc ? null : Math.max(0, diff(pt, ct) ?? 0),
+      canc,
+      plat: (ev && ev.cp) || s[k].pp || null,
+      platChanged: Boolean(ev && ev.cp && s[k].pp && ev.cp !== s[k].pp),
+    };
+  };
+  const A = side(sa, "ar");
+  const B = side(sb, "dp");
+  // Minutes between A's expected arrival and B's expected departure, now. null when either is unknown or cancelled.
+  const spare = A && B && !A.canc && !B.canc ? Math.round(minutesOf(B.ct || B.pt) - minutesOf(A.ct || A.pt)) : null;
+  return { run: { a: A, b: B, spare, asOf: nowStamp } };
+}
+
 module.exports = async function handler(req, res) {
   const on = process.env.LIVE_ENABLED === "1" && Boolean(process.env.DB_CLIENT_ID) && Boolean(process.env.DB_API_KEY);
   if (!on) return send(res, 200, { ok: false, error: "disabled" }, "public, s-maxage=60");
@@ -275,6 +326,30 @@ module.exports = async function handler(req, res) {
       return null;
     }
   })();
+  const cq = (() => {
+    try {
+      const q = new URL(req.url, "http://x").searchParams;
+      return q.has("at") ? q : null;
+    } catch {
+      return null;
+    }
+  })();
+  if (cq) {
+    const st = STATIONS[cq.get("at")];
+    const an = cq.get("a") || "";
+    const bn = cq.get("b") || "";
+    const ta = Number(cq.get("ta"));
+    const tb = Number(cq.get("tb"));
+    const okMin = (x) => Number.isInteger(x) && x >= 0 && x < 1440;
+    // b/tb are optional: without them only the arriving train is looked up (the banner above the departures).
+    const noB = bn === "" && !cq.has("tb");
+    if (!st || !TRAIN_RE.test(an) || !okMin(ta) || (!noB && (!TRAIN_RE.test(bn) || !okMin(tb)))) return send(res, 400, { error: "change" });
+    try {
+      return send(res, 200, { ok: true, ...(await changeNow(st, an, ta, noB ? null : bn, noB ? ta : tb)) }, "public, s-maxage=45");
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e && e.message === "busy" ? "busy" : "upstream" }, "public, s-maxage=15");
+    }
+  }
   if (train !== null) {
     if (!TRAINS[train]) return send(res, 400, { error: "train" });
     try {

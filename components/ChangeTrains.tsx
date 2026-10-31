@@ -18,6 +18,9 @@ import type { Lang } from "@/lib/i18n";
 import { clock } from "@/lib/routeSearch";
 import { shortStation } from "@/lib/routeSlug";
 import { makeT } from "@/lib/t";
+import { daysLike, liveStation, useLiveChange, type LiveSide } from "@/lib/liveChange";
+import { clockOf } from "./LiveNow";
+import { delayColor, LATE } from "@/lib/colors";
 import styles from "./ConnectionTool.module.css";
 
 /** Trains offered as examples under the box; each must have a list in the data (checked when the data is loaded). */
@@ -190,6 +193,11 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
   }
 
   const stationLabel = (n: string) => shortStation(n);
+  // Live: the arriving train at this station today (banner), and the chosen pair (answer). Only near its planned time.
+  const liveAt = station ? liveStation(station) : null;
+  const liveA = useLiveChange(liveAt, train, st ? st.t : null, null, null);
+  const liveP = useLiveChange(liveAt, train, st ? st.t : null, sel ? sel.train : null, sel ? sel.dep : null);
+  const aNow: LiveSide | null = (liveP && liveP.a) || (liveA && liveA.a) || null;
   const arrives = st && train ? st.a : null;
   const sChosen = Boolean(st && station);
 
@@ -294,6 +302,18 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
           <p className="basis" style={{ marginTop: 2 }}>
             {t("cx.due", { a: train, time: clock(st.t) })}
           </p>
+          {aNow ? (
+            <p className="cx-live" style={{ ["--c" as string]: aNow.canc ? LATE : delayColor(aNow.late ?? 0) }}>
+              <span className="ln-dot" aria-hidden="true" />
+              <b>{t("live.now.title")}</b>{" "}
+              {aNow.canc
+                ? t("cx.live.aCanc", { a: train })
+                : (aNow.late ?? 0) > 0
+                  ? t("cx.live.aLate", { a: train, n: aNow.late ?? 0, time: clockOf(aNow.ct || aNow.pt) })
+                  : t("cx.live.aOn", { a: train })}
+              {aNow.plat ? ` · ${aNow.platChanged ? t("live.platNew", { p: aNow.plat }) : t("live.plat", { p: aNow.plat })}` : ""}
+            </p>
+          ) : null}
 
           <p className="seglabel" id="ct-pace">
             {t("conn.q3")}
@@ -368,6 +388,51 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
                       <tr className="det" ref={answerRef}>
                         <td colSpan={4}>
                           <div className="res">
+                            {(() => {
+                              // Today, live: how much time DB's current times leave, and what happened on days A was this late.
+                              const A = liveP && liveP.a;
+                              const B = liveP && liveP.b;
+                              if (!A || A.canc) return null;
+                              const like = daysLike(r.bins, A.late ?? 0, slow);
+                              const range = like ? (like.hi === null ? t("cx.live.rangeOpen", { lo: like.lo }) : t("cx.live.range", { lo: like.lo, hi: like.hi })) : "";
+                              return (
+                                <div className="cx-today">
+                                  <p className="cx-today-h">
+                                    <span className="ln-dot" aria-hidden="true" />
+                                    {t("cx.live.title")}
+                                  </p>
+                                  <p className="cx-today-l">
+                                    {B && B.canc
+                                      ? t("cx.live.bCanc", { b: r.train })
+                                      : liveP && liveP.spare !== null
+                                        ? liveP.spare <= 0
+                                          ? t("cx.live.spareNone", { a: train, b: r.train })
+                                          : liveP.spare < walk
+                                          ? t("cx.live.spareShort", { n: liveP.spare })
+                                          : t("cx.live.spare", { n: liveP.spare })
+                                        : (A.late ?? 0) > 0
+                                          ? t("cx.live.aLate", { a: train, n: A.late ?? 0, time: clockOf(A.ct || A.pt) })
+                                          : t("cx.live.aOn", { a: train })}
+                                  </p>
+                                  {liveP && liveP.spare !== null && B ? (
+                                    <p className="fine" style={{ marginTop: 2 }}>
+                                      {t("cx.live.both", {
+                                        a: train,
+                                        al: (A.late ?? 0) > 0 ? t("live.late", { n: A.late ?? 0 }) : t("live.onTime"),
+                                        b: r.train,
+                                        bl: (B.late ?? 0) > 0 ? t("live.late", { n: B.late ?? 0 }) : t("live.onTime"),
+                                      })}
+                                    </p>
+                                  ) : null}
+                                  {like ? (
+                                    <p className="cx-today-like">
+                                      {t("cx.live.like", { a: train, range, ok: fmtInt(like.ok, lang), n: fmtInt(like.n, lang) })}
+                                    </p>
+                                  ) : null}
+                                  <p className="fine" style={{ marginTop: 4 }}>{t("cx.live.src", { time: clockOf(liveP.asOf) })}</p>
+                                </div>
+                              );
+                            })()}
                             <p className="lead">
                               <span className="big">{fmtShare(r.pct, lang)}</span>
                               <span className="lt">{t("cx.res.lead", { ok: fmtInt(r.ok, lang), n: fmtInt(r.n, lang) })}</span>
@@ -405,7 +470,7 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
                               {r.leftMed > 0 ? t("cx.b.late", { b: r.train, x: r.leftMed }) : t("cx.b.ontime", { b: r.train })}
                             </p>
                             {r.n < ROUGH_DAYS ? <p className="fine">{t("cx.res.rough", { n: fmtInt(r.n, lang) })}</p> : null}
-                            <p className="fine">{t("cx.res.hist", { span })}</p>
+                            <p className="fine">{liveP && liveP.a ? t("cx.res.histLive", { span }) : t("cx.res.hist", { span })}</p>
                           </div>
                         </td>
                       </tr>

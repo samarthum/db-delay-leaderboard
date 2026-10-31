@@ -41,6 +41,8 @@ from pathlib import Path
 
 import duckdb
 
+WALK_FAST, WALK_SLOW = 2, 6  # the two walking times the page offers (lib/connections.ts)
+
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
 MAJOR_RUNS = 2000  # runs in the window for a station to be offered
 MIN_GAP = 2  # planned change times below this are not a change
@@ -50,6 +52,8 @@ WALK = [0, 2, 4, 6, 8]  # minutes needed to get to the other train
 PAIR_MIN_N = 30  # days a specific (A, B) pair needs before it is listed
 PAIR_MAX_GAP = 40
 PAIR_MAX_B = 16  # departures listed per (A, station)
+# How late the arriving train was at the station, for the live answer ("on days it was this late"): upper bounds, minutes.
+LATE_BINS = [5, 10, 15, 20, 30, 60]
 
 
 def log(msg):
@@ -115,6 +119,21 @@ def main():
     gh = con.execute("select count(*), count(*) filter (where dc) from b where nxt is null").fetchone()
     log(f"departures with no next stop: {gh[0]}, of which cancelled: {gh[1]} (the cancelled ones are dropped)")
     ok = ", ".join(f"count(*) filter (where not dc and change >= {m}) ok{m}" for m in WALK)
+    lbin = "case " + " ".join(f"when date_diff('minute', a.ap, a.aa) <= {u} then {i}" for i, u in enumerate(LATE_BINS)) + f" else {len(LATE_BINS)} end"
+    con.execute(f"""
+    create table gl as
+    select name, atr, btr, gap, arrt, lb, count(*) n, count(*) filter (where not dc and change >= {WALK_FAST}) okf,
+      count(*) filter (where not dc and change >= {WALK_SLOW}) oks
+    from (
+      select a.name, a.tt || ' ' || a.num atr, b.tt || ' ' || b.num btr, date_diff('minute', a.ap, b.dp) gap,
+        hour(a.ap) * 60 + minute(a.ap) arrt, {lbin} lb, date_diff('minute', a.aa, b.da) change, b.dc
+      from a join b on a.name = b.name and (b.bk = a.bk or b.bk = a.bk + 1) and a.run <> b.run
+      where b.dp >= a.ap + interval {MIN_GAP} minute and b.dp <= a.ap + interval {MAX_GAP} minute
+        and b.nxt is distinct from a.prv and b.nxt is distinct from a.nxt and not (a.tt = b.tt and a.num = b.num)
+        and not (b.nxt is null and b.dc))
+    group by name, atr, btr, gap, arrt, lb
+    """)
+    log(f"late-bin groups {con.execute('select count(*) from gl').fetchone()[0]} in {time.time() - t0:.0f}s")
     con.execute(f"""
     create table g as
     select name, atr, btr, gap, arrt, count(*) n, count(*) filter (where dc) cancelled, {ok}, mode(dep) dep, mode(dest) dest
@@ -189,6 +208,10 @@ def main():
         row_number() over (partition by g.atr, g.name, btr order by n desc) r
       from g join anchor on g.atr = anchor.atr and g.name = anchor.name and g.arrt = anchor.arrt)
     where r = 1 and n >= {PAIR_MIN_N} and gap <= {PAIR_MAX_GAP} order by atr, name, gap, btr""").fetchall()
+    # Per listed pair: [days, worked with WALK_FAST, worked with WALK_SLOW] for each LATE_BINS bin of A's delay, flat.
+    bins = {}
+    for atr, name, btr, gap, arrt, lb, n, okf, oks in con.execute("select atr, name, btr, gap, arrt, lb, n, okf, oks from gl").fetchall():
+        bins.setdefault((atr, name, btr, gap, arrt), [0] * (3 * (len(LATE_BINS) + 1)))[3 * lb:3 * lb + 3] = [int(n), int(okf), int(oks)]
     pairs = {}
     for atr, name, btr, gap, n, canc, ok0, ok2, ok4, ok6, ok8, dep, dest, arrt in rows:
         o, d = ends.get(atr, ("", ""))
@@ -197,7 +220,7 @@ def main():
         # "t": the planned arrival of A (minutes after midnight) that the listed pairs belong to.
         st = t["s"].setdefault(name, {"i": a_[1], "a": [a_[0]] + a_[2:], "t": int(arrt), "b": []})
         if len(st["b"]) < PAIR_MAX_B:
-            st["b"].append([btr, int(gap), int(n), int(canc), int(dep), dest or "", int(ok0), int(ok2), int(ok4), int(ok6), int(ok8), bsum.get((btr, name), [0, 0, 0])])
+            st["b"].append([btr, int(gap), int(n), int(canc), int(dep), dest or "", int(ok0), int(ok2), int(ok4), int(ok6), int(ok8), bsum.get((btr, name), [0, 0, 0]), bins.get((atr, name, btr, gap, arrt), [])])
     ppath = Path(args.out).with_name("connection-pairs.json")
     ppayload = json.dumps(pairs, ensure_ascii=False, separators=(",", ":")) + "\n"
     ppath.write_text(ppayload)
