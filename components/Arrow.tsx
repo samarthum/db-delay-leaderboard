@@ -15,16 +15,18 @@ export function Arrow({ back = false }: { back?: boolean }) {
   );
 }
 
-/** "Köln Hbf → Berlin Hbf": the names never break inside, the arrow sits between them. A screen reader hears "to". */
+/**
+ * "Köln Hbf → Berlin Hbf": a station name never breaks inside, and the arrow stays with the first name. The one place the
+ * line may break is the space after the arrow, so a long pair wraps to two lines instead of running off a phone screen.
+ * A screen reader hears "to".
+ */
 export function RouteName({ from, to, word }: { from: string; to: string; word: string }) {
   return (
     <>
-      <span className="nobr">{from}</span>
       <span className="nobr">
-        {" "}
-        <Arrow />{" "}
-      </span>
-      <span className="visually-hidden"> {word} </span>
+        {from} <Arrow />
+      </span>{" "}
+      <span className="visually-hidden">{word}</span>{" "}
       <span className="nobr">{to}</span>
     </>
   );
