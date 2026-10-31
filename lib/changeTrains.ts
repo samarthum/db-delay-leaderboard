@@ -16,6 +16,8 @@ export interface PairStation {
   i: number;
   /** The arriving train at this station: [days, median min late, 90th percentile min late, % 6+ min late, % 15+ min late]. */
   a: [number, number, number, number, number];
+  /** Planned arrival of the arriving train here, minutes after midnight (the timetable the listed departures belong to). */
+  t: number;
   b: PairB[];
 }
 
@@ -37,6 +39,10 @@ export interface PairRow {
   n: number;
   /** Days the change worked with `walk` minutes to spare. */
   ok: number;
+  /** The same for each walking time in WALKS (0 / 2 / 4 / 6 / 8). */
+  oks: number[];
+  /** Days the next train ran but the change did not work. */
+  late: number;
   cancelled: number;
   pct: number;
   cancelledPct: number;
@@ -46,6 +52,11 @@ export interface PairRow {
   leftN: number;
   leftMed: number;
   left6: number;
+}
+
+/** Clock order after the arrival: a departure just after midnight sorts after one at 23:50. */
+function dayOrder(dep: number, arrives: number): number {
+  return dep < arrives - 600 ? dep + 1440 : dep;
 }
 
 export function rowsFor(st: PairStation, walk: number): PairRow[] {
@@ -59,6 +70,8 @@ export function rowsFor(st: PairStation, walk: number): PairRow[] {
         gap: b[1],
         n: b[2],
         ok,
+        oks: [b[6], b[7], b[8], b[9], b[10]] as number[],
+        late: Math.max(0, b[2] - b[3] - ok),
         cancelled: b[3],
         pct: (100 * ok) / b[2],
         cancelledPct: (100 * b[3]) / b[2],
@@ -69,7 +82,7 @@ export function rowsFor(st: PairStation, walk: number): PairRow[] {
         left6: left[2],
       };
     })
-    .sort((x, y) => x.gap - y.gap || x.dep - y.dep || (x.train < y.train ? -1 : 1));
+    .sort((x, y) => dayOrder(x.dep, st.t) - dayOrder(y.dep, st.t) || (x.train < y.train ? -1 : 1));
 }
 
 /** The stations a train changes at, in the order the train calls at them. */
@@ -86,6 +99,15 @@ export function destinationsOf(rows: PairRow[]): string[] {
 
 const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+/** True when the letters are a train type of the data, or the start of one ("IC" for ICE), or one that starts with them ("ECE" for EC). */
+function looksLikeType(file: PairFile, letters: string): boolean {
+  for (const key of Object.keys(file)) {
+    const type = norm(key).replace(/\d+$/, "");
+    if (type.startsWith(letters) || letters.startsWith(type)) return true;
+  }
+  return false;
+}
+
 /** Trains whose name or number starts with what was typed ("ice 1541", "1541", "ICE15"), best first. */
 export function matchTrains(file: PairFile, input: string, limit = 6): string[] {
   const q = norm(input);
@@ -101,6 +123,16 @@ export function matchTrains(file: PairFile, input: string, limit = 6): string[] 
     if (rank < 0) continue;
     const days = Math.max(0, ...Object.values(t.s).map((s) => s.a[0]));
     hits.push({ key, rank, days });
+  }
+  const letters = q.replace(/[^A-Z]/g, "");
+  if (hits.length === 0 && letters && /\d/.test(q) && looksLikeType(file, letters)) {
+    // "IC 543" for a train the data calls "ICE 543": fall back to the number alone, but only when the letters could be a train type.
+    const digits = q.replace(/\D/g, "");
+    for (const [key, t] of Object.entries(file)) {
+      const num = norm(key).replace(/^[A-Z]+/, "");
+      if (num !== digits && !(digits.length >= 3 && num.startsWith(digits))) continue;
+      hits.push({ key, rank: num === digits ? 3 : 4, days: Math.max(0, ...Object.values(t.s).map((s) => s.a[0])) });
+    }
   }
   return hits.sort((x, y) => x.rank - y.rank || y.days - x.days || (x.key < y.key ? -1 : 1)).slice(0, limit).map((h) => h.key);
 }

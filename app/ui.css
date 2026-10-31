@@ -574,3 +574,156 @@
   color: var(--ink);
   text-underline-offset: 3px;
 }
+
+/* Change trains (train-to-train) ------------------------------------------ */
+.seg.wrap {
+  display: flex;
+  flex-wrap: wrap;
+}
+.seg.wrap button {
+  flex: 0 0 auto;
+  padding-inline: 14px;
+}
+.sum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  margin-top: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 16px;
+  line-height: 1.25;
+}
+.sum .tx b {
+  font-weight: 650;
+}
+.sum button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.bt.ct .tm {
+  padding-right: 6px;
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums lining-nums;
+  vertical-align: middle;
+}
+.bt.ct .two {
+  overflow: hidden;
+  padding-right: 6px;
+}
+.bt.ct .two b,
+.bt.ct .two span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bt.ct tr.det td {
+  padding: 4px 10px 14px;
+}
+.bt.ct tr.sel td:first-child {
+  padding-left: 10px;
+}
+.bt.ct thead th:first-child {
+  padding-left: 0;
+}
+.tri {
+  display: flex;
+  gap: 1px;
+  height: 10px;
+  overflow: hidden;
+  background: var(--track);
+}
+.tri.full {
+  height: 14px;
+  margin-top: 8px;
+  background: transparent;
+}
+.tri i,
+.parts i {
+  display: block;
+  height: 100%;
+}
+.tri .m,
+.parts .m {
+  background: #1d7a49;
+}
+.tri .l,
+.parts .l {
+  background: #c42b1c;
+}
+.tri .c,
+.parts .c {
+  background: repeating-linear-gradient(135deg, #5e656f 0 2px, #cfd3d8 2px 4px);
+}
+.res .lead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+.res .big {
+  color: var(--ink);
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 800;
+  font-stretch: 84%;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.res .lt {
+  font-size: 17px;
+  font-weight: 650;
+}
+.parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 14.5px;
+}
+.parts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.parts i {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+}
+.parts.key {
+  margin-top: 10px;
+  color: var(--ink-2);
+}
+.res .why {
+  margin-top: 8px;
+  font-size: 15.5px;
+  font-weight: 650;
+}
+.res .fine {
+  margin-top: 8px;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.bt.ct td.tb {
+  padding: 0 8px;
+}
+.bt.ct tr.det {
+  scroll-margin-bottom: calc(var(--tabbar-h) + 24px);
+}

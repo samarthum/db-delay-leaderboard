@@ -117,20 +117,24 @@ def main():
     ok = ", ".join(f"count(*) filter (where not dc and change >= {m}) ok{m}" for m in WALK)
     con.execute(f"""
     create table g as
-    select name, atr, btr, gap, count(*) n, count(*) filter (where dc) cancelled, {ok}, mode(dep) dep, mode(dest) dest
+    select name, atr, btr, gap, arrt, count(*) n, count(*) filter (where dc) cancelled, {ok}, mode(dep) dep, mode(dest) dest
     from (
       select a.name, a.tt || ' ' || a.num atr, b.tt || ' ' || b.num btr, date_diff('minute', a.ap, b.dp) gap,
+        hour(a.ap) * 60 + minute(a.ap) arrt,
         date_diff('minute', a.aa, b.da) change, b.dc, hour(b.dp) * 60 + minute(b.dp) dep, b.dest
       from a join b on a.name = b.name and (b.bk = a.bk or b.bk = a.bk + 1) and a.run <> b.run
       where b.dp >= a.ap + interval {MIN_GAP} minute and b.dp <= a.ap + interval {MAX_GAP} minute
         and b.nxt is distinct from a.prv and b.nxt is distinct from a.nxt and not (a.tt = b.tt and a.num = b.num)
         and not (b.nxt is null and b.dc))
-    group by name, atr, btr, gap
+    group by name, atr, btr, gap, arrt
     """)
+    # The same train is often planned at different clock times on different days (timetable variants, works). A pair is
+    # kept per planned arrival time of A, so that a listed row is one timetable: the departure time is arrival + change time.
     # A pair whose next train was cancelled on every one of its days (20 or more) is a ghost: a planned train with nothing
     # behind it ("ICE 147 from Berlin Hbf to Berlin Hbf"). Nobody could take it, so it is not a connection.
-    gh = con.execute("select count(*), coalesce(sum(n), 0) from g where cancelled = n and n >= 20").fetchone()
-    con.execute("delete from g where cancelled = n and n >= 20")
+    con.execute("create table ghosts as select name, atr, btr, gap from g group by 1, 2, 3, 4 having sum(cancelled) = sum(n) and sum(n) >= 20")
+    gh = con.execute("select count(*), coalesce((select sum(n) from g join ghosts using (name, atr, btr, gap)), 0) from ghosts").fetchone()
+    con.execute("delete from g where (name, atr, btr, gap) in (select name, atr, btr, gap from ghosts)")
     log(f"ghost pairs dropped: {gh[0]} ({gh[1]} pair-days)")
     log(f"(station, A, B, gap) groups {con.execute('select count(*) from g').fetchone()[0]} in {time.time() - t0:.0f}s")
 
@@ -176,16 +180,22 @@ def main():
     log(f"arriving-train summaries {len(asum)}, departing-train summaries {len(bsum)}, train ends {len(ends)} in {time.time() - t0:.0f}s")
 
     # Per arriving train: its departures at each station, the planned gap that pair has most often.
+    # Only the planned arrival time of A that most pair-days have (its main timetable) is listed; the others are rarer variants.
+    con.execute("""create table anchor as select atr, name, arrt from (
+        select atr, name, arrt, row_number() over (partition by atr, name order by sum(n) desc, arrt) r from g group by 1, 2, 3) where r = 1""")
     rows = con.execute(f"""
-    select atr, name, btr, gap, n, cancelled, ok0, ok2, ok4, ok6, ok8, dep, dest from (
-      select atr, name, btr, gap, n, cancelled, ok0, ok2, ok4, ok6, ok8, dep, dest, row_number() over (partition by atr, name, btr order by n desc) r from g)
+    select atr, name, btr, gap, n, cancelled, ok0, ok2, ok4, ok6, ok8, dep, dest, arrt from (
+      select g.atr, g.name, btr, gap, n, cancelled, ok0, ok2, ok4, ok6, ok8, dep, dest, g.arrt,
+        row_number() over (partition by g.atr, g.name, btr order by n desc) r
+      from g join anchor on g.atr = anchor.atr and g.name = anchor.name and g.arrt = anchor.arrt)
     where r = 1 and n >= {PAIR_MIN_N} and gap <= {PAIR_MAX_GAP} order by atr, name, gap, btr""").fetchall()
     pairs = {}
-    for atr, name, btr, gap, n, canc, ok0, ok2, ok4, ok6, ok8, dep, dest in rows:
+    for atr, name, btr, gap, n, canc, ok0, ok2, ok4, ok6, ok8, dep, dest, arrt in rows:
         o, d = ends.get(atr, ("", ""))
         t = pairs.setdefault(atr, {"o": o, "d": d, "s": {}})
         a_ = asum[(atr, name)]
-        st = t["s"].setdefault(name, {"i": a_[1], "a": [a_[0]] + a_[2:], "b": []})
+        # "t": the planned arrival of A (minutes after midnight) that the listed pairs belong to.
+        st = t["s"].setdefault(name, {"i": a_[1], "a": [a_[0]] + a_[2:], "t": int(arrt), "b": []})
         if len(st["b"]) < PAIR_MAX_B:
             st["b"].append([btr, int(gap), int(n), int(canc), int(dep), dest or "", int(ok0), int(ok2), int(ok4), int(ok6), int(ok8), bsum.get((btr, name), [0, 0, 0])])
     ppath = Path(args.out).with_name("connection-pairs.json")
