@@ -110,3 +110,10 @@ export function getConnectionsMeta(): { firstMonth: string; lastMonth: string } 
     return null;
   }
 }
+
+/** Trains that have a live lookup (data/live-trains.json from scripts/live_trains.py). */
+export function hasLiveTrain(name: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const t = require("../data/live-trains.json") as Record<string, unknown>;
+  return Object.prototype.hasOwnProperty.call(t, name);
+}

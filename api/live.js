@@ -182,12 +182,107 @@ async function board(from, to) {
   };
 }
 
+// ---- one train: today's run of a train page's train, from its first to its last station ------------------------------
+// data/live-trains.json: "ICE 1541" -> [originEva, originName, "HH:MM", destEva, destName, "HH:MM", weekdayBits, minutes]
+// (scripts/live_trains.py: the usual run in the last two months). The run is looked up in the origin's timetable for the
+// hour it leaves, then the changes at both ends give the delay DB reports now.
+const TRAINS = require("../data/live-trains.json");
+const BEFORE_MIN = 180; // show a run this long before it leaves
+const AFTER_MIN = 90; // and until this long after its planned arrival
+
+const p2 = (n) => String(n).padStart(2, "0");
+/** Minutes since 2000 (as minutesOf) back to a yyMMddHHmm stamp. */
+function stampAt(min) {
+  const d = new Date(min * 60000);
+  return `${String(d.getUTCFullYear()).slice(2)}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}`;
+}
+
+/** Which run of this train (today's or yesterday's start) is on now, if any. */
+function runNow(entry, nowMin) {
+  const [, , dep, , , , days, mins] = entry;
+  const [h, m] = dep.split(":").map(Number);
+  const today = Math.floor(nowMin / 1440) * 1440;
+  for (const day of [today, today - 1440]) {
+    const start = day + h * 60 + m;
+    const wd = (new Date(day * 60000).getUTCDay() + 6) % 7; // Monday = 0
+    if (!((days >> wd) & 1)) continue;
+    if (nowMin >= start - BEFORE_MIN && nowMin <= start + mins + AFTER_MIN) return { start, end: start + mins };
+  }
+  return null;
+}
+
+async function trainNow(name) {
+  const e = TRAINS[name];
+  const nowMin = minutesOf(stampOf(Date.now()));
+  const run = runNow(e, nowMin);
+  if (!run) return { run: null };
+  const [tt, num] = name.split(" ");
+  const depStamp = stampAt(run.start);
+  const [oPlan, oChg] = await Promise.all([plan(e[0], depStamp), changes(e[0])]);
+  const s = oPlan.find((x) => x.tl && x.tl.c === tt && x.tl.n === num && x.dp && x.dp.pt);
+  if (!s) return { run: { found: false, pd: depStamp } };
+  const key = tripKey(s.id);
+  const cf = oChg.find((x) => tripKey(x.id) === key);
+  const pd = s.dp.pt;
+  const cd = cf && cf.dp && cf.dp.ct ? cf.dp.ct : null;
+  const canc = Boolean((cf && cf.dp && cf.dp.cs === "c") || s.dp.cs === "c");
+  // Planned arrival at the last station: its timetable for the hour the usual arrival falls in (and the next one when it
+  // is close to the hour), joined on the same trip.
+  const arrMin = run.end + (minutesOf(pd) - run.start);
+  const hours = new Set([stampAt(arrMin)]);
+  if (arrMin % 60 >= 45) hours.add(stampAt(arrMin + 20));
+  if (arrMin % 60 <= 15) hours.add(stampAt(arrMin - 20));
+  const [dPlans, dChg] = await Promise.all([Promise.all([...hours].map((hh) => plan(e[3], hh))), changes(e[3])]);
+  const d = dPlans.flat().find((x) => tripKey(x.id) === key && x.ar && x.ar.pt);
+  const ct = dChg.find((x) => tripKey(x.id) === key);
+  const pa = d ? d.ar.pt : null;
+  const ca = ct && ct.ar && ct.ar.ct ? ct.ar.ct : null;
+  const arrCanc = Boolean(ct && ct.ar && ct.ar.cs === "c");
+  const late = canc ? null : Math.max(0, diff(pd, cd) ?? 0);
+  const lateArr = canc || arrCanc || !pa || !ca ? null : Math.max(0, diff(pa, ca));
+  const nowStamp = stampOf(Date.now());
+  const leaves = minutesOf(cd || pd);
+  const arrives = pa ? minutesOf(ca || pa) : null;
+  const state = canc ? "cancelled" : nowMin < leaves ? "soon" : arrives !== null && nowMin > arrives ? "arrived" : "running";
+  return {
+    run: {
+      found: true,
+      state,
+      pd,
+      late,
+      canc,
+      plat: (cf && cf.dp && cf.dp.cp) || s.dp.pp || null,
+      platChanged: Boolean(cf && cf.dp && cf.dp.cp && s.dp.pp && cf.dp.cp !== s.dp.pp),
+      pa,
+      lateArr,
+      arrCanc: arrCanc && !canc,
+      asOf: nowStamp,
+    },
+  };
+}
+
 module.exports = async function handler(req, res) {
   const on = process.env.LIVE_ENABLED === "1" && Boolean(process.env.DB_CLIENT_ID) && Boolean(process.env.DB_API_KEY);
   if (!on) return send(res, 200, { ok: false, error: "disabled" }, "public, s-maxage=60");
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return send(res, 405, { error: "method" });
+  }
+  const train = (() => {
+    try {
+      return new URL(req.url, "http://x").searchParams.get("train");
+    } catch {
+      return null;
+    }
+  })();
+  if (train !== null) {
+    if (!TRAINS[train]) return send(res, 400, { error: "train" });
+    try {
+      const out = await trainNow(train);
+      return send(res, 200, { ok: true, train, from: TRAINS[train][1], to: TRAINS[train][4], ...out }, "public, s-maxage=45");
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e && e.message === "busy" ? "busy" : "upstream" }, "public, s-maxage=15");
+    }
   }
   let from, to;
   try {

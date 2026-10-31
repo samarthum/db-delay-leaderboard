@@ -72,11 +72,15 @@ export function LiveBoard({ from, to, lang }: { from: string; to: string; lang: 
     };
   }, [from, to]);
 
-  if (!answer) return null;
+  // High on the page now: only when there is something to see. No trains soon, or the feed is down = no block.
+  if (!answer || !answer.ok || answer.trains.length === 0) return null;
   return (
-    <section className="sec live" aria-labelledby="live">
-      <h2 id="live">{t("live.title")}</h2>
-      <p className="sec-sub">{t("live.sub", { from, to })}</p>
+    <section className="blk live" aria-labelledby="live">
+      <h2 id="live">
+        <span className="ln-dot" aria-hidden="true" />
+        {t("live.title")}
+      </h2>
+      <p className="sec-sub" style={{ fontSize: 15 }}>{t("live.sub.short", { from })}</p>
       {!answer.ok ? (
         <p className="live-note">{t("live.unavailable")}</p>
       ) : answer.trains.length === 0 ? (

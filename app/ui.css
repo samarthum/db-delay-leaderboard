@@ -1121,3 +1121,142 @@ ul.plain li {
   margin-top: 6px;
   font-size: 15px;
 }
+
+/* Live: today's run at the top of a train page, and the live board on route pages. */
+.ln-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--late);
+  vertical-align: 1px;
+  animation: lnpulse 2s ease-in-out infinite;
+}
+@keyframes lnpulse {
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ln-dot { animation: none; }
+}
+.livenow {
+  margin-top: 16px;
+  padding: 14px 16px 12px;
+  background: #fff;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+}
+.ln-head {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ln-status {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 800;
+  font-stretch: 82%;
+  line-height: 1.1;
+}
+.ln-status::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 10px;
+  background: var(--c, var(--ink-2));
+  vertical-align: 2px;
+}
+.ln-arr {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--ink);
+}
+.ln-src {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.livenow[data-state="cancelled"] .ln-status {
+  color: var(--late);
+}
+.blk.live > h2 {
+  font-size: 20px;
+}
+.savebtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.savebtn[aria-pressed="true"] {
+  color: var(--ink);
+}
+/* "Your trains" on the home page */
+.yt {
+  margin-top: 18px;
+}
+.yt > h2 {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.yt ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+.yt a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+.yt-main {
+  flex: 1;
+  min-width: 0;
+}
+.yt-main b {
+  display: block;
+  font-weight: 650;
+}
+.yt-main small {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.yt-live {
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.yt-live::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 7px;
+  background: var(--c);
+}
+.yt-avg {
+  text-align: right;
+  white-space: nowrap;
+}
+.yt-avg em {
+  display: block;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ink);
+}
+.yt-avg small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}

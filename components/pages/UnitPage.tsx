@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Category, HistBin, UnitDetail } from "@/lib/types";
-import { getLatePct, hasConnectionsFrom, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
+import { getLatePct, hasConnectionsFrom, hasLiveTrain, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
 import { lateShareColor, delayColor, LATE } from "@/lib/colors";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
@@ -17,6 +17,8 @@ import { RouteText } from "../RouteText";
 import { ShareButton } from "../ShareButton";
 import { Columns, StopLine } from "../charts";
 import { RememberPage, StickyTitle } from "../PageTools";
+import { LiveNow } from "../LiveNow";
+import { SaveButton } from "../SaveButton";
 import { categoryCopy, unitKind } from "../pageFormat";
 
 function shareOf(bins: HistBin[], from: number): number {
@@ -141,6 +143,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           <div className="titlerow" style={{ marginTop: 2 }}>
             <h1 className="h1">{t.name}</h1>
             <div className="acts">
+              <SaveButton lang={lang} item={{ kind: "train", href: unitHref(t, lang), title: t.name, sub: `${shortStation(t.origin)} → ${shortStation(t.dest)}`, avg: t.minutes.avg, live: !isLine && hasLiveTrain(t.name) ? t.name : undefined }} />
               <ShareButton look="icon" lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
             </div>
           </div>
@@ -154,6 +157,8 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             )}
           </p>
           {t.alsoRunsAs.length > 0 ? <p className="basis">{tr("unit.alsoRunsAs", { list: t.alsoRunsAs.join(", ") })}</p> : null}
+
+          {!isLine && hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} /> : null}
 
           <Figure
             avg={t.minutes.avg}

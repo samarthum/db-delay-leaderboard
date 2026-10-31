@@ -12,6 +12,7 @@ import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
 import { LiveBoard } from "../LiveBoard";
+import { SaveButton } from "../SaveButton";
 import { NearTime, type NearRow } from "../NearTime";
 import { StopLine } from "../charts";
 import { TrainList, type TrainRow } from "../TrainList";
@@ -104,6 +105,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
                   </svg>
                 </Link>
               ) : null}
+              <SaveButton lang={lang} item={{ kind: "route", href: route(lang, "route", r.slug), title: `${r.from} → ${r.to}`, sub: t("route.sub", { n: fmtInt(r.trains, lang), dur: fmtDuration(r.minutes, lang) }), avg: r.avg }} />
               <ShareButton look="icon" lang={lang} title={`${r.from} → ${r.to} · German Punctuality`} text={shareText} url={url} label={t("route.share")} image={routeImagePath(w.lastMonth, `${r.slug}-portrait`, lang)} filename={r.slug} />
             </div>
           </div>
@@ -121,6 +123,8 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
             basis={t("home.networkBasis", { trips: fmtInt(r.trips, lang), span })}
           />
 
+          <LiveBoard from={r.from} to={r.to} lang={lang} />
+
           <NearTime rows={nearRows} from={r.from} lang={lang} />
 
           <section className="blk" aria-labelledby="trains">
@@ -130,7 +134,6 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
         </div>
 
         <div className="aside">
-          <LiveBoard from={r.from} to={r.to} lang={lang} />
 
           <div className="folds">
             <details className="fold">

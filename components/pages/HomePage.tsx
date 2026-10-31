@@ -6,6 +6,7 @@ import { route, type Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { Arrow } from "../Arrow";
 import { RouteList } from "../RouteList";
+import { YourTrains } from "../YourTrains";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { Search } from "../search/Search";
@@ -37,6 +38,8 @@ export function HomePage({ lang }: { lang: Lang }) {
   const ld = stats.recap.longDistance;
   const w = stats.window;
   const figure = (
+    <>
+    <YourTrains lang={lang} />
     <Figure
       avg={ld.avgDelayMin}
       pct={ld.latePct}
@@ -45,6 +48,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       sentence={<Rich text={t("fig.home")} />}
       basis={t("home.basis", { trips: fmtInt(ld.measured, lang), span: spanLabel(w.firstMonth, w.lastMonth, lang) })}
     />
+    </>
   );
   const idle = <TopRoutes lang={lang} />;
   return (
