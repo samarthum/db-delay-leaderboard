@@ -218,6 +218,11 @@
   color: var(--muted);
   font-weight: 400;
 }
+/* "wenige Fahrten" is wider than the 64 px column: let it wrap instead of running into the page edge */
+.bt tr.few .v {
+  white-space: normal;
+  line-height: 1.15;
+}
 .bt tr.sel {
   background: var(--mark);
 }
