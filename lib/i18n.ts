@@ -7,12 +7,12 @@ export type Lang = "en" | "de";
 export const LANGS: readonly Lang[] = ["en", "de"] as const;
 export const DEFAULT_LANG: Lang = "en";
 
-export type RouteKey = "home" | "ranking" | "network" | "method" | "recap" | "train" | "line" | "routes" | "route" | "change" | "more";
+export type RouteKey = "home" | "ranking" | "network" | "method" | "recap" | "train" | "line" | "routes" | "route" | "change" | "more" | "compensation";
 
 /** URL segment of every page, per language. German pages get German addresses. */
 const SEGMENT: Record<Lang, Record<RouteKey, string>> = {
-  en: { home: "", ranking: "ranking", network: "network", method: "method", recap: "recap", train: "train", line: "line", routes: "routes", route: "route", change: "change", more: "more" },
-  de: { home: "", ranking: "ranking", network: "netz", method: "methode", recap: "rueckblick", train: "zug", line: "linie", routes: "strecken", route: "strecke", change: "umsteigen", more: "mehr" },
+  en: { home: "", ranking: "ranking", network: "network", method: "method", recap: "recap", train: "train", line: "line", routes: "routes", route: "route", change: "change", more: "more", compensation: "compensation" },
+  de: { home: "", ranking: "ranking", network: "netz", method: "methode", recap: "rueckblick", train: "zug", line: "linie", routes: "strecken", route: "strecke", change: "umsteigen", more: "mehr", compensation: "entschaedigung" },
 };
 
 export function segment(lang: Lang, key: RouteKey): string {

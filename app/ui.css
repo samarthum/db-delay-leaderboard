@@ -727,3 +727,19 @@
 .bt.ct tr.det {
   scroll-margin-bottom: calc(var(--tabbar-h) + 24px);
 }
+
+/* Plain statement lists (the compensation page): one rule per item, readable measure */
+ul.plain {
+  display: grid;
+  gap: 12px;
+  max-width: 62ch;
+  margin-top: 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 16.5px;
+  line-height: 1.5;
+}
+ul.plain li {
+  padding-left: 14px;
+  border-left: 2px solid var(--rule);
+}

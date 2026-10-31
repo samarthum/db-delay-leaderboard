@@ -301,6 +301,17 @@ export interface RouteEntry {
   rank: number | null;
 }
 
+/** data/compensation.json (scripts/compensation.py): how often a trip arrives 60 and 120 minutes or more late. */
+export interface CompensationFile {
+  generatedAt: string;
+  window: WindowInfo;
+  network: { runs: number; cancelled: number; measured: number; n15: number; n60: number; n120: number; p15: number; p60: number; p120: number; cancelledPct: number };
+  monthly: { month: string; measured: number; p60: number | null; p120: number | null }[];
+  types: Record<string, { measured: number; p60: number | null; p120: number | null }>;
+  /** slug of a route page -> [measured trips, % 60+ min late, % 120+ min late] */
+  routes: Record<string, [number, number | null, number | null]>;
+}
+
 export interface RoutesFile {
   generatedAt: string;
   window: WindowInfo;

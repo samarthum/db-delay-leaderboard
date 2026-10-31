@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { RouteEntry, RouteTrain } from "@/lib/types";
-import { getReverseRoute, getRoutes, getStats, getUnitSlugs } from "@/lib/data";
+import { getReverseRoute, getRouteCompensation, getRoutes, getStats, getUnitSlugs } from "@/lib/data";
 import { lateShareColor } from "@/lib/colors";
 import { fmt1, fmtDuration, fmtInt, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
@@ -90,6 +90,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
   const all = getRoutes();
   const slugs = new Set(getUnitSlugs("longDistance"));
   const reverse = getReverseRoute(r);
+  const comp = getRouteCompensation(r.slug);
   const others = all.routes.filter((x) => x.from === r.from && x.slug !== r.slug).sort((a, b) => b.trips - a.trips).slice(0, 5);
   const url = absoluteUrl(route(lang, "route", r.slug));
   const shareText = t("route.shareText", { from: r.from, to: r.to, pct: fmtShare1(r.late, lang), pct6: fmtShare1(r.late6, lang), span });
@@ -131,7 +132,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
         basis={t("home.networkBasis", { trips: fmtInt(r.trips, lang), span })}
       />
 
-      <dl className="facts">
+      <dl className={comp ? "facts three" : "facts"}>
         <div>
           <dt>{t("route.avgTile")}</dt>
           <dd>
@@ -146,6 +147,19 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
             <small>{t("route.cancNote", { n: fmtInt(r.runs, lang) })}</small>
           </dd>
         </div>
+        {comp && comp[1] !== null ? (
+          <div>
+            <dt>{t("route.hourTile")}</dt>
+            <dd>
+              {fmtShare1(comp[1], lang)}
+              <small>
+                <Link href={route(lang, "compensation")} className="tl" prefetch={false}>
+                  {t("route.hourLink")}
+                </Link>
+              </small>
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       <div className="actions">

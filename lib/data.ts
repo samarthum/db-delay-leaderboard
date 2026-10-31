@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Category, Monthly, RouteEntry, RoutesFile, Stats, StationsFile, UnitDetail } from "./types";
+import type { Category, CompensationFile, Monthly, RouteEntry, RoutesFile, Stats, StationsFile, UnitDetail } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CATEGORY_DIR: Record<Category, string> = { longDistance: "trains", regional: "lines" };
@@ -14,6 +14,7 @@ let monthlyCache: Monthly | undefined;
 let stationsCache: StationsFile | undefined;
 const unitCache = new Map<string, UnitDetail>();
 let routesCache: RoutesFile | undefined;
+let compCache: CompensationFile | undefined;
 let pairsCache: Record<string, unknown> | undefined;
 
 export function getStats(): Stats {
@@ -64,6 +65,15 @@ export function getLatePct(slug: string): number | null {
     }
   }
   return lateBySlug.get(slug) ?? null;
+}
+
+export function getCompensation(): CompensationFile {
+  return (compCache ??= readJson<CompensationFile>("compensation.json"));
+}
+
+/** [trips, % 60+ min late, % 120+ min late] for a route page, or null. */
+export function getRouteCompensation(slug: string): [number, number | null, number | null] | null {
+  return getCompensation().routes[slug] ?? null;
 }
 
 export function getRoutes(): RoutesFile {

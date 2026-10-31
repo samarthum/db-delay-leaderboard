@@ -2,7 +2,7 @@ import { route, type Lang } from "@/lib/i18n";
 import type { Key } from "@/lib/t";
 
 export interface NavItem {
-  key: "home" | "change" | "ranking" | "more" | "network" | "recap" | "method";
+  key: "home" | "change" | "ranking" | "more" | "network" | "recap" | "method" | "compensation";
   label: Key;
   href: (lang: Lang) => string;
   /** Address prefixes (without language) where this item counts as the current place. */
@@ -16,7 +16,7 @@ export const TABS: NavItem[] = [
   { key: "home", label: "nav.search", href: at("home"), match: ["", "route", "train", "line"] },
   { key: "change", label: "nav.change", href: at("change"), match: ["change"] },
   { key: "ranking", label: "nav.ranking", href: at("ranking"), match: ["routes", "ranking"] },
-  { key: "more", label: "nav.more", href: at("more"), match: ["more", "network", "recap", "method"] },
+  { key: "more", label: "nav.more", href: at("more"), match: ["more", "network", "recap", "method", "compensation"] },
 ];
 
 /** The same places in the header on wide screens, with the pages behind "More" listed out. */
@@ -26,6 +26,7 @@ export const DESKTOP: NavItem[] = [
   TABS[2],
   { key: "network", label: "nav.network", href: at("network"), match: ["network"] },
   { key: "recap", label: "nav.recap", href: at("recap"), match: ["recap"] },
+  { key: "compensation", label: "nav.compensation", href: at("compensation"), match: ["compensation"] },
   { key: "method", label: "nav.method", href: at("method"), match: ["method"] },
 ];
 
@@ -45,6 +46,7 @@ const GERMAN: Record<string, string> = {
   rueckblick: "recap",
   umsteigen: "change",
   mehr: "more",
+  entschaedigung: "compensation",
 };
 
 /** Is this item where the visitor is? Route, train and line pages count as Search: that is where you look things up. */

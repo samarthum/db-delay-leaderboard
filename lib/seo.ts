@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { UnitSummary } from "./types";
-import { getStats } from "./data";
+import { getCompensation, getStats } from "./data";
 import { fmt1, fmtInt, fmtMin, fmtPct, fmtShare1, spanLabel } from "./format";
 import { OG_LOCALE, otherLangPath, route, type Lang } from "./i18n";
 import { OG_SIZE, SITE_NAME, absoluteUrl, ogImagePath, routeImagePath, unitHref } from "./site";
@@ -229,6 +229,21 @@ export function changeMetadata(lang: Lang): Metadata {
     socialTitle: title,
     description: t("seo.change.desc", { span: windowSpan(lang) }),
     path: route(lang, "change"),
+    image: "home",
+    imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
+  });
+}
+
+export function compensationMetadata(lang: Lang): Metadata {
+  const t = makeT(lang);
+  const c = getCompensation();
+  const title = t("seo.comp.title");
+  return pageMetadata({
+    lang,
+    title,
+    socialTitle: title,
+    description: t("seo.comp.desc", { pct: fmtShare1(c.network.p60, lang), pct2: fmtShare1(c.network.p120, lang), span: windowSpan(lang) }),
+    path: route(lang, "compensation"),
     image: "home",
     imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
   });

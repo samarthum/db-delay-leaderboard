@@ -10,6 +10,7 @@ export function MorePage({ lang }: { lang: Lang }) {
   const items: { href: string; title: Key; sub: Key; hrefLang?: string }[] = [
     { href: route(lang, "network"), title: "more.network", sub: "more.networkSub" },
     { href: route(lang, "recap"), title: "more.recap", sub: "more.recapSub" },
+    { href: route(lang, "compensation"), title: "more.compensation", sub: "more.compensationSub" },
     { href: route(lang, "method"), title: "more.method", sub: "more.methodSub" },
     { href: other.path, title: "more.lang", sub: "more.langSub", hrefLang: other.lang },
   ];
