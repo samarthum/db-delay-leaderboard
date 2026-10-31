@@ -142,10 +142,11 @@ export function SearchResult({
 
       <div className={styles.leadWrap}>
         <Figure
+          avg={unit.avg}
           pct={unit.late}
           pct6={unit.late6}
           lang={lang}
-          sentence={<Rich text={t("res.figure")} />}
+          sentence={<Rich text={t("fig.unit")} />}
           basis={t("res.exact", { pct: fmtShare1(unit.late, lang), n: fmtInt(unit.measured, lang) }) + " " + t("res.basis", { span })}
         />
       </div>

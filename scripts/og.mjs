@@ -192,12 +192,12 @@ function ruleBar(label, small, value, text, o) {
 }
 
 /** The answer: big number, what it counts, then both bars. */
-function figure(pct, pct6, sentence, t, lang, o) {
-  const num = pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct));
+function figure(avg, pct, pct6, sentence, t, lang, o) {
+  const num = String(Math.max(0, Math.round(avg)));
   const big = d(
     { alignItems: "flex-end", fontFamily: COND, fontWeight: 800, fontSize: o.big, lineHeight: 0.8, letterSpacing: -4, color: C.ink },
     num,
-    d({ fontSize: Math.round(o.big * 0.5), lineHeight: 1, marginLeft: 4, letterSpacing: 0 }, "%"),
+    d({ fontSize: Math.round(o.big * 0.36), lineHeight: 1, marginLeft: 10, marginBottom: Math.round(o.big * 0.04), letterSpacing: 0 }, t("unit.min")),
   );
   return d(
     { flexDirection: "column", width: o.width },
@@ -272,7 +272,7 @@ function homeCard(stats, t, lang) {
         d({ fontSize: 24, color: C.ink2, marginTop: 22, lineHeight: 1.3 }, t("home.networkBasis", { trips: fmtInt(ld.measured, lang), span })),
       ),
       vrule(),
-      figure(ld.latePct, ld.late6Pct, t("home.figure"), t, lang, WIDE_FIG),
+      figure(ld.avgDelayMin, ld.latePct, ld.late6Pct, t("fig.home"), t, lang, WIDE_FIG),
     ),
   );
 }
@@ -299,10 +299,10 @@ function unitCard(u, late, span, t, lang) {
           d({ marginRight: 10, alignItems: "center" }, arrow(26, C.ink2, regional)),
           d({}, clip(cardName(u.dest), 28)),
         ),
-        d({ fontSize: 22, color: C.muted, marginTop: 16 }, t("res.exact", { pct: fmtShare1(late, lang), n: fmtInt(u.measured, lang) })),
+        d({ fontSize: 22, color: C.muted, marginTop: 16 }, t("home.networkBasis", { trips: fmtInt(u.measured, lang), span }).replace(/,.*$/, "")),
       ),
       vrule(),
-      figure(late, u.late6Pct, t("res.figure"), t, lang, WIDE_FIG),
+      figure(u.minutes.avg, late, u.late6Pct, t("fig.unit"), t, lang, WIDE_FIG),
     ),
   );
 }
@@ -342,8 +342,8 @@ function unitPortrait(u, late, span, t, lang) {
       d({ marginRight: 12, alignItems: "center" }, arrow(34, C.ink2, regional)),
       d({}, clip(cardName(u.dest), 30)),
     ),
-    d({ fontSize: 26, color: C.muted, marginTop: 14 }, t("res.exact", { pct: fmtShare1(late, lang), n: fmtInt(u.measured, lang) })),
-    d({ marginTop: 30 }, figure(late, u.late6Pct, t("res.figure"), t, lang, { ...TALL_FIG, big: 290, sentence: 40, barsTop: 30 })),
+    d({ fontSize: 26, color: C.muted, marginTop: 14 }, t("home.networkBasis", { trips: fmtInt(u.measured, lang), span }).replace(/,.*$/, "")),
+    d({ marginTop: 30 }, figure(u.minutes.avg, late, u.late6Pct, t("fig.unit"), t, lang, { ...TALL_FIG, big: 290, sentence: 40, barsTop: 30 })),
     d({ flexDirection: "column", flexGrow: 1, justifyContent: "flex-end", marginBottom: 18 }, bottom),
   );
 }
@@ -379,7 +379,7 @@ function recapWide(f, t, lang) {
         ]),
       ),
       vrule(),
-      figure(f.ld.latePct, f.ld.late6Pct, t("home.figure"), t, lang, WIDE_FIG),
+      figure(f.ld.avgDelayMin, f.ld.latePct, f.ld.late6Pct, t("fig.home"), t, lang, WIDE_FIG),
     ),
   );
 }
@@ -393,7 +393,7 @@ function recapTall(f, t, lang) {
     t,
     d({ fontFamily: COND, fontWeight: 800, fontSize: 124, lineHeight: 0.96, marginTop: 56 }, t("recap.title")),
     d({ fontSize: 32, color: C.ink2, marginTop: 20 }, t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span })),
-    d({ marginTop: 80 }, figure(f.ld.latePct, f.ld.late6Pct, t("home.figure"), t, lang, { ...TALL_FIG, big: 420, sentence: 48 })),
+    d({ marginTop: 80 }, figure(f.ld.avgDelayMin, f.ld.latePct, f.ld.late6Pct, t("fig.home"), t, lang, { ...TALL_FIG, big: 420, sentence: 48 })),
     d(
       { flexDirection: "column", marginTop: 90 },
       factRow(`${fmt1(f.ld.avgDelayMin, lang)} ${t("unit.min")}`, t("recap.fact.avg"), 36),
@@ -454,7 +454,7 @@ function routePortrait(r, t, lang, span) {
     t,
     d({ marginTop: 34 }, routeNames(r, nameSize(r, 950, 140))),
     d({ fontSize: 28, color: C.ink2, marginTop: 16 }, t("route.card.facts", { trains: fmtInt(r.trains, lang), trips: fmtInt(r.trips, lang) })),
-    d({ marginTop: 34 }, figure(r.late, r.late6, t("route.figure", { to: cardName(r.to) }), t, lang, { ...TALL_FIG, big: 290, sentence: 40, barsTop: 32 })),
+    d({ marginTop: 34 }, figure(r.avg, r.late, r.late6, t("fig.route", { to: cardName(r.to) }), t, lang, { ...TALL_FIG, big: 290, sentence: 40, barsTop: 32 })),
     d(
       { flexDirection: "column", flexGrow: 1, justifyContent: "flex-end", marginBottom: 18 },
       chart
@@ -483,14 +483,14 @@ function routeWide(r, t, lang, span) {
         d({ fontSize: 24, color: C.ink2, marginTop: 22 }, t("route.card.facts", { trains: fmtInt(r.trains, lang), trips: fmtInt(r.trips, lang) })),
       ),
       vrule(),
-      figure(r.late, r.late6, t("route.figure", { to: cardName(r.to) }), t, lang, WIDE_FIG),
+      figure(r.avg, r.late, r.late6, t("fig.route", { to: cardName(r.to) }), t, lang, WIDE_FIG),
     ),
   );
 }
 
 function leagueRow(r, i, top, o) {
-  const color = lateColor(r.late);
-  const barW = Math.max(3, Math.round((r.late / top) * 100));
+  const color = delayColor(r.avg);
+  const barW = Math.max(3, Math.round((r.avg / top) * 100));
   return d(
     { alignItems: "center", height: o.rowH, borderBottom: `2px solid ${C.rule}` },
     d({ width: o.rankW, fontFamily: COND, fontWeight: 800, fontSize: o.fs + 6, color: C.ink2 }, String(i)),
@@ -499,13 +499,13 @@ function leagueRow(r, i, top, o) {
       d({ alignItems: "center", fontFamily: COND, fontWeight: 800, fontSize: o.fs, lineHeight: 1.05, whiteSpace: "nowrap" }, clip(cardName(r.from), 19), d({ margin: "0 8px" }, arrow(Math.round(o.fs * 0.74))), clip(cardName(r.to), 19)),
       d({ width: o.barW, height: o.barH, background: C.track, marginTop: 6, position: "relative" }, d({ position: "absolute", left: 0, top: 0, bottom: 0, width: `${barW}%`, background: color })),
     ),
-    d({ flexDirection: "column", alignItems: "flex-end", width: o.valW }, d({ fontFamily: COND, fontWeight: 800, fontSize: o.fs + 12, lineHeight: 1 }, fmtShare(r.late, o.lang)), o.db ? d({ fontSize: o.fs * 0.55, color: C.muted, marginTop: 2 }, `DB ${fmtShare(r.late6, o.lang)}`) : null),
+    d({ flexDirection: "column", alignItems: "flex-end", width: o.valW }, d({ fontFamily: COND, fontWeight: 800, fontSize: o.fs + 12, lineHeight: 1 }, `${fmt1(r.avg, o.lang)} ${o.min}`), o.db ? d({ fontSize: o.fs * 0.55, color: C.muted, marginTop: 2 }, `${fmtShare(r.late, o.lang)} 15+`) : null),
   );
 }
 
 function leaguePortrait(worst, best, t, lang, span, n) {
-  const top = Math.max(...worst.map((r) => r.late));
-  const o = { rowH: 104, rankW: 64, fs: 40, barW: 600, barH: 14, valW: 170, lang, db: true };
+  const top = Math.max(...worst.map((r) => r.avg));
+  const o = { rowH: 104, rankW: 64, fs: 40, barW: 560, barH: 14, valW: 210, lang, db: true, min: t("unit.min") };
   const o2 = { ...o, rowH: 84, fs: 34, barW: 560, db: true };
   return sheet(
     1080,
@@ -522,8 +522,8 @@ function leaguePortrait(worst, best, t, lang, span, n) {
 }
 
 function leagueWide(worst, t, lang, span, n) {
-  const top = Math.max(...worst.map((r) => r.late));
-  const o = { rowH: 78, rankW: 48, fs: 31, barW: 400, barH: 12, valW: 120, lang, db: true };
+  const top = Math.max(...worst.map((r) => r.avg));
+  const o = { rowH: 78, rankW: 48, fs: 31, barW: 380, barH: 12, valW: 160, lang, db: true, min: t("unit.min") };
   return sheet(
     W,
     H,
@@ -611,7 +611,7 @@ function assertBottomMargin(rendered, file) {
 // A card is cached under a hash of everything that decides its pixels (the element tree, size, fonts, options), in
 // .next/cache, which Vercel keeps between builds. Cards not used by this run are deleted at the end, so it cannot grow.
 const CACHE_DIR = path.join(ROOT, ".next", "cache", "og-cards");
-const RENDER_VERSION = "2";
+const RENDER_VERSION = "3";
 const cacheUsed = new Set();
 const cacheStats = { hit: 0, drawn: 0 };
 let fontKey = "";
@@ -717,7 +717,7 @@ async function main() {
       await fs.rm(path.join(OUT_DIR, "routes"), { recursive: true, force: true });
       await fs.mkdir(path.join(rdir, "de"), { recursive: true });
     }
-    const league = rd.routes.filter((r) => r.rank !== null).sort((a, b) => a.rank - b.rank);
+    const league = rd.routes.filter((r) => r.rank !== null).sort((a, b) => b.avg - a.avg);
     for (const lang of ["en", "de"]) {
       const t = makeT(lang);
       const span = spanLabel(rd.window.firstMonth, rd.window.lastMonth, lang);

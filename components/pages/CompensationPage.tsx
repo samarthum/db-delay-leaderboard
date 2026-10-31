@@ -171,7 +171,6 @@ export function CompensationPage({ lang }: { lang: Lang }) {
                       <b>
                         <RouteName from={r.from} to={r.to} word={t("route.to")} />
                       </b>
-                      <span>{t("home.top.trips", { n: fmtInt(c.routes[r.slug][0], lang) })}</span>
                     </Link>
                   </td>
                   <td className="bar">

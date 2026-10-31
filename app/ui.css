@@ -1077,3 +1077,18 @@ ul.plain li {
   gap: 14px;
   margin-top: 4px;
 }
+
+.bt .v small.wrap {
+  white-space: normal;
+  line-height: 1.25;
+}
+
+/* Long words ("durchschnittliche Verspätung") must not push the figure's sentence off a narrow phone. */
+.figrow {
+  flex-wrap: wrap;
+}
+.figtext {
+  min-width: 0;
+  flex: 1 1 150px;
+  overflow-wrap: break-word;
+}

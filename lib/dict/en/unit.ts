@@ -13,7 +13,7 @@ export const unit = {
   "unit.shareLine": "Share this line",
   "unit.where.train": "from {o} to {d}",
   "unit.where.line": "between {o} and {d}",
-  "unit.shareText": "{name} {where}: {pct} of trips arrive 15+ min late, {avg} min late on average. {rank}",
+  "unit.shareText": "{name} {where}: {avg} min late on average at the last stop, {pct} of trips 15+ min late. {rank}",
   "unit.worst": "Worst trip",
   "unit.worstFigure": "{dur} late",
   "unit.worstText": "On {date}, {o} → {d}.",
@@ -107,4 +107,5 @@ export const unit = {
   "unit.month.aria": "Average delay per month: {list}",
   "unit.more.month": "Month by month",
   "unit.more.stops": "Stop by stop",
+  "fig.unit": "**average delay** at the last stop.",
 } as const;

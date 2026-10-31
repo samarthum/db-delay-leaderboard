@@ -4,10 +4,12 @@ import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 
 /**
- * The answer a page opens with: one big number, what it counts, and the same share by Deutsche Bahn's own
- * 6-minute rule as a second bar on the same 0 to 100 scale. The basis sits directly under it.
+ * The answer a page opens with: one big number, the average delay in minutes, and what it measures. Under it the two
+ * shares on one 0 to 100 scale: trips 15+ min late (our count) and 6+ min late (Deutsche Bahn's own rule). The basis
+ * sits directly under them.
  */
 export function Figure({
+  avg,
   pct,
   pct6,
   sentence,
@@ -15,9 +17,11 @@ export function Figure({
   lang,
   decimals = false,
 }: {
+  /** Average minutes late at the place the sentence names. */
+  avg: number;
   pct: number;
   pct6: number | null;
-  /** "of trips arrive <strong>15 minutes or more</strong> late at Berlin Hbf." */
+  /** "late on average, arriving at Berlin Hbf." */
   sentence: ReactNode;
   basis: string;
   lang: Lang;
@@ -29,13 +33,13 @@ export function Figure({
     <div className="fig">
       <div className="figrow">
         <span className="big num">
-          {Math.round(pct)}
-          <span className="u">%</span>
+          {Math.max(0, Math.round(avg))}
+          <span className="u">{t("unit.min")}</span>
         </span>
         <p className="figtext">{sentence}</p>
       </div>
       <div className="rules">
-        <RuleBar label={t("rule.ours")} small={t("rule.ours15")} value={pct} text={show(pct)} quiet />
+        <RuleBar label={t("rule.ours")} small={t("rule.ours15")} value={pct} text={show(pct)} />
         {pct6 !== null ? <RuleBar label={t("rule.db")} small={t("rule.db6")} value={pct6} text={show(pct6)} db /> : null}
       </div>
       <p className="basis" style={{ marginTop: 10 }}>
@@ -45,8 +49,7 @@ export function Figure({
   );
 }
 
-/** `quiet`: the big figure above already says this value, so it is only read out, not printed a second time. */
-function RuleBar({ label, small, value, text, db = false, quiet = false }: { label: string; small: string; value: number; text: string; db?: boolean; quiet?: boolean }) {
+function RuleBar({ label, small, value, text, db = false }: { label: string; small: string; value: number; text: string; db?: boolean }) {
   return (
     <div className="rb">
       <span className="rb-l">
@@ -55,7 +58,7 @@ function RuleBar({ label, small, value, text, db = false, quiet = false }: { lab
       <span className="rb-t" aria-hidden="true">
         <i className={db ? "db" : ""} style={{ width: `${Math.max(0.8, Math.min(100, value))}%` }} />
       </span>
-      <span className={quiet ? "rb-v visually-hidden" : "rb-v"}>{text}</span>
+      <span className="rb-v">{text}</span>
     </div>
   );
 }

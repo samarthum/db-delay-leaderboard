@@ -9,6 +9,7 @@ import { makeT } from "@/lib/t";
 import { Arrow, RouteName } from "../Arrow";
 import { RouteText } from "../RouteText";
 import { Tabs } from "../Tabs";
+import { RouteRanking } from "../RouteRanking";
 
 function UnitTable({ list, lang, category }: { list: UnitSummary[]; lang: Lang; category: Category }) {
   const t = makeT(lang);
@@ -79,51 +80,8 @@ export function RankingPage({ lang }: { lang: Lang }) {
       </p>
       <Tabs ids={["routes", "trains", "lines"]} labels={[t("rank.jump.routes"), t("rank.tab.trains"), t("rank.tab.lines")]} label={t("rank.jump")}>
         <section className="blk" aria-labelledby="routes-h" style={{ marginTop: 20 }}>
-          <h2 id="routes-h">{t("routes.latest")}</h2>
-          <p className="sec-sub">{t("home.top.sub", { n: league.length })}</p>
-            <table className="bt">
-            <colgroup>
-              <col style={{ width: 28 }} />
-              <col />
-              <col style={{ width: 56 }} />
-              <col style={{ width: 62 }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th />
-                <th>{t("home.top.th1")}</th>
-                <th />
-                <th className="r">
-                  {t("rank.th.late")}
-                  <small>{t("rank.th.dbnote")}</small>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {worst.map((r) => (
-                <tr key={r.slug} className="tap">
-                  <td className="rk">{r.rank}</td>
-                  <td className="two">
-                    <Link href={route(lang, "route", r.slug)} prefetch={false}>
-                      <b>
-                        <RouteName from={r.from} to={r.to} word={t("route.to")} />
-                      </b>
-                      <span>{t("home.top.trips", { n: fmtInt(r.trips, lang) })}</span>
-                    </Link>
-                  </td>
-                  <td className="bar">
-                    <span>
-                      <i style={{ width: `${r.late}%`, background: lateShareColor(r.late) }} />
-                    </span>
-                  </td>
-                  <td className="v">
-                    {fmtShare(r.late, lang)}
-                    <small>{t("rank.db", { pct: fmtShare(r.late6, lang) })}</small>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h2 id="routes-h">{t("rank.avg.title")}</h2>
+          <RouteRanking league={league} lang={lang} />
           <Link href={route(lang, "routes")} className="more" prefetch={false}>
             {t("routes.all", { n: data.routes.length })} <Arrow />
           </Link>

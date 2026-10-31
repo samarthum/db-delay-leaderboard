@@ -64,4 +64,12 @@ export const misc = {
   "method.a.rule": "Deutsche Bahn’s own punctuality figure counts a train as late from 6 minutes. We count from 15 minutes and show both: the two bars at the top of a page use the same trips and the same scale.",
   "rank.tab.trains": "Trains",
   "rank.tab.lines": "Regional",
+  "list.avg": "{x} min",
+  "list.late15": "{pct} 15+ min",
+  "rank.sort.label": "Rank routes by",
+  "rank.sort.avg": "Average delay",
+  "rank.sort.late": "Most often late",
+  "rank.avg.title": "Most delayed routes",
+  "rank.avg.sub": "Average minutes late on arrival, {n} busiest routes.",
+  "rank.late.sub": "Share of trips arriving 15+ min late, {n} busiest routes. DB’s own 6-minute rule underneath.",
 } as const;

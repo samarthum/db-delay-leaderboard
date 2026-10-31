@@ -66,4 +66,12 @@ export const miscDe: Record<keyof typeof misc, string> = {
   "method.a.rule": "In der eigenen Pünktlichkeitsstatistik der Deutschen Bahn gilt ein Zug ab 6 Minuten als verspätet. Wir zählen ab 15 Minuten und zeigen beides: Die beiden Balken oben auf einer Seite zeigen dieselben Fahrten auf derselben Skala.",
   "rank.tab.trains": "Fernzüge",
   "rank.tab.lines": "Nahverkehr",
+  "list.avg": "{x} Min.",
+  "list.late15": "{pct} 15+ Min.",
+  "rank.sort.label": "Strecken sortieren nach",
+  "rank.sort.avg": "Ø Verspätung",
+  "rank.sort.late": "Verspätungsquote",
+  "rank.avg.title": "Strecken mit der meisten Verspätung",
+  "rank.avg.sub": "Durchschnittliche Verspätung bei Ankunft auf den {n} meistbefahrenen Strecken.",
+  "rank.late.sub": "Anteil der Fahrten mit mindestens 15 Minuten Verspätung auf den {n} meistbefahrenen Strecken. Darunter jeweils der Anteil nach der 6-Minuten-Regel der DB.",
 };

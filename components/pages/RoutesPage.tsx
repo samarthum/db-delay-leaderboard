@@ -1,50 +1,16 @@
 import Link from "next/link";
 import type { RouteEntry } from "@/lib/types";
 import { getRoutes } from "@/lib/data";
-import { lateShareColor } from "@/lib/colors";
-import { fmtInt, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
+import { fmt1, fmtInt, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
 import { absoluteUrl, routeImagePath } from "@/lib/site";
 import { makeT } from "@/lib/t";
-import { Arrow, RouteName } from "../Arrow";
+import { Arrow } from "../Arrow";
+import { RouteList } from "../RouteList";
 import { ShareButton } from "../ShareButton";
 
-function RouteRows({ rows, lang, ranked, db }: { rows: RouteEntry[]; lang: Lang; ranked?: boolean; db?: boolean }) {
-  const t = makeT(lang);
-  return (
-    <table className="bt">
-      <colgroup>
-        {ranked ? <col style={{ width: 28 }} /> : null}
-        <col />
-        <col style={{ width: 56 }} />
-        <col style={{ width: 62 }} />
-      </colgroup>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.slug} className="tap">
-            {ranked ? <td className="rk">{r.rank}</td> : null}
-            <td className="two">
-              <Link href={route(lang, "route", r.slug)} prefetch={false}>
-                <b>
-                  <RouteName from={r.from} to={r.to} word={t("route.to")} />
-                </b>
-                <span>{t("home.top.trips", { n: fmtInt(r.trips, lang) })}</span>
-              </Link>
-            </td>
-            <td className="bar">
-              <span>
-                <i style={{ width: `${r.late}%`, background: lateShareColor(r.late) }} />
-              </span>
-            </td>
-            <td className="v">
-              {fmtShare(r.late, lang)}
-              {db ? <small>{t("rank.db", { pct: fmtShare(r.late6, lang) })}</small> : null}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+function RouteRows({ rows, lang, ranked }: { rows: RouteEntry[]; lang: Lang; ranked?: boolean; db?: boolean }) {
+  return <RouteList rows={rows} lang={lang} rank={ranked} />;
 }
 
 /** Every route that has a page: the ones late most often, the ones closest to the timetable, and the whole list A to Z. */
@@ -52,13 +18,13 @@ export function RoutesPage({ lang }: { lang: Lang }) {
   const t = makeT(lang);
   const data = getRoutes();
   const span = spanLabel(data.window.firstMonth, data.window.lastMonth, lang);
-  const league = data.routes.filter((r) => r.rank !== null).sort((a, b) => (a.rank as number) - (b.rank as number));
+  const league = data.routes.filter((r) => r.rank !== null).sort((a, b) => b.avg - a.avg);
   const worst = league.slice(0, 10);
   const best = league.slice(-5).reverse();
   const all = [...data.routes].sort((a, b) => a.from.localeCompare(b.from, "de") || a.to.localeCompare(b.to, "de"));
   const top = worst[0];
   const bottom = best[0];
-  const shareText = t("routes.shareText", { from: top.from, to: top.to, pct: fmtShare1(top.late, lang), bestFrom: bottom.from, bestTo: bottom.to, bestPct: fmtShare1(bottom.late, lang) });
+  const shareText = t("routes.shareText", { from: top.from, to: top.to, pct: fmt1(top.avg, lang), bestFrom: bottom.from, bestTo: bottom.to, bestPct: fmt1(bottom.avg, lang) });
 
   return (
     <main id="main" className="container page">
@@ -87,7 +53,7 @@ export function RoutesPage({ lang }: { lang: Lang }) {
           <section className="sec" aria-labelledby="best">
             <h2 id="best">{t("routes.best")}</h2>
             <p className="sec-sub">{t("routes.bestSub")}</p>
-            <RouteRows rows={best} lang={lang} ranked db />
+            <RouteRows rows={best} lang={lang} />
           </section>
         </div>
       </div>

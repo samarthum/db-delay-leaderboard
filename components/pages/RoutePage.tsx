@@ -7,6 +7,7 @@ import { route, type Lang } from "@/lib/i18n";
 import { absoluteUrl, routeImagePath } from "@/lib/site";
 import { makeT } from "@/lib/t";
 import { Arrow, RouteName } from "../Arrow";
+import { RouteList } from "../RouteList";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
@@ -37,7 +38,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
   const comp = getRouteCompensation(r.slug);
   const others = all.routes.filter((x) => x.from === r.from && x.slug !== r.slug).sort((a, b) => b.trips - a.trips).slice(0, 5);
   const url = absoluteUrl(route(lang, "route", r.slug));
-  const shareText = t("route.shareText", { from: r.from, to: r.to, pct: fmtShare1(r.late, lang), pct6: fmtShare1(r.late6, lang), span });
+  const shareText = t("route.shareText", { from: r.from, to: r.to, avg: Math.round(r.avg), pct: fmtShare1(r.late, lang), pct6: fmtShare1(r.late6, lang), span });
   const nearRows: NearRow[] = r.list.map((tr) => ({ name: `${tr[0]} ${tr[1]}`, href: trainHref(tr, slugs, lang), dep: tr[2], arr: tr[3], late: tr[4] }));
 
   const pts = r.curve ? r.curve.points : [];
@@ -83,8 +84,8 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
 
   return (
     <main id="main" className="container page">
-      <RememberPage lang={lang} item={{ href: route(lang, "route", r.slug), title: `${r.from} → ${r.to}`, sub: t("route.sub", { n: fmtInt(r.trains, lang), dur: fmtDuration(r.minutes, lang) }), value: fmtShare(r.late, lang) }} />
-      <StickyTitle title={`${r.from} → ${r.to}`} value={fmtShare(r.late, lang)} />
+      <RememberPage lang={lang} item={{ href: route(lang, "route", r.slug), title: `${r.from} → ${r.to}`, sub: t("route.sub", { n: fmtInt(r.trains, lang), dur: fmtDuration(r.minutes, lang) }), value: t("list.avg", { x: fmt1(r.avg, lang) }) }} />
+      <StickyTitle title={`${r.from} → ${r.to}`} value={t("list.avg", { x: fmt1(r.avg, lang) })} />
       <Link href={route(lang, "routes")} className="back" prefetch={false}>
         <Arrow back /> {t("route.back")}
       </Link>
@@ -112,10 +113,11 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
           </p>
 
           <Figure
+            avg={r.avg}
             pct={r.late}
             pct6={r.late6}
             lang={lang}
-            sentence={<Rich text={t("route.figure", { to: r.to })} />}
+            sentence={<Rich text={t("fig.route", { to: r.to })} />}
             basis={t("home.networkBasis", { trips: fmtInt(r.trips, lang), span })}
           />
 
@@ -168,33 +170,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
                   <span>{t("route.more", { from: r.from })}</span>
                 </summary>
                 <div className="body">
-                  <table className="bt">
-                    <colgroup>
-                      <col />
-                      <col style={{ width: 64 }} />
-                      <col style={{ width: 52 }} />
-                    </colgroup>
-                    <tbody>
-                      {others.map((o) => (
-                        <tr key={o.slug} className="tap">
-                          <td className="two">
-                            <Link href={route(lang, "route", o.slug)} prefetch={false}>
-                              <b>
-                                <RouteName from={o.from} to={o.to} word={t("route.to")} />
-                              </b>
-                              <span>{t("home.top.trips", { n: fmtInt(o.trips, lang) })}</span>
-                            </Link>
-                          </td>
-                          <td className="bar">
-                            <span>
-                              <i style={{ width: `${o.late}%`, background: lateShareColor(o.late) }} />
-                            </span>
-                          </td>
-                          <td className="v">{fmtShare(o.late, lang)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <RouteList rows={others} lang={lang} />
                   <Link href={route(lang, "routes")} className="more" prefetch={false}>
                     {t("route.rankings")} <Arrow />
                   </Link>

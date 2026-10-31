@@ -15,7 +15,7 @@ export const unitDe: Record<keyof typeof unit, string> = {
   "unit.shareLine": "Diese Linie teilen",
   "unit.where.train": "von {o} nach {d}",
   "unit.where.line": "zwischen {o} und {d}",
-  "unit.shareText": "{name} {where}: {pct} der Fahrten mindestens 15 Min. zu spät, im Schnitt {avg} Min. zu spät. {rank}",
+  "unit.shareText": "{name} {where}: am letzten Halt im Schnitt {avg} Min. Verspätung, {pct} der Fahrten mindestens 15 Min. zu spät. {rank}",
   "unit.worst": "Schlimmste Fahrt",
   "unit.worstFigure": "{dur} zu spät",
   "unit.worstText": "Am {date}, {o} → {d}.",
@@ -109,4 +109,5 @@ export const unitDe: Record<keyof typeof unit, string> = {
   "unit.month.aria": "Durchschnittliche Verspätung pro Monat: {list}",
   "unit.more.month": "Monat für Monat",
   "unit.more.stops": "Halt für Halt",
+  "fig.unit": "**durchschnittliche Verspätung** am letzten Halt.",
 };

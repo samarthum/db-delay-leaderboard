@@ -31,7 +31,7 @@ export function RecapPage({ stats, lang }: { stats: Stats; lang: Lang }) {
 
       <div className="two-col">
         <div className="main">
-          <Figure pct={ld.latePct} pct6={ld.late6Pct} lang={lang} sentence={<Rich text={t("home.figure")} />} basis={t("home.basis", { trips: fmtInt(ld.measured, lang), span })} />
+          <Figure avg={ld.avgDelayMin} pct={ld.latePct} pct6={ld.late6Pct} lang={lang} sentence={<Rich text={t("fig.home")} />} basis={t("home.basis", { trips: fmtInt(ld.measured, lang), span })} />
         </div>
         <div className="aside">
           <section className="sec" aria-labelledby="facts">

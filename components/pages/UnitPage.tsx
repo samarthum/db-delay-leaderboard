@@ -9,6 +9,7 @@ import { rankSentence } from "@/lib/seo";
 import { makeT } from "@/lib/t";
 import { shortStation } from "@/lib/routeSlug";
 import { Arrow, RouteName } from "../Arrow";
+import { RouteList } from "../RouteList";
 import { BackLink } from "../BackLink";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
@@ -75,7 +76,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const emptyMonths = t.monthly.filter((m) => m.avg === null).map((m) => monthLabel(m.month, lang));
 
   const where = tr(isLine ? "unit.where.line" : "unit.where.train", { o: shortStation(t.origin), d: shortStation(t.dest) });
-  const shareText = tr("unit.shareText", { name: t.name, where, pct: fmtShare1(latePct, lang), avg: fmt1(t.minutes.avg, lang), rank: rankSentence(t, lang) }).trim();
+  const shareText = tr("unit.shareText", { name: t.name, where, pct: fmtShare1(latePct, lang), avg: Math.round(t.minutes.avg), rank: rankSentence(t, lang) }).trim();
 
   // Routes this train runs: route pages that list it, biggest first.
   const runs = isLine
@@ -128,8 +129,8 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
 
   return (
     <main id="main" className="container page">
-      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(t.origin)} → ${shortStation(t.dest)}`, value: fmtShare(latePct, lang) }} />
-      <StickyTitle title={t.name} value={fmtShare(latePct, lang)} />
+      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(t.origin)} → ${shortStation(t.dest)}`, value: tr("list.avg", { x: fmt1(t.minutes.avg, lang) }) }} />
+      <StickyTitle title={t.name} value={tr("list.avg", { x: fmt1(t.minutes.avg, lang) })} />
       <BackLink lang={lang} />
 
       <div className="two-col">
@@ -155,10 +156,11 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           {t.alsoRunsAs.length > 0 ? <p className="basis">{tr("unit.alsoRunsAs", { list: t.alsoRunsAs.join(", ") })}</p> : null}
 
           <Figure
+            avg={t.minutes.avg}
             pct={latePct}
             pct6={t.late6Pct}
             lang={lang}
-            sentence={<Rich text={tr("res.figure")} />}
+            sentence={<Rich text={tr("fig.unit")} />}
             basis={tr("home.networkBasis", { trips: fmtInt(t.measured, lang), span })}
           />
 
@@ -266,33 +268,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             <div className="body">
           
           <p className="sec-sub">{tr("unit.routesSub")}</p>
-          <table className="bt">
-            <colgroup>
-              <col />
-              <col style={{ width: 64 }} />
-              <col style={{ width: 56 }} />
-            </colgroup>
-            <tbody>
-              {runs.map((r) => (
-                <tr key={r.slug} className="tap">
-                  <td className="two">
-                    <Link href={route(lang, "route", r.slug)} prefetch={false}>
-                      <b>
-                        <RouteName from={r.from} to={r.to} word={tr("route.to")} />
-                      </b>
-                      <span>{tr("home.top.trips", { n: fmtInt(r.trips, lang) })}</span>
-                    </Link>
-                  </td>
-                  <td className="bar">
-                    <span>
-                      <i style={{ width: `${r.late}%`, background: lateShareColor(r.late) }} />
-                    </span>
-                  </td>
-                  <td className="v">{fmtShare(r.late, lang)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <RouteList rows={runs} lang={lang} />
         </div>
           </details>
         ) : null}

@@ -10,7 +10,7 @@ import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute,
 import { splitLive, unitName, type SearchUnit } from "@/lib/searchCore";
 import { didYouMean, findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
 import { fmt1, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
-import { lateShareColor } from "@/lib/colors";
+import { delayColor, lateShareColor } from "@/lib/colors";
 import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
 import { VoiceSession, prefetchToken, voiceConfigured, voiceSupported } from "@/lib/voice";
@@ -160,7 +160,14 @@ export function Search({
   const commit = useCallback((next: Applied, mode: "push" | "replace") => {
     // The compact box on a route or train page answers on the home page, so the page the visitor came from stays as it was.
     if (variant !== "home") {
-      if (next.q || next.s) router.push(urlFor(next, route(lang, "home")));
+      if (!next.q && !next.s) return;
+      const href = urlFor(next, route(lang, "home"));
+      // Already on the home page (the sheet was opened from its box): the router would keep the mounted page, which
+      // reads the address only on load. Change the address and tell the home search to read it again.
+      if (window.location.pathname === route(lang, "home")) {
+        window.history.pushState(null, "", href);
+        window.dispatchEvent(new Event("gp:url"));
+      } else router.push(href);
       return;
     }
     const href = urlFor(next);
@@ -181,8 +188,12 @@ export function Search({
     };
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
-  }, []);
+    if (variant === "home") window.addEventListener("gp:url", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("gp:url", sync);
+    };
+  }, [variant]);
 
   // Fetch the typeahead index on first focus, or right away when the address names a query.
   const warm = useCallback(() => {
@@ -765,7 +776,7 @@ function RouteRow({ hit, lang, top, onPick }: { hit: RouteHit; lang: Lang; top: 
 }
 
 function statText(train: TaTrainEntry, lang: Lang): string {
-  return fmtShare(train.late, lang);
+  return train.avg === null ? fmtShare(train.late, lang) : fmt1(Math.max(0, train.avg), lang);
 }
 
 function Groups({
@@ -884,10 +895,10 @@ function Groups({
                       <span className={styles.optRoute}>{`${shortStation(s.train.origin)} ${s.train.kind === 1 ? "↔" : "→"} ${shortStation(s.train.dest)}`}</span>
                       <span
                         className={styles.optStat}
-                        style={{ color: lateShareColor(s.train.late) }}
-                        aria-label={t("sug.lateAria", { pct: statText(s.train, lang) })}
+                        style={{ color: s.train.avg === null ? lateShareColor(s.train.late) : delayColor(s.train.avg) }}
+                        aria-label={s.train.avg === null ? t("sug.lateAria", { pct: statText(s.train, lang) }) : t("sug.avg", { x: statText(s.train, lang) })}
                       >
-                        {t("sug.late", { pct: statText(s.train, lang) })}
+                        {s.train.avg === null ? t("sug.late", { pct: statText(s.train, lang) }) : t("list.avg", { x: statText(s.train, lang) })}
                       </span>
                     </>
                   )}
@@ -914,7 +925,7 @@ function StationView({
   ask: (q: string, u?: string | null) => void;
 }) {
   const t = makeT(lang);
-  const rows = station.trains.map((i) => ta.trains[i]).sort((a, b) => b.late - a.late || b.measured - a.measured);
+  const rows = station.trains.map((i) => ta.trains[i]).sort((a, b) => (b.avg ?? b.late) - (a.avg ?? a.late) || b.measured - a.measured);
   const [all, setAll] = useState(false);
   const shown = all ? rows : rows.slice(0, 12);
   return (
@@ -932,8 +943,8 @@ function StationView({
               <button type="button" className={styles.option} onClick={() => ask(unitName(tr))}>
                 <span className={styles.optName}>{unitName(tr)}</span>
                 <span className={styles.optRoute}>{`${shortStation(tr.origin)} → ${shortStation(tr.dest)}`}</span>
-                <span className={styles.optStat} style={{ color: lateShareColor(tr.late) }}>
-                  {t("st.late", { pct: fmtShare(tr.late, lang) })}
+                <span className={styles.optStat} style={{ color: tr.avg === null ? lateShareColor(tr.late) : delayColor(tr.avg) }}>
+                  {tr.avg === null ? t("st.late", { pct: fmtShare(tr.late, lang) }) : t("sug.avg", { x: fmt1(Math.max(0, tr.avg), lang) })}
                 </span>
               </button>
             </div>
@@ -958,8 +969,8 @@ function UnitButton({ u, selected, lang, onPick }: { u: SearchUnit; selected?: b
         <span className={styles.pickKind}>{kindLabel(u, lang)}</span>
       </span>
       <span className={styles.pickRoute}>{routeText(u)}</span>
-      <span className={styles.pickStat} style={{ color: lateShareColor(u.late) }}>
-        {t("sug.late", { pct: fmtShare1(u.late, lang) })}
+      <span className={styles.pickStat} style={{ color: delayColor(u.avg) }}>
+        {t("sug.avg", { x: fmt1(Math.max(0, u.avg), lang) })}
       </span>
     </button>
   );

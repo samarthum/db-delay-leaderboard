@@ -73,12 +73,12 @@ const trains = [];
 for (const name of shards.sort()) {
   const rows = JSON.parse(await fs.readFile(path.join(FROM, name), "utf8"));
   for (const r of rows) {
-    const [type, num, kind, , measured, , late, , , origin, dest] = r;
+    const [type, num, kind, , measured, avg, late, , , origin, dest] = r;
     if (kind === 2) continue; // 31k regional train numbers stay searchable by exact number, not by typeahead
     const hash = r[13] ?? null;
     const prefix = kind === 1 ? "line-" : "";
     const key = `${prefix}${type}-${num}${hash ? `.${hash}` : ""}`.toLowerCase();
-    trains.push([type, num, kind, Math.round(late * 10) / 10, measured, origin, dest, key]);
+    trains.push([type, num, kind, Math.round(late * 10) / 10, measured, origin, dest, key, Math.round(avg * 10) / 10]);
   }
 }
 trains.sort((a, b) => b[4] - a[4]);

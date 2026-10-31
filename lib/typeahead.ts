@@ -8,7 +8,7 @@
  *   stations: [name, [index into trains, ...]]
  */
 
-export type TaTrain = [string, string, 0 | 1, number, number, string, string, string];
+export type TaTrain = [string, string, 0 | 1, number, number, string, string, string, avg?: number];
 export type TaStation = [string, number[]];
 export interface TaRaw {
   trains: TaTrain[];
@@ -94,6 +94,8 @@ export interface TaTrainEntry {
   num: string;
   kind: 0 | 1;
   late: number;
+  /** Average minutes late at the last stop (null in an index built before it was added). */
+  avg: number | null;
   measured: number;
   origin: string;
   dest: string;
@@ -117,7 +119,8 @@ export interface TaIndex {
 }
 
 export function buildIndex(raw: TaRaw): TaIndex {
-  const trains = raw.trains.map(([type, num, kind, late, measured, origin, dest, key]) => ({
+  const trains = raw.trains.map(([type, num, kind, late, measured, origin, dest, key, avg]) => ({
+    avg: avg ?? null,
     type,
     num,
     kind,

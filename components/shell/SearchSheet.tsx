@@ -28,8 +28,13 @@ export function SearchSheet({ lang }: { lang: Lang }) {
       flushSync(() => setOpen(true));
       document.querySelector<HTMLInputElement>(`.${styles.sheet} input[type=search]`)?.focus();
     };
+    const close = () => setOpen(false);
     window.addEventListener("gp:search", go);
-    return () => window.removeEventListener("gp:search", go);
+    window.addEventListener("gp:url", close);
+    return () => {
+      window.removeEventListener("gp:search", go);
+      window.removeEventListener("gp:url", close);
+    };
   }, []);
   useEffect(() => {
     if (!open) return;
