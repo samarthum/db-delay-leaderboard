@@ -1,11 +1,11 @@
 export const live = {
   "live.title": "Next trains, live",
-  "live.sub": "Long-distance trains leaving {from} for {to} in the next two hours, as Deutsche Bahn reports them now. The figures above are history, not a forecast for these trains.",
+  "live.sub": "Long-distance trains leaving {from} for {to} in the next two hours, as Deutsche Bahn reports them now. The figures above describe past trains, not a forecast for these ones.",
   "live.onTime": "No delay reported",
   "live.late": "{n} min late",
   "live.canc": "Cancelled",
   "live.arrLate": "Arrives {n} min late",
-  "live.arrOn": "Arrives on time",
+  "live.arrOn": "Arrival: no delay reported",
   "live.arrCanc": "Stop at {to} cancelled",
   "live.plat": "Platform {p}",
   "live.platNew": "Now platform {p}",

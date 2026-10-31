@@ -1,11 +1,11 @@
 export const liveDe = {
   "live.title": "Nächste Züge, live",
-  "live.sub": "Fernzüge von {from} nach {to} in den nächsten zwei Stunden, so wie die Deutsche Bahn sie gerade meldet. Die Zahlen oben sind Vergangenheit, keine Vorhersage für diese Züge.",
+  "live.sub": "Fernzüge von {from} nach {to} in den nächsten zwei Stunden, so wie die Deutsche Bahn sie gerade meldet. Die Zahlen oben zeigen vergangene Fahrten und sind keine Vorhersage für diese Züge.",
   "live.onTime": "Keine Verspätung gemeldet",
   "live.late": "{n} Min. zu spät",
   "live.canc": "Fällt aus",
   "live.arrLate": "Ankunft {n} Min. zu spät",
-  "live.arrOn": "Ankunft pünktlich",
+  "live.arrOn": "Ankunft: keine Verspätung gemeldet",
   "live.arrCanc": "Halt in {to} fällt aus",
   "live.plat": "Gleis {p}",
   "live.platNew": "Jetzt Gleis {p}",
