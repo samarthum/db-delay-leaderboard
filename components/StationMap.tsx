@@ -70,7 +70,7 @@ export function StationMap({ stations, params: p, window: w, lang }: { stations:
   const latest = [...big].sort((a, b) => b.avg - a.avg || a.name.localeCompare(b.name)).slice(0, LIST_SIZE);
 
   return (
-    <section id="map" className="sec" aria-labelledby="map-title">
+    <section id="map" className="blk net-map" aria-labelledby="map-title">
       <div>
         <h2 id="map-title">
           {t("network.map.title")}

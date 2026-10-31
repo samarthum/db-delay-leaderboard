@@ -78,7 +78,7 @@ export const routesDe: Record<keyof typeof routes, string> = {
   "route.avgOn": "bei Ankunft in {to}",
   "route.th.dep": "Ab / an",
   "route.th.train": "Zug",
-  "route.th.late": "ab 15 Min.",
+  "route.th.late": "Ø Verspätung",
   "route.picks.line": "Am pünktlichsten: **{best}**, {bp} verspätet. Am häufigsten zu spät: **{worst}**, {wp} verspätet.",
   "route.changes": "Du steigst in {to} um? So oft haben Umstiege dort geklappt",
   "route.revLabel": "Andere Richtung",

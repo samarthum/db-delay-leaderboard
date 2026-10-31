@@ -37,17 +37,14 @@ export function MonthlyChart({ series, lang }: MonthlyChartProps) {
 
   return (
     <div>
-      <p className="seglabel" id="monthly-show">
-        {t("network.monthly.show")}
-      </p>
-      <div className="seg c2" role="group" aria-labelledby="monthly-show">
+      <div className="seg c2 tight" role="group" aria-label={t("network.monthly.show")}>
         {cats.map((c) => (
           <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}>
             {categoryCopy(lang, c).tab}
           </button>
         ))}
       </div>
-      <p className="sec-sub" style={{ marginTop: 14 }}>
+      <p className="net-find">
         {t("network.monthly.summary", {
           plural: copy.plural,
           worstMonth: monthLabel(months[worst].month, lang),

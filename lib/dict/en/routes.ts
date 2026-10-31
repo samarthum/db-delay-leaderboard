@@ -76,7 +76,7 @@ export const routes = {
   "route.avgOn": "on arrival at {to}",
   "route.th.dep": "Dep. / arr.",
   "route.th.train": "Train",
-  "route.th.late": "15+ min",
+  "route.th.late": "Avg. late",
   "route.picks.line": "Most on time: **{best}**, {bp} late. Most often late: **{worst}**, {wp} late.",
   "route.changes": "Changing trains at {to}? See how often changes work there",
   "route.revLabel": "Other direction",

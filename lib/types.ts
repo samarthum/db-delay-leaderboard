@@ -274,7 +274,8 @@ export interface Monthly {
 }
 
 /** [type, number, departure minutes at A, arrival minutes at B, share 15+ min late at B (null when few trips), measured trips] */
-export type RouteTrain = [string, string, number, number, number | null, number];
+/** [type, num, dep, arr, % 15+ late (null = few trips), measured, average minutes late (null = few trips)] */
+export type RouteTrain = [string, string, number, number, number | null, number, (number | null)?];
 
 export interface RouteEntry {
   slug: string;

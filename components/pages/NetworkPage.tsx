@@ -11,14 +11,16 @@ export function NetworkPage({ lang }: { lang: Lang }) {
   const stats = getStats();
   return (
     <main id="main" className="container page">
+      <div style={{ maxWidth: 720 }}>
       <h1 className="h1" style={{ marginTop: 20 }}>
         {t("network.title")}
       </h1>
-      <section className="sec" aria-labelledby="monthly-title">
-        <h2 id="monthly-title">{t("network.monthly.title")}</h2>
+      <section className="blk net-month" aria-labelledby="monthly-title" style={{ marginTop: 16 }}>
+        <h2 id="monthly-title" className="visually-hidden">{t("network.monthly.title")}</h2>
         <MonthlyChart series={getMonthly().series} lang={lang} />
       </section>
       <StationMap stations={getStations().stations} params={stats.params} window={stats.window} lang={lang} />
+      </div>
     </main>
   );
 }

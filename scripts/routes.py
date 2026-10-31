@@ -221,7 +221,8 @@ def main():
         for x in listed_trs:
             ok = x["measured"] >= MIN_TRAIN_RUNS
             listed.append([x["tt"], x["num"], int(x["dep"]), int(x["dep"] + x["pmin"]) % 1440,
-                           round(100 * x["nlate"] / x["measured"], 1) if ok else None, x["measured"]])
+                           round(100 * x["nlate"] / x["measured"], 1) if ok else None, x["measured"],
+                           round(x["sumd"] / x["measured"], 1) if ok else None])
         listed.sort(key=lambda t: (t[2] - 240) % 1440)
         top = busiest[(a, b)]
         npts = top["runs"]

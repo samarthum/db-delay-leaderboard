@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { FOOTER_LINKS } from "./nav";
+import { HideOn } from "./HideOn";
 import { LangSwitch } from "./LangSwitch";
 import styles from "./Shell.module.css";
 
@@ -9,6 +10,7 @@ import styles from "./Shell.module.css";
 export function SiteFooter({ lang }: { lang: Lang }) {
   const t = makeT(lang);
   return (
+    <HideOn paths={["/change/", "/de/umsteigen/"]}>
     <nav className={styles.footer} aria-label={t("nav.other")}>
       <ul className={`container ${styles.footerList}`}>
         {FOOTER_LINKS.map((item) => (
@@ -23,5 +25,6 @@ export function SiteFooter({ lang }: { lang: Lang }) {
         </li>
       </ul>
     </nav>
+    </HideOn>
   );
 }

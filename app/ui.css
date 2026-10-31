@@ -1092,3 +1092,32 @@ ul.plain li {
   flex: 1 1 150px;
   overflow-wrap: break-word;
 }
+
+/* Network page: one quiet rhythm. The finding is the heading of the chart; no thick rules between blocks. */
+.net-find {
+  margin-top: 16px;
+  font-size: 17px;
+  line-height: 1.4;
+  font-weight: 600;
+  text-wrap: pretty;
+}
+.net-month .cols {
+  margin-top: 10px;
+}
+.net-month .disc {
+  margin-top: 4px;
+}
+.net-month .disc summary {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.net-map {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+.net-map .sec-sub {
+  margin-top: 6px;
+  font-size: 15px;
+}

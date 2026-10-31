@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { RouteTrain } from "@/lib/types";
-import { lateShareColor } from "@/lib/colors";
-import { fmtShare } from "@/lib/format";
+import { delayColor, lateShareColor } from "@/lib/colors";
+import { fmt1, fmtShare } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
 import { clock } from "@/lib/routeSearch";
 import { makeT } from "@/lib/t";
@@ -16,6 +16,8 @@ export interface TrainRow {
   t: RouteTrain;
   href: string | null;
 }
+
+const avgOf = (tr: RouteTrain): number | null => (tr[6] === undefined ? null : tr[6]);
 
 function Rows({ rows, lang }: { rows: TrainRow[]; lang: Lang }) {
   const t = makeT(lang);
@@ -31,13 +33,28 @@ function Rows({ rows, lang }: { rows: TrainRow[]; lang: Lang }) {
             </td>
             <td className="tn">{href ? <Link href={href} prefetch={false}>{name}</Link> : name}</td>
             <td className="bar">
-              {tr[4] === null ? null : (
+              {tr[4] === null ? null : avgOf(tr) !== null ? (
+                <span>
+                  <i style={{ width: `${Math.max(2, Math.min(100, (100 * Math.max(0, avgOf(tr) as number)) / 45))}%`, background: delayColor(avgOf(tr) as number) }} />
+                </span>
+              ) : (
                 <span>
                   <i style={{ width: `${tr[4]}%`, background: lateShareColor(tr[4]) }} />
                 </span>
               )}
             </td>
-            <td className="v">{tr[4] === null ? <small>{t("route.trains.few")}</small> : fmtShare(tr[4], lang)}</td>
+            <td className="v">
+              {tr[4] === null ? (
+                <small>{t("route.trains.few")}</small>
+              ) : avgOf(tr) !== null ? (
+                <>
+                  {t("list.avg", { x: fmt1(Math.max(0, avgOf(tr) as number), lang) })}
+                  <small className="wrap">{t("list.late15", { pct: fmtShare(tr[4], lang) })}</small>
+                </>
+              ) : (
+                fmtShare(tr[4], lang)
+              )}
+            </td>
           </tr>
         );
       })}
@@ -51,9 +68,9 @@ function Table({ rows, lang, head }: { rows: TrainRow[]; lang: Lang; head?: bool
     <table className="bt tt">
       <colgroup>
         <col style={{ width: 72 }} />
-        <col style={{ width: 84 }} />
+        <col style={{ width: 78 }} />
         <col />
-        <col style={{ width: 64 }} />
+        <col style={{ width: 92 }} />
       </colgroup>
       {head ? (
         <thead>
@@ -80,7 +97,7 @@ export function TrainList({ rows, lang }: { rows: TrainRow[]; lang: Lang }) {
   const t = makeT(lang);
   const [best, setBest] = useState(false);
   const list = best
-    ? [...rows].sort((a, b) => (a.t[4] === null ? 1 : 0) - (b.t[4] === null ? 1 : 0) || (a.t[4] ?? 0) - (b.t[4] ?? 0) || a.t[2] - b.t[2])
+    ? [...rows].sort((a, b) => (a.t[4] === null ? 1 : 0) - (b.t[4] === null ? 1 : 0) || (avgOf(a.t) ?? a.t[4] ?? 0) - (avgOf(b.t) ?? b.t[4] ?? 0) || a.t[2] - b.t[2])
     : rows;
   const shown = list.slice(0, SHOWN);
   const rest = list.slice(SHOWN);
