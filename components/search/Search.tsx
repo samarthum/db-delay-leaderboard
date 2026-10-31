@@ -124,6 +124,16 @@ export function Search({
   const stopsRef = useRef<StopsIndex | null>(null);
   stopsRef.current = stops;
   const input = useRef<HTMLInputElement>(null);
+  // Phones: the home box is a door to the full-screen search sheet (same as the header magnifier on other pages).
+  const [asDoor, setAsDoor] = useState(false);
+  useEffect(() => {
+    if (variant !== "home") return;
+    const mq = window.matchMedia("(max-width: 959px)");
+    const set = () => setAsDoor(mq.matches && !window.location.search);
+    set();
+    mq.addEventListener("change", set);
+    return () => mq.removeEventListener("change", set);
+  }, [variant]);
 
   // Voice: the mic button lives in the box; the panel under it shows the level and the words as they are heard.
   const [voice, setVoice] = useState<VoiceView>({ phase: "idle" });
@@ -487,7 +497,12 @@ export function Search({
             name="q"
             value={text}
             onChange={(e) => onType(e.target.value)}
+            readOnly={asDoor}
+            onClick={() => {
+              if (asDoor) window.dispatchEvent(new CustomEvent("gp:search"));
+            }}
             onFocus={(e) => {
+              if (asDoor) return;
               warm();
               warmStops();
               setOpen(true);

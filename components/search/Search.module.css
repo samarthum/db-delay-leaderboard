@@ -561,7 +561,13 @@
 }
 
 .figureWrap {
-  margin-top: 4px;
+  margin-top: 6px;
+}
+.figureWrap :global(.fig) {
+  margin-top: 0;
+}
+.input[readonly] {
+  cursor: text;
 }
 
 .idle {

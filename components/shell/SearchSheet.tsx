@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { isHome, readRecent, type Recent } from "@/lib/recent";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
@@ -21,6 +22,15 @@ export function SearchSheet({ lang }: { lang: Lang }) {
   const [recent, setRecent] = useState<Recent[]>([]);
 
   useEffect(() => setOpen(false), [pathname]);
+  // The home page's box opens this sheet on phones. Open and focus in the same tap, so phones show the keyboard.
+  useEffect(() => {
+    const go = () => {
+      flushSync(() => setOpen(true));
+      document.querySelector<HTMLInputElement>(`.${styles.sheet} input[type=search]`)?.focus();
+    };
+    window.addEventListener("gp:search", go);
+    return () => window.removeEventListener("gp:search", go);
+  }, []);
   useEffect(() => {
     if (!open) return;
     setRecent(readRecent(lang).filter((r) => r.href !== pathname));
@@ -36,15 +46,17 @@ export function SearchSheet({ lang }: { lang: Lang }) {
     };
   }, [open, lang, pathname]);
 
-  if (isHome(pathname)) return null;
+  const home = isHome(pathname);
   return (
     <>
+      {home ? null : (
       <button type="button" className={styles.iconBtn} aria-label={t("nav.search")} aria-expanded={open} onClick={() => setOpen(true)}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="square" aria-hidden="true">
           <circle cx="10.5" cy="10.5" r="6" />
           <path d="M15 15l5.5 5.5" />
         </svg>
       </button>
+      )}
       {open ? (
         <div className={styles.sheet} role="dialog" aria-modal="true" aria-label={t("nav.search")}>
           <div className={`container ${styles.sheetTop}`}>
