@@ -19,11 +19,6 @@ export function NetworkPage({ lang }: { lang: Lang }) {
         <MonthlyChart series={getMonthly().series} lang={lang} />
       </section>
       <StationMap stations={getStations().stations} params={stats.params} window={stats.window} lang={lang} />
-      <p style={{ marginTop: 28 }}>
-        <Link href={route(lang, "home")} className="tl" prefetch={false}>
-          {t("more.next")} <Arrow />
-        </Link>
-      </p>
     </main>
   );
 }

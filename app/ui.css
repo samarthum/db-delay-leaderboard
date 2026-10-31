@@ -804,3 +804,276 @@ ul.plain li {
   padding-left: 14px;
   border-left: 2px solid var(--rule);
 }
+
+
+/* Phone redesign v2 ---------------------------------------------------------- */
+/* Title row: page title with 44 px icon actions (swap direction, share) on the right. */
+.titlerow {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 14px;
+}
+.titlerow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.titlerow .acts {
+  display: flex;
+  margin-right: -10px;
+  margin-top: -4px;
+}
+.iconlink {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ink);
+}
+
+/* Label / value rows instead of a cramped three-column strip. */
+.kv {
+  margin-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+.kv > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.kv dt {
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.kv dt small {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+.kv dd {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Rows that open a section: label + chevron, hairline. */
+.folds {
+  margin-top: 36px;
+  border-top: 1px solid var(--rule);
+}
+.fold {
+  border-bottom: 1px solid var(--rule);
+}
+.fold > summary,
+.rowlink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  list-style: none;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+.fold > summary > span,
+.rowlink > span {
+  flex: 1;
+  min-width: 0;
+}
+.fold > summary small,
+.rowlink small {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.fold > summary::after,
+.rowlink::after {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg) translate(-2px, -2px);
+}
+.rowlink::after {
+  transform: rotate(-45deg);
+}
+.fold[open] > summary::after {
+  transform: rotate(-135deg) translate(-2px, -2px);
+}
+.fold > .body {
+  padding-bottom: 22px;
+}
+.fold > .body > .sec,
+.fold > .body > section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.fold > .body .bt {
+  margin-top: 6px;
+}
+.rowlink.alone {
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin-top: 18px;
+}
+
+/* A section head that is quieter than .sec: no thick rule. */
+.blk {
+  margin-top: 32px;
+}
+.blk > h2 {
+  font-size: 22px;
+  line-height: 1.15;
+  font-stretch: 86%;
+  font-weight: 740;
+}
+.blk .seg {
+  margin-top: 12px;
+}
+
+/* Segmented control that swaps one panel: tighter than the old full-width boxes. */
+.seg.tight {
+  gap: 0;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg.tight button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 0;
+  white-space: nowrap;
+  padding-inline: 4px;
+}
+.seg.tight button + button {
+  border-left: 1px solid var(--ink);
+}
+
+/* Compact title that stays at the top once the figure has scrolled away (phones). */
+.sticky-title {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 35;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  transform: translateY(-100%);
+  transition: transform 0.18s ease;
+  pointer-events: none;
+}
+.sticky-title[data-show] {
+  transform: none;
+}
+.sticky-title .container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+}
+.sticky-title .st-t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 650;
+}
+.sticky-title .st-v {
+  font-size: 17px;
+  font-weight: 800;
+  font-stretch: 80%;
+}
+@media (min-width: 960px) {
+  .sticky-title {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticky-title {
+    transition: none;
+  }
+}
+
+/* Answer table at the top of the compensation page. */
+.answer {
+  margin-top: 20px;
+  border-top: 2px solid var(--ink);
+}
+.answer > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 60px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.answer dt {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.answer dt small {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.answer dd {
+  text-align: right;
+  font-size: 26px;
+  font-weight: 800;
+  font-stretch: 80%;
+  line-height: 1;
+  white-space: nowrap;
+}
+.answer dd small {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 400;
+  font-stretch: 100%;
+  color: var(--muted);
+}
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  margin-top: 18px;
+  padding: 8px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+.fold ul.plain li {
+  padding-left: 0;
+  border-left: 0;
+}
+.fold ul.plain {
+  gap: 14px;
+  margin-top: 4px;
+}

@@ -8,7 +8,7 @@ import { unitHref } from "@/lib/site";
 import { makeT } from "@/lib/t";
 import { Arrow, RouteName } from "../Arrow";
 import { RouteText } from "../RouteText";
-import { Search } from "../search/Search";
+import { Tabs } from "../Tabs";
 
 function UnitTable({ list, lang, category }: { list: UnitSummary[]; lang: Lang; category: Category }) {
   const t = makeT(lang);
@@ -70,92 +70,76 @@ export function RankingPage({ lang }: { lang: Lang }) {
 
   return (
     <main id="main" className="container page">
+      <div style={{ maxWidth: 720 }}>
       <h1 className="h1" style={{ marginTop: 20 }}>
         {t("rank.title")}
       </h1>
       <p className="lead" style={{ marginTop: 8 }}>
         {t("rank.lead")} {spanLabel(w.firstMonth, w.lastMonth, lang)}.
       </p>
-      <nav className="seg c3" aria-label={t("rank.jump")} style={{ marginTop: 16 }}>
-        <a href="#routes">{t("rank.jump.routes")}</a>
-        <a href="#trains">{t("rank.jump.trains")}</a>
-        <a href="#lines">{t("rank.jump.lines")}</a>
-      </nav>
-
-      <div className="two-col wide">
-        <div className="main">
-          <section className="sec" id="routes" aria-labelledby="routes-h">
-            <h2 id="routes-h">{t("routes.latest")}</h2>
-            <p className="sec-sub">{t("home.top.sub", { n: league.length })}</p>
+      <Tabs ids={["routes", "trains", "lines"]} labels={[t("rank.jump.routes"), t("rank.tab.trains"), t("rank.tab.lines")]} label={t("rank.jump")}>
+        <section className="blk" aria-labelledby="routes-h" style={{ marginTop: 20 }}>
+          <h2 id="routes-h">{t("routes.latest")}</h2>
+          <p className="sec-sub">{t("home.top.sub", { n: league.length })}</p>
             <table className="bt">
-              <colgroup>
-                <col style={{ width: 28 }} />
-                <col />
-                <col style={{ width: 56 }} />
-                <col style={{ width: 62 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th />
-                  <th>{t("home.top.th1")}</th>
-                  <th />
-                  <th className="r">
-                    {t("rank.th.late")}
-                    <small>{t("rank.th.dbnote")}</small>
-                  </th>
+            <colgroup>
+              <col style={{ width: 28 }} />
+              <col />
+              <col style={{ width: 56 }} />
+              <col style={{ width: 62 }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th />
+                <th>{t("home.top.th1")}</th>
+                <th />
+                <th className="r">
+                  {t("rank.th.late")}
+                  <small>{t("rank.th.dbnote")}</small>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {worst.map((r) => (
+                <tr key={r.slug} className="tap">
+                  <td className="rk">{r.rank}</td>
+                  <td className="two">
+                    <Link href={route(lang, "route", r.slug)} prefetch={false}>
+                      <b>
+                        <RouteName from={r.from} to={r.to} word={t("route.to")} />
+                      </b>
+                      <span>{t("home.top.trips", { n: fmtInt(r.trips, lang) })}</span>
+                    </Link>
+                  </td>
+                  <td className="bar">
+                    <span>
+                      <i style={{ width: `${r.late}%`, background: lateShareColor(r.late) }} />
+                    </span>
+                  </td>
+                  <td className="v">
+                    {fmtShare(r.late, lang)}
+                    <small>{t("rank.db", { pct: fmtShare(r.late6, lang) })}</small>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {worst.map((r) => (
-                  <tr key={r.slug} className="tap">
-                    <td className="rk">{r.rank}</td>
-                    <td className="two">
-                      <Link href={route(lang, "route", r.slug)} prefetch={false}>
-                        <b>
-                          <RouteName from={r.from} to={r.to} word={t("route.to")} />
-                        </b>
-                        <span>{t("home.top.trips", { n: fmtInt(r.trips, lang) })}</span>
-                      </Link>
-                    </td>
-                    <td className="bar">
-                      <span>
-                        <i style={{ width: `${r.late}%`, background: lateShareColor(r.late) }} />
-                      </span>
-                    </td>
-                    <td className="v">
-                      {fmtShare(r.late, lang)}
-                      <small>{t("rank.db", { pct: fmtShare(r.late6, lang) })}</small>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Link href={route(lang, "routes")} className="more" prefetch={false}>
-              {t("routes.all", { n: data.routes.length })} <Arrow />
-            </Link>
-          </section>
-        </div>
-        <div className="aside">
-          <section className="sec" id="trains" aria-labelledby="trains-h">
-            <h2 id="trains-h">{t("rank.trains.title")}</h2>
-            <p className="sec-sub">{t("rank.trains.sub")}</p>
-            <UnitTable list={trains} lang={lang} category="longDistance" />
-          </section>
-        </div>
+              ))}
+            </tbody>
+          </table>
+          <Link href={route(lang, "routes")} className="more" prefetch={false}>
+            {t("routes.all", { n: data.routes.length })} <Arrow />
+          </Link>
+        </section>
+        <section className="blk" aria-labelledby="trains-h" style={{ marginTop: 20 }}>
+          <h2 id="trains-h">{t("rank.trains.title")}</h2>
+          <p className="sec-sub">{t("rank.trains.sub")}</p>
+          <UnitTable list={trains} lang={lang} category="longDistance" />
+        </section>
+        <section className="blk" aria-labelledby="lines-h" style={{ marginTop: 20 }}>
+          <h2 id="lines-h">{t("rank.lines.title")}</h2>
+          <p className="sec-sub">{t("rank.lines.sub")}</p>
+          <UnitTable list={lines} lang={lang} category="regional" />
+        </section>
+      </Tabs>
       </div>
-
-      <section className="sec" id="lines" aria-labelledby="lines-h" style={{ maxWidth: 720 }}>
-        <h2 id="lines-h">{t("rank.lines.title")}</h2>
-        <p className="sec-sub">{t("rank.lines.sub")}</p>
-        <UnitTable list={lines} lang={lang} category="regional" />
-      </section>
-
-      <section className="sec" aria-labelledby="find">
-        <h2 id="find">{t("route.ownTitle")}</h2>
-        <div style={{ maxWidth: 560 }}>
-          <Search lang={lang} variant="inline" />
-        </div>
-      </section>
     </main>
   );
 }

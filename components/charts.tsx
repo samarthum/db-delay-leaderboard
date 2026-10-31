@@ -153,7 +153,7 @@ export function Columns({
                 </text>
               ) : (
                 <>
-                  <rect x={x} y={top + ph - (ph * it.value) / max} width={cw} height={(ph * it.value) / max} fill={it.color ?? "#14161A"} />
+                  <rect x={x} y={top + ph - (ph * Math.max(0, it.value)) / max} width={cw} height={(ph * Math.max(0, it.value)) / max} fill={it.color ?? "#14161A"} />
                   {showValues ? (
                     <text className="lab" x={x + cw / 2} y={top + ph - (ph * it.value) / max - 6} textAnchor="middle">
                       {fmt(it.value)}

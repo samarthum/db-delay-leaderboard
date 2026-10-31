@@ -107,4 +107,6 @@ export const unitDe: Record<keyof typeof unit, string> = {
   "unit.curve.aria": "{name}: durchschnittliche Verspätung Halt für Halt. {list}",
   "unit.hist.aria": "Anteil der Fahrten nach Minuten Verspätung: {list}",
   "unit.month.aria": "Durchschnittliche Verspätung pro Monat: {list}",
+  "unit.more.month": "Monat für Monat",
+  "unit.more.stops": "Halt für Halt",
 };

@@ -17,13 +17,15 @@ interface ShareButtonProps {
   /** Path of the share picture. When the phone can share files it goes along; otherwise the link is shared. */
   image?: string;
   filename?: string;
+  /** "icon": a 44 px share glyph for a title row; the label becomes its accessible name. */
+  look?: "button" | "icon";
 }
 
 /**
  * One Share button. On a phone it opens the share sheet with the picture attached; elsewhere it shares the link, or
  * copies it and says so ("Link copied."), or shows the link to copy by hand.
  */
-export function ShareButton({ title, text, url, label, lang = "en", image, filename = "german-punctuality" }: ShareButtonProps) {
+export function ShareButton({ title, text, url, label, lang = "en", image, filename = "german-punctuality", look = "button" }: ShareButtonProps) {
   const [status, setStatus] = useState("");
   const t = makeT(lang);
 
@@ -58,6 +60,20 @@ export function ShareButton({ title, text, url, label, lang = "en", image, filen
     window.setTimeout(() => setStatus(""), 6000);
   }
 
+  if (look === "icon") {
+    return (
+      <div className={styles.iconWrap}>
+        <button type="button" className={styles.icon} onClick={share} aria-label={label} title={label}>
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+            <path d="M12 3v12M7.5 7.5L12 3l4.5 4.5M5 11v9h14v-9" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="square" />
+          </svg>
+        </button>
+        <p className={styles.toast} aria-live="polite" role="status">
+          {status}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className={styles.share}>
       <button type="button" className="btn" onClick={share}>

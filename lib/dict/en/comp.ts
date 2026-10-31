@@ -54,4 +54,13 @@ export const comp = {
   "comp.expect.4": "If you expect to arrive 60 minutes or more late and DB has not told you how to continue within 100 minutes of the planned departure of the late or cancelled train (or of the connection you missed), you can book another train, coach or bus yourself and claim the necessary, reasonable cost. In this case DB does not pay for taxis, planes or being picked up privately.",
   "comp.how.4": "Keep your ticket or booking, and take a screenshot of the delay or cancellation in DB Navigator. A cancelled train counts too: what matters is how late you reach the station on your ticket.",
   "comp.how.5": "You can ask for money instead of a voucher, and DB has to pay within a month of your claim.",
+  "comp.sub": "For Deutsche Bahn long-distance tickets. What counts is when you reach the destination on your ticket.",
+  "comp.row60": "60 to 119 min late",
+  "comp.row120": "120+ min late",
+  "comp.ofFare": "of the fare",
+  "comp.within": "Claim within",
+  "comp.withinSub": "DB still accepts claims up to about 12 months after the trip for now",
+  "comp.months3": "months",
+  "comp.cta": "Claim on bahn.de or in DB Navigator",
+  "comp.often.title": "How often trains are this late",
 } as const;

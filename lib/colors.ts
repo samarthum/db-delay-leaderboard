@@ -25,10 +25,10 @@ export const DELAY_SCALE: readonly DelayBucket[] = [
 ] as const;
 
 /** Station map: a station's average arrival delay. Stations average far less than single trains, so the steps are tighter. */
+/** Three steps (grey, amber, red): four was too fine for 4 px dots, and green next to red fails colour-blind readers. */
 export const STATION_SCALE: readonly { from: number; color: string; label: string }[] = [
-  { from: -Infinity, color: SAFE, label: "under 2" },
-  { from: 2, color: FAIR, label: "2 to 4" },
-  { from: 4, color: WARN, label: "4 to 6" },
+  { from: -Infinity, color: "#a3a9b1", label: "under 4" },
+  { from: 4, color: "#e39b16", label: "4 to 6" },
   { from: 6, color: LATE, label: "6+ min" },
 ] as const;
 

@@ -83,4 +83,10 @@ export const routes = {
   "route.rankLine": "No. {n} of {total} for delays.",
   "route.ownTitle": "Your own trip?",
   "route.rankings": "Routes, ranked",
+  "route.trains.heading": "Trains on this route",
+  "route.sort.label": "Sort trains",
+  "route.sort.time": "By time",
+  "route.sort.best": "Most on time",
+  "route.facts": "Delays and cancellations",
+  "route.swap": "Other direction: {from} to {to}",
 } as const;

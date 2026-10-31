@@ -54,4 +54,13 @@ export const compDe = {
   "comp.expect.4": "Erwartest du, mindestens 60 Minuten zu spät anzukommen, und hat die Bahn dir innerhalb von 100 Minuten nach der planmäßigen Abfahrt des verspäteten oder ausgefallenen Zuges (oder des verpassten Anschlusses) nicht gesagt, wie du weiterkommst, kannst du selbst einen anderen Zug oder Bus buchen und dir die notwendigen, angemessenen Kosten erstatten lassen. Taxi, Flugzeug und private Abholung zahlt die Bahn in diesem Fall nicht.",
   "comp.how.4": "Heb dein Ticket oder deine Buchung auf und mach einen Screenshot der Verspätung oder des Ausfalls im DB Navigator. Auch ein ausgefallener Zug zählt: Entscheidend ist, wie spät du am Zielbahnhof deines Tickets ankommst.",
   "comp.how.5": "Du kannst Geld statt eines Gutscheins verlangen. Die Bahn muss innerhalb eines Monats nach dem Antrag zahlen.",
+  "comp.sub": "Für Fernverkehrstickets der Deutschen Bahn. Entscheidend ist, wann du am Zielbahnhof deines Tickets ankommst.",
+  "comp.row60": "60 bis 119 Min. verspätet",
+  "comp.row120": "ab 120 Min. verspätet",
+  "comp.ofFare": "des Fahrpreises",
+  "comp.within": "Antragsfrist",
+  "comp.withinSub": "Die Deutsche Bahn nimmt Anträge derzeit noch bis etwa 12 Monate nach der Fahrt an",
+  "comp.months3": "Monate",
+  "comp.cta": "Antrag stellen auf bahn.de oder im DB Navigator",
+  "comp.often.title": "Wie oft Züge so viel Verspätung haben",
 } as const;

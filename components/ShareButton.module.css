@@ -14,3 +14,35 @@
 .status:empty {
   display: none;
 }
+
+.iconWrap {
+  position: relative;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.toast {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  z-index: 20;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  padding: 8px 12px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 14px;
+  word-break: break-all;
+}
+.toast:empty {
+  display: none;
+}

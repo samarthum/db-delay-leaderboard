@@ -102,8 +102,8 @@ export function Search({
   /** The answer a page opens with, shown above the box while nothing is searched. */
   figure?: React.ReactNode;
   title?: string;
-  /** "inline" is the compact "Your own trip?" box on route and train pages. */
-  variant?: "home" | "inline";
+  /** "inline" is a compact box that answers on the home page; "sheet" is the same inside the header's search sheet. */
+  variant?: "home" | "inline" | "sheet";
 }) {
   const t = makeT(lang);
   const uid = useId();
@@ -149,7 +149,7 @@ export function Search({
 
   const commit = useCallback((next: Applied, mode: "push" | "replace") => {
     // The compact box on a route or train page answers on the home page, so the page the visitor came from stays as it was.
-    if (variant === "inline") {
+    if (variant !== "home") {
       if (next.q || next.s) router.push(urlFor(next, route(lang, "home")));
       return;
     }
@@ -434,7 +434,7 @@ export function Search({
   const examples = lang === "de" ? EXAMPLES_DE : EXAMPLES;
   const routeish = /\s|→|->|\d:\d/.test(text.trim());
   const indexLoading = !ta || (routeish && !stops && !stopsFailed);
-  const showHelp = open && !text.trim() && !applied.q && !applied.s && voice.phase === "idle";
+  const showHelp = (open || variant === "sheet") && !text.trim() && !applied.q && !applied.s && voice.phase === "idle";
   const stationEntry: TaStationEntry | null = ta && applied.s ? (ta.stations.find((s) => s.name === applied.s) ?? null) : null;
   const span = spanLabel(SEARCH_INDEX.window.firstMonth, SEARCH_INDEX.window.lastMonth, lang);
   const listId = `${uid}-list`;
@@ -468,8 +468,8 @@ export function Search({
       ) : null}
       {hasQuery || !figure ? null : <div className={styles.figureWrap}>{figure}</div>}
       <form className={styles.field} role="search" onSubmit={submit} autoComplete="off">
-        <label htmlFor={`${uid}-q`} className={styles.label}>
-          {variant === "inline" ? (
+        <label htmlFor={`${uid}-q`} className={variant === "sheet" ? "visually-hidden" : styles.label}>
+          {variant !== "home" ? (
             <>
               {t("own.label")}
             </>
@@ -538,7 +538,7 @@ export function Search({
           </div>
         ) : null}
           {showHelp ? (
-            <div className={styles.help} role="group" aria-label={t("help.title")}>
+            <div className={variant === "sheet" ? styles.helpStatic : styles.help} role="group" aria-label={t("help.title")}>
               <p className={styles.helpTitle}>{t("help.title")}</p>
               <ul>
                 {HELP.map((h) => (
@@ -557,7 +557,7 @@ export function Search({
 
       <VoicePanel view={voice} lang={lang} getLevel={() => session.current?.level ?? 0} onStop={stopVoice} onCancel={closeVoice} onRetry={startVoice} />
 
-      {!hasQuery && voice.phase === "idle" ? (
+      {variant === "inline" && !hasQuery && voice.phase === "idle" ? (
         <p className={styles.eg}>
           <span>{t("home.egLabel")}:</span>
           {examples.map((ex) => (
@@ -568,13 +568,6 @@ export function Search({
         </p>
       ) : null}
 
-      {variant === "home" && !hasQuery && voice.phase === "idle" ? (
-        <p className={styles.change}>
-          <Link href={route(lang, "change")} prefetch={false}>
-            {t("conn.title")} <Arrow />
-          </Link>
-        </p>
-      ) : null}
 
       {!hasQuery && idle ? <div className={styles.idle}>{idle}</div> : null}
 

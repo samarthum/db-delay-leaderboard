@@ -58,60 +58,103 @@ export function CompensationPage({ lang }: { lang: Lang }) {
         {t("comp.title")}
       </h1>
       <p className="lead" style={{ marginTop: 8, fontSize: 16, maxWidth: "62ch" }}>
-        {t("comp.lead")}
+        {t("comp.sub")}
       </p>
 
-      <dl className="facts">
-        <div>
-          <dt>{t("comp.tile60")}</dt>
-          <dd>
-            {fmtShare1(c.network.p60, lang)}
-            <small>{t("comp.tile60Sub")}</small>
-          </dd>
-        </div>
-        <div>
-          <dt>{t("comp.tile120")}</dt>
-          <dd>
-            {fmtShare1(c.network.p120, lang)}
-            <small>{t("comp.tile120Sub")}</small>
-          </dd>
-        </div>
-      </dl>
-      <p className="basis" style={{ marginTop: 10 }}>
-        {t("comp.basis", { n: fmtInt(c.network.measured, lang), span })}
-      </p>
-      <p className="note" style={{ marginTop: 6 }}>
-        {t("comp.guide")}
-      </p>
+      <div style={{ maxWidth: 640 }}>
+        <dl className="answer">
+          <div>
+            <dt>{t("comp.row60")}</dt>
+            <dd>
+              {lang === "de" ? "25\u00a0%" : "25%"}
+              <small>{t("comp.ofFare")}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>{t("comp.row120")}</dt>
+            <dd>
+              {lang === "de" ? "50\u00a0%" : "50%"}
+              <small>{t("comp.ofFare")}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>
+              {t("comp.within")}
+              <small>{t("comp.withinSub")}</small>
+            </dt>
+            <dd>
+              3<small>{t("comp.months3")}</small>
+            </dd>
+          </div>
+        </dl>
+        <a className="cta" href="https://www.bahn.de/service/informationen-buchung/fahrgastrechte" rel="noopener" target="_blank">
+          {t("comp.cta")}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M8 6h10v10M18 6L6 18" />
+          </svg>
+        </a>
 
-      <section className="sec" aria-labelledby="claim">
-        <h2 id="claim">{t("comp.claim.title")}</h2>
-        {list(CLAIM)}
-      </section>
-
-      <section className="sec" aria-labelledby="expect">
-        <h2 id="expect">{t("comp.expect.title")}</h2>
-        {list(EXPECT)}
-      </section>
-
-      <section className="sec" aria-labelledby="refuse">
-        <h2 id="refuse">{t("comp.refuse.title")}</h2>
-        {list(REFUSE)}
-      </section>
-
-      <section className="sec" aria-labelledby="tickets">
-        <h2 id="tickets">{t("comp.tickets.title")}</h2>
-        {list(TICKETS)}
-      </section>
-
-      <section className="sec" aria-labelledby="how">
-        <h2 id="how">{t("comp.how.title")}</h2>
-        {list(HOW)}
-      </section>
-
-      <section className="sec" aria-labelledby="where">
-        <h2 id="where">{t("comp.routes.title")}</h2>
-        <p className="sec-sub">{t("comp.routes.sub", { n: fmtInt(getRoutes().params.leagueMinTrips, lang), span })}</p>
+        <div className="folds" style={{ marginTop: 28 }}>
+        <details className="fold">
+          <summary>
+            <span>{t("comp.claim.title")}</span>
+          </summary>
+          <div className="body">{list(CLAIM)}</div>
+        </details>
+        <details className="fold">
+          <summary>
+            <span>{t("comp.expect.title")}</span>
+          </summary>
+          <div className="body">{list(EXPECT)}</div>
+        </details>
+        <details className="fold">
+          <summary>
+            <span>{t("comp.refuse.title")}</span>
+          </summary>
+          <div className="body">{list(REFUSE)}</div>
+        </details>
+        <details className="fold">
+          <summary>
+            <span>{t("comp.tickets.title")}</span>
+          </summary>
+          <div className="body">{list(TICKETS)}</div>
+        </details>
+        <details className="fold">
+          <summary>
+            <span>{t("comp.how.title")}</span>
+          </summary>
+          <div className="body">{list(HOW)}</div>
+        </details>
+        <details className="fold">
+          <summary>
+            <span>{t("comp.often.title")}</span>
+          </summary>
+          <div className="body">
+            <dl className="kv" style={{ marginTop: 0 }}>
+              <div>
+                <dt>
+                  {t("comp.tile60")}
+                  <small>{t("comp.tile60Sub")}</small>
+                </dt>
+                <dd>{fmtShare1(c.network.p60, lang)}</dd>
+              </div>
+              <div>
+                <dt>
+                  {t("comp.tile120")}
+                  <small>{t("comp.tile120Sub")}</small>
+                </dt>
+                <dd>{fmtShare1(c.network.p120, lang)}</dd>
+              </div>
+            </dl>
+            <p className="basis" style={{ marginTop: 10 }}>
+              {t("comp.basis", { n: fmtInt(c.network.measured, lang), span })}
+            </p>
+            <p className="note" style={{ marginTop: 6 }}>
+              {t("comp.guide")}
+            </p>
+            <h3 style={{ marginTop: 24, fontSize: 17 }}>{t("comp.routes.title")}</h3>
+        
+        <p className="sec-sub" style={{ marginTop: 14 }}>{t("comp.routes.sub", { n: fmtInt(getRoutes().params.leagueMinTrips, lang), span })}</p>
         <table className="bt">
           <colgroup>
             <col />
@@ -142,11 +185,10 @@ export function CompensationPage({ lang }: { lang: Lang }) {
             })}
           </tbody>
         </table>
-      </section>
-
-      <section className="sec" aria-labelledby="months">
-        <h2 id="months">{t("comp.months.title")}</h2>
-        <p className="sec-sub">{t("comp.months.sub", { worst: monthLabel(months[worst].month, lang), pct: fmtShare1(months[worst].p60 ?? 0, lang) })}</p>
+      
+            <h3 style={{ marginTop: 24, fontSize: 17 }}>{t("comp.months.title")}</h3>
+        
+        <p className="sec-sub" style={{ marginTop: 14 }}>{t("comp.months.sub", { worst: monthLabel(months[worst].month, lang), pct: fmtShare1(months[worst].p60 ?? 0, lang) })}</p>
         <Columns
           items={months.map((m, i) => ({ label: monthShort(m.month, lang).charAt(0), value: m.p60, color: i === worst ? "#14161A" : "#9AA0A8" }))}
           lang={lang}
@@ -156,7 +198,10 @@ export function CompensationPage({ lang }: { lang: Lang }) {
           gap={5}
           label={t("comp.months.aria")}
         />
-      </section>
+      </div>
+        </details>
+        </div>
+      </div>
 
       <section className="sec" aria-labelledby="src">
         <h2 id="src">{t("comp.src.title")}</h2>
@@ -174,11 +219,6 @@ export function CompensationPage({ lang }: { lang: Lang }) {
         </p>
       </section>
 
-      <p className="note" style={{ marginTop: 28 }}>
-        <Link href={route(lang, "home")} className="tl" prefetch={false}>
-          {t("more.next")} <Arrow />
-        </Link>
-      </p>
     </main>
   );
 }

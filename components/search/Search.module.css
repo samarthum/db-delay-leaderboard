@@ -619,3 +619,22 @@
     max-width: 15ch;
   }
 }
+
+/* Inside the header's search sheet: the "You can type" list sits in the page, not floating over it. */
+.helpStatic {
+  margin-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+.helpStatic .helpTitle {
+  padding: 14px 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.helpStatic .helpItem {
+  padding-left: 0;
+  padding-right: 0;
+}
+.root[data-variant="sheet"] .inputWrap {
+  height: 52px;
+}

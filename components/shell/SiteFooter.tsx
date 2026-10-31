@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { FOOTER_LINKS } from "./nav";
+import { LangSwitch } from "./LangSwitch";
 import styles from "./Shell.module.css";
 
 /** The pages that are not tabs, as a plain row of links at the end of every page. Phones only: from 960 px the header lists them. */
@@ -17,6 +18,9 @@ export function SiteFooter({ lang }: { lang: Lang }) {
             </Link>
           </li>
         ))}
+        <li>
+          <LangSwitch lang={lang} />
+        </li>
       </ul>
     </nav>
   );

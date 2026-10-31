@@ -85,4 +85,10 @@ export const routesDe: Record<keyof typeof routes, string> = {
   "route.rankLine": "Platz {n} von {total} bei den Verspätungen.",
   "route.ownTitle": "Deine eigene Fahrt?",
   "route.rankings": "Strecken im Ranking",
+  "route.trains.heading": "Züge auf dieser Strecke",
+  "route.sort.label": "Züge sortieren",
+  "route.sort.time": "Nach Uhrzeit",
+  "route.sort.best": "Nach Pünktlichkeit",
+  "route.facts": "Verspätungen und Ausfälle",
+  "route.swap": "Gegenrichtung: von {from} nach {to}",
 };

@@ -194,7 +194,7 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
   const sChosen = Boolean(st && station);
 
   return (
-    <section className="sec" aria-labelledby="ct-q1" style={{ marginTop: 18 }}>
+    <section className="sec" aria-labelledby="ct-q1" style={{ marginTop: 8, paddingTop: 0, borderTop: 0 }}>
       {!train ? (
         <p className="sec-sub" style={{ marginTop: 0 }}>
           {t("cx.sub")}
@@ -213,7 +213,7 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
       ) : (
         <>
           <p className="seglabel" id="ct-q1">
-            1. {t("cx.q1")}
+            {t("cx.q1")}
           </p>
           <form
             className={styles.find}
@@ -239,6 +239,7 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
+              inputMode="search"
               spellCheck={false}
               enterKeyHint="go"
             />
@@ -260,21 +261,11 @@ export function ChangeTrains({ lang, span }: { lang: Lang; span: string }) {
       )}
       {failed ? <p className="note">{t("conn.failed")}</p> : null}
 
-      {!train ? (
-        <p className="eg-line" style={{ marginTop: 6, fontSize: 15, color: "var(--ink-2)" }}>
-          {t("home.egLabel")}:{" "}
-          {EXAMPLES.map((k) => (
-            <button key={k} type="button" className="tl" style={{ marginRight: 14, minHeight: 44, background: "none", border: 0, padding: 0, font: "inherit", color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 4, cursor: "pointer" }} onClick={() => onExample(k)}>
-              {k}
-            </button>
-          ))}
-        </p>
-      ) : null}
 
       {tr && stations.length > 0 && !sChosen ? (
         <>
           <p className="seglabel" id="ct-q2">
-            2. {t("cx.q2")}
+            {t("cx.q2")}
           </p>
           <div className="seg wrap" role="group" aria-labelledby="ct-q2">
             {stations.map((s) => (

@@ -25,11 +25,6 @@ export function ChangePage({ lang }: { lang: Lang }) {
         <ChangeTrains lang={lang} span={span} />
         <TypicalGuide lang={lang} />
       </div>
-      <p className="note" style={{ marginTop: 28 }}>
-        <Link href={route(lang, "home")} className="tl" prefetch={false}>
-          {t("conn.page.next")} <Arrow />
-        </Link>
-      </p>
     </main>
   );
 }

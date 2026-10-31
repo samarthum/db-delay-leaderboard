@@ -8,7 +8,6 @@ import { absoluteUrl, routeImagePath } from "@/lib/site";
 import { makeT } from "@/lib/t";
 import { Arrow, RouteName } from "../Arrow";
 import { ShareButton } from "../ShareButton";
-import { Search } from "../search/Search";
 
 function RouteRows({ rows, lang, ranked, db }: { rows: RouteEntry[]; lang: Lang; ranked?: boolean; db?: boolean }) {
   const t = makeT(lang);
@@ -92,13 +91,6 @@ export function RoutesPage({ lang }: { lang: Lang }) {
           </section>
         </div>
       </div>
-
-      <section className="sec" aria-labelledby="find">
-        <h2 id="find">{t("routes.search")}</h2>
-        <div style={{ maxWidth: 560 }}>
-          <Search lang={lang} variant="inline" />
-        </div>
-      </section>
 
       <section className="sec" aria-labelledby="all">
         <h2 id="all">{t("routes.all", { n: all.length })}</h2>

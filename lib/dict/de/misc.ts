@@ -64,4 +64,6 @@ export const miscDe: Record<keyof typeof misc, string> = {
   "more.next": "Suche deinen eigenen Zug, deine Strecke oder deinen Bahnhof",
   "method.q.rule": "Was ist die 6-Minuten-Regel der Deutschen Bahn?",
   "method.a.rule": "In der eigenen Pünktlichkeitsstatistik der Deutschen Bahn gilt ein Zug ab 6 Minuten als verspätet. Wir zählen ab 15 Minuten und zeigen beides: Die beiden Balken oben auf einer Seite zeigen dieselben Fahrten auf derselben Skala.",
+  "rank.tab.trains": "Fernzüge",
+  "rank.tab.lines": "Nahverkehr",
 };

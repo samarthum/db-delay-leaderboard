@@ -130,7 +130,116 @@
   text-underline-offset: 4px;
 }
 
+.headerEnd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: -10px;
+}
+.wideOnly {
+  display: none;
+}
+.iconBtn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.footerList .langLink {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+/* Search sheet: full screen on phones, a panel under the header on wide screens. */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  background: var(--paper);
+  overscroll-behavior: contain;
+}
+.sheetTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  border-bottom: 1px solid var(--rule);
+}
+.sheetTitle {
+  font-weight: 700;
+  font-size: 17px;
+}
+.sheetClose {
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sheetBody {
+  padding-top: 14px;
+  padding-bottom: 40px;
+  max-width: 720px;
+}
+.recent {
+  margin-top: 22px;
+}
+.recentTitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.recent ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+.recent a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+.recent a > span {
+  flex: 1;
+  min-width: 0;
+}
+.recent b {
+  display: block;
+  font-weight: 600;
+}
+.recent small {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+.recent em {
+  font-style: normal;
+  font-weight: 700;
+}
+
 @media (min-width: 960px) {
+  .wideOnly {
+    display: inline;
+  }
+  .headerEnd {
+    margin-right: 0;
+  }
   .footer {
     display: none;
   }

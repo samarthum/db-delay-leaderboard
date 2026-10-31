@@ -62,4 +62,6 @@ export const misc = {
   "more.next": "Look up your own train, route or station",
   "method.q.rule": "What is Deutsche Bahn’s own 6-minute rule?",
   "method.a.rule": "Deutsche Bahn’s own punctuality figure counts a train as late from 6 minutes. We count from 15 minutes and show both: the two bars at the top of a page use the same trips and the same scale.",
+  "rank.tab.trains": "Trains",
+  "rank.tab.lines": "Regional",
 } as const;

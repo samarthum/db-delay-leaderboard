@@ -15,7 +15,7 @@ import { Rich } from "../Rich";
 import { RouteText } from "../RouteText";
 import { ShareButton } from "../ShareButton";
 import { Columns, StopLine } from "../charts";
-import { Search } from "../search/Search";
+import { RememberPage, StickyTitle } from "../PageTools";
 import { categoryCopy, unitKind } from "../pageFormat";
 
 function shareOf(bins: HistBin[], from: number): number {
@@ -128,6 +128,8 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
 
   return (
     <main id="main" className="container page">
+      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(t.origin)} → ${shortStation(t.dest)}`, value: fmtShare(latePct, lang) }} />
+      <StickyTitle title={t.name} value={fmtShare(latePct, lang)} />
       <BackLink lang={lang} />
 
       <div className="two-col">
@@ -135,9 +137,12 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           <p className="basis" style={{ marginTop: 10, fontSize: 15, fontWeight: 600, color: "var(--ink-2)" }}>
             {kindLine}
           </p>
-          <h1 className="h1" style={{ marginTop: 2 }}>
-            {t.name}
-          </h1>
+          <div className="titlerow" style={{ marginTop: 2 }}>
+            <h1 className="h1">{t.name}</h1>
+            <div className="acts">
+              <ShareButton look="icon" lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
+            </div>
+          </div>
           <p className="lead" style={{ marginTop: 8, fontSize: 16 }}>
             {isLine ? (
               <RouteText unit={t} lang={lang} />
@@ -154,61 +159,46 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             pct6={t.late6Pct}
             lang={lang}
             sentence={<Rich text={tr("res.figure")} />}
-            basis={`${tr("res.exact", { pct: fmtShare1(latePct, lang), n: fmtInt(t.measured, lang) })} ${tr("res.basis", { span })}`}
+            basis={tr("home.networkBasis", { trips: fmtInt(t.measured, lang), span })}
           />
 
-          <dl className="facts three">
+          <dl className="kv">
             <div>
               <dt>{tr("unit.avgTile")}</dt>
               <dd>
-                {fmt1(t.minutes.avg, lang)}
-                <small>{min}</small>
+                {fmt1(t.minutes.avg, lang)} {min}
               </dd>
             </div>
             <div>
-              <dt>{tr("unit.cancTile")}</dt>
-              <dd>
-                {fmtShare1(t.fullCancelPct, lang)}
+              <dt>
+                {tr("unit.cancTile")}
                 <small>{tr("unit.cancNote", { n: fmtInt(t.runs, lang) })}</small>
-              </dd>
+              </dt>
+              <dd>{fmtShare1(t.fullCancelPct, lang)}</dd>
             </div>
             {t.worstRun ? (
               <div>
-                <dt>{tr("unit.worst")}</dt>
-                <dd>
-                  {fmtDuration(t.worstRun.delayMin, lang)}
+                <dt>
+                  {tr("unit.worst")}
                   <small>{fmtDate(t.worstRun.date, lang)}</small>
-                </dd>
+                </dt>
+                <dd>{fmtDuration(t.worstRun.delayMin, lang)}</dd>
               </div>
             ) : null}
           </dl>
 
-          <div className="actions">
-            <ShareButton lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
-          </div>
-
-          <section className="sec" aria-labelledby="own">
-            <h2 id="own">{tr("unit.ownTitle")}</h2>
-            <Search lang={lang} variant="inline" />
-          </section>
+          {canChange ? (
+            <Link href={`${route(lang, "change")}?t=${encodeURIComponent(t.name)}`} className="rowlink" prefetch={false} style={{ borderBottom: "1px solid var(--rule)" }}>
+              <span>
+                {tr("conn.train.title", { train: t.name })}
+                <small>{tr("cx.train.link")}</small>
+              </span>
+            </Link>
+          ) : null}
         </div>
 
         <div className="aside">
-          {canChange ? (
-            <section className="sec" aria-labelledby="change-from">
-              <h2 id="change-from">{tr("conn.train.title", { train: t.name })}</h2>
-              <p className="sec-sub">{tr("cx.train.sub")}</p>
-              <Link href={`${route(lang, "change")}?t=${encodeURIComponent(t.name)}`} className="more" prefetch={false}>
-                {tr("cx.train.link")} <Arrow />
-              </Link>
-            </section>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="two-col">
-        <div className="main">
-          <section className="sec" aria-labelledby="distribution">
+          <section className="blk" aria-labelledby="distribution">
             <h2 id="distribution">{histHeadline}</h2>
             <p className="sec-sub">{tr("unit.hist.onTime", { pct: fmtShare1(onTime, lang) })}</p>
             <Columns
@@ -217,17 +207,43 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               unit="pct"
               threshold={3}
               thresholdLabel={lang === "de" ? "15 Min." : "15 min"}
-              height={200}
+              height={180}
               gap={6}
               label={tr("unit.hist.aria", { list: t.histogram.map((b) => `${b.label} ${fmtShare1(b.share, lang)}`).join(", ") })}
             />
             <p className="basis">{tr("unit.hist.cap")}</p>
           </section>
+        </div>
+      </div>
 
-          <section className="sec" aria-labelledby="by-month">
-            <h2 id="by-month">
-              {worstMonth && worstMonth.avg !== null ? tr("unit.month.worst", { month: monthLabel(worstMonth.month, lang), avg: fmt1(worstMonth.avg, lang) }) : tr("unit.month.default")}
-            </h2>
+      <div className="folds">
+        {t.stops.length > 0 ? (
+          <details className="fold">
+            <summary>
+              <span>{jump ? tr("unit.route.jump", { from: shortStation(jump.from), to: shortStation(jump.to), delta: fmt1(jump.delta, lang) }) : tr("unit.route.default")}</span>
+            </summary>
+            <div className="body">
+              
+              <p className="sec-sub">{tr("unit.stops.cap", { extra: isLine ? tr("unit.route.extra", { a: shortStation(first.name), b: shortStation(last.name) }) : "" })}</p>
+              <StopLine
+                points={t.stops.map((s) => ({ name: shortStation(s.name), value: s.avgDelay }))}
+                lang={lang}
+                unit="min"
+                xmax={Math.max(20, Math.ceil(Math.max(...t.stops.map((s) => s.avgDelay)) / 10) * 10)}
+                jump={jump?.i ?? null}
+                rowh={28}
+                labelW={160}
+                label={tr("unit.curve.aria", { name: t.name, list: t.stops.map((s) => `${shortStation(s.name)} ${fmt1(s.avgDelay, lang)}`).join(", ") })}
+              />
+            </div>
+          </details>
+        ) : null}
+        <details className="fold">
+          <summary>
+            <span>{worstMonth && worstMonth.avg !== null ? tr("unit.month.worst", { month: monthLabel(worstMonth.month, lang), avg: fmt1(worstMonth.avg, lang) }) : tr("unit.month.default")}</span>
+          </summary>
+          <div className="body">
+            
             <p className="sec-sub">{tr("unit.month.cap", { plural: copy.plural })}</p>
             <Columns
               items={monthItems}
@@ -240,32 +256,15 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               label={tr("unit.month.aria", { list: t.monthly.map((m) => `${monthLabel(m.month, lang)} ${m.avg === null ? "–" : fmt1(m.avg, lang)}`).join(", ") })}
             />
             {emptyMonths.length > 0 ? <p className="basis">{tr("unit.month.noTrips", { months: emptyMonths.join(", ") })}</p> : null}
-          </section>
-        </div>
-
-        <div className="aside">
-          {t.stops.length > 0 ? (
-            <section className="sec" aria-labelledby="route">
-              <h2 id="route">{jump ? tr("unit.route.jump", { from: shortStation(jump.from), to: shortStation(jump.to), delta: fmt1(jump.delta, lang) }) : tr("unit.route.default")}</h2>
-              <p className="sec-sub">{tr("unit.stops.cap", { extra: isLine ? tr("unit.route.extra", { a: shortStation(first.name), b: shortStation(last.name) }) : "" })}</p>
-              <StopLine
-                points={t.stops.map((s) => ({ name: shortStation(s.name), value: s.avgDelay }))}
-                lang={lang}
-                unit="min"
-                xmax={Math.max(20, Math.ceil(Math.max(...t.stops.map((s) => s.avgDelay)) / 10) * 10)}
-                jump={jump?.i ?? null}
-                rowh={28}
-                labelW={160}
-                label={tr("unit.curve.aria", { name: t.name, list: t.stops.map((s) => `${shortStation(s.name)} ${fmt1(s.avgDelay, lang)}`).join(", ") })}
-              />
-            </section>
-          ) : null}
-        </div>
-      </div>
-
-      {runs.length > 0 ? (
-        <section className="sec" aria-labelledby="runs">
-          <h2 id="runs">{tr("unit.routesTitle", { name: t.name })}</h2>
+          </div>
+        </details>
+        {runs.length > 0 ? (
+          <details className="fold">
+            <summary>
+              <span>{tr("unit.routesTitle", { name: t.name })}</span>
+            </summary>
+            <div className="body">
+          
           <p className="sec-sub">{tr("unit.routesSub")}</p>
           <table className="bt">
             <colgroup>
@@ -294,11 +293,14 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               ))}
             </tbody>
           </table>
-        </section>
-      ) : null}
-
-      <details className="disc numbers">
-        <summary>{tr("unit.numbers")}</summary>
+        </div>
+          </details>
+        ) : null}
+        <details className="fold">
+          <summary>
+            <span>{tr("unit.numbers")}</span>
+          </summary>
+          <div className="body numbers" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
         <div className="groups">
           {groups.map((g) => (
             <div key={g.title}>
@@ -318,7 +320,9 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           {routesNote} {t.stops.length > 0 ? `${tr("unit.stopsFrom", { n: fmtInt(t.stopsSequenceRuns, lang), runs: fmtInt(t.runs, lang) })} ` : ""}
           {isLine ? "" : tr("unit.abroad")}
         </p>
-      </details>
+      </div>
+        </details>
+      </div>
       <p className="basis" style={{ display: "none" }}>
         <Arrow />
         {delayColor(0)}

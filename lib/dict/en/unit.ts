@@ -105,4 +105,6 @@ export const unit = {
   "unit.curve.aria": "{name}: average delay stop by stop. {list}",
   "unit.hist.aria": "Share of trips by minutes late: {list}",
   "unit.month.aria": "Average delay per month: {list}",
+  "unit.more.month": "Month by month",
+  "unit.more.stops": "Stop by stop",
 } as const;
