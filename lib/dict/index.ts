@@ -11,6 +11,7 @@ import { routes } from "./en/routes";
 import { voice } from "./en/voice";
 import { conn } from "./en/conn";
 import { comp } from "./en/comp";
+import { live } from "./en/live";
 import { shellDe } from "./de/shell";
 import { homeDe } from "./de/home";
 import { miscDe } from "./de/misc";
@@ -24,8 +25,9 @@ import { routesDe } from "./de/routes";
 import { voiceDe } from "./de/voice";
 import { connDe } from "./de/conn";
 import { compDe } from "./de/comp";
+import { liveDe } from "./de/live";
 
 /** Every string on the site. English is the source of truth; German must have exactly the same keys. */
-export const EN = { ...shell, ...home, ...misc, ...ranking, ...network, ...method, ...unit, ...recap, ...seo, ...routes, ...voice, ...conn, ...comp };
+export const EN = { ...shell, ...home, ...misc, ...ranking, ...network, ...method, ...unit, ...recap, ...seo, ...routes, ...voice, ...conn, ...comp, ...live };
 export type Key = keyof typeof EN;
-export const DE: Record<Key, string> = { ...shellDe, ...homeDe, ...miscDe, ...rankingDe, ...networkDe, ...methodDe, ...unitDe, ...recapDe, ...seoDe, ...routesDe, ...voiceDe, ...connDe, ...compDe };
+export const DE: Record<Key, string> = { ...shellDe, ...homeDe, ...miscDe, ...rankingDe, ...networkDe, ...methodDe, ...unitDe, ...recapDe, ...seoDe, ...routesDe, ...voiceDe, ...connDe, ...compDe, ...liveDe };

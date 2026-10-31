@@ -451,6 +451,62 @@
   text-underline-offset: 4px;
   text-decoration-thickness: 1px;
 }
+/* Live board on route pages */
+.live .time {
+  padding: 8px 0;
+}
+.live .time .at {
+  display: block;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.live .st {
+  padding: 8px 0 8px 12px;
+  line-height: 1.25;
+}
+.live .st b {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.live .st b::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  background: var(--c, var(--ink-2));
+}
+.live .st small {
+  display: block;
+  margin-top: 1px;
+  padding-left: 17px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.live tr.cx .time .at {
+  text-decoration: line-through;
+  color: var(--ink-2);
+}
+.live tr.cx .tn {
+  color: var(--ink-2);
+}
+.live-note {
+  margin-top: 14px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.live-src {
+  margin-top: 12px;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.live-src a {
+  text-underline-offset: 3px;
+}
 .picks {
   margin-top: 12px;
   font-size: 16px;

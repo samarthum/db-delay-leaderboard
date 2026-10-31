@@ -1,0 +1,17 @@
+export const liveDe = {
+  "live.title": "Nächste Züge, live",
+  "live.sub": "Fernzüge von {from} nach {to} in den nächsten zwei Stunden, so wie die Deutsche Bahn sie gerade meldet. Die Zahlen oben sind Vergangenheit, keine Vorhersage für diese Züge.",
+  "live.onTime": "Keine Verspätung gemeldet",
+  "live.late": "{n} Min. zu spät",
+  "live.canc": "Fällt aus",
+  "live.arrLate": "Ankunft {n} Min. zu spät",
+  "live.arrOn": "Ankunft pünktlich",
+  "live.arrCanc": "Halt in {to} fällt aus",
+  "live.plat": "Gleis {p}",
+  "live.platNew": "Jetzt Gleis {p}",
+  "live.empty": "In den nächsten zwei Stunden fährt kein Fernzug von {from} nach {to}.",
+  "live.unavailable": "Die Live-Daten sind gerade nicht verfügbar. Versuch es in einer Minute noch einmal.",
+  "live.updated": "Stand {time} Uhr, aktualisiert sich jede Minute.",
+  "live.source": "Live-Daten: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0. Verspätungen können sich ändern: Schau vor der Fahrt im DB Navigator nach.",
+  "footer.live": "Live-Status: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0",
+} as const;

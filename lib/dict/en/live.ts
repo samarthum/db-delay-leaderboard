@@ -1,0 +1,17 @@
+export const live = {
+  "live.title": "Next trains, live",
+  "live.sub": "Long-distance trains leaving {from} for {to} in the next two hours, as Deutsche Bahn reports them now. The figures above are history, not a forecast for these trains.",
+  "live.onTime": "No delay reported",
+  "live.late": "{n} min late",
+  "live.canc": "Cancelled",
+  "live.arrLate": "Arrives {n} min late",
+  "live.arrOn": "Arrives on time",
+  "live.arrCanc": "Stop at {to} cancelled",
+  "live.plat": "Platform {p}",
+  "live.platNew": "Now platform {p}",
+  "live.empty": "No long-distance trains leave {from} for {to} in the next two hours.",
+  "live.unavailable": "Live data is not available right now. Try again in a minute.",
+  "live.updated": "Updated {time}, refreshes every minute.",
+  "live.source": "Live data: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0. Delays can change: check the DB Navigator before you travel.",
+  "footer.live": "Live status: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0",
+} as const;

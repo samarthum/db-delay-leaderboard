@@ -11,6 +11,7 @@ import { Arrow, RouteName } from "../Arrow";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
+import { LiveBoard } from "../LiveBoard";
 import { NearTime, type NearRow } from "../NearTime";
 import { StopLine } from "../charts";
 import { Search } from "../search/Search";
@@ -170,6 +171,8 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
           </Link>
         ) : null}
       </div>
+
+      <LiveBoard from={r.from} to={r.to} lang={lang} />
 
       <NearTime rows={nearRows} from={r.from} lang={lang} />
 

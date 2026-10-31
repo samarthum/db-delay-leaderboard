@@ -1,0 +1,306 @@
+{
+ "Aschaffenburg Hbf": {
+  "eva": "8000010",
+  "name": "Aschaffenburg Hbf"
+ },
+ "Augsburg Hbf": {
+  "eva": "8000013",
+  "name": "Augsburg Hbf"
+ },
+ "Baden-Baden": {
+  "eva": "8000774",
+  "name": "Baden-Baden"
+ },
+ "Bamberg": {
+  "eva": "8000025",
+  "name": "Bamberg"
+ },
+ "Berlin Gesundbrunnen": {
+  "eva": "8011102",
+  "name": "Berlin Gesundbrunnen"
+ },
+ "Berlin Hbf": {
+  "eva": "8098160",
+  "name": "Berlin Hbf"
+ },
+ "Berlin Südkreuz": {
+  "eva": "8011113",
+  "name": "Berlin Südkreuz"
+ },
+ "Berlin-Spandau": {
+  "eva": "8010404",
+  "name": "Berlin-Spandau"
+ },
+ "Bielefeld Hbf": {
+  "eva": "8000036",
+  "name": "Bielefeld Hbf"
+ },
+ "Bitterfeld": {
+  "eva": "8010050",
+  "name": "Bitterfeld"
+ },
+ "Bochum Hbf": {
+  "eva": "8000041",
+  "name": "Bochum Hbf"
+ },
+ "Braunschweig Hbf": {
+  "eva": "8000049",
+  "name": "Braunschweig Hbf"
+ },
+ "Bremen Hbf": {
+  "eva": "8000050",
+  "name": "Bremen Hbf"
+ },
+ "Böblingen": {
+  "eva": "8001055",
+  "name": "Böblingen"
+ },
+ "Darmstadt Hbf": {
+  "eva": "8000068",
+  "name": "Darmstadt Hbf"
+ },
+ "Dortmund Hbf": {
+  "eva": "8000080",
+  "name": "Dortmund Hbf"
+ },
+ "Dresden Hbf": {
+  "eva": "8010085",
+  "name": "Dresden Hbf"
+ },
+ "Dresden-Neustadt": {
+  "eva": "8010089",
+  "name": "Dresden-Neustadt"
+ },
+ "Duisburg Hbf": {
+  "eva": "8000086",
+  "name": "Duisburg Hbf"
+ },
+ "Düsseldorf Flughafen": {
+  "eva": "8000082",
+  "name": "Düsseldorf Flughafen"
+ },
+ "Düsseldorf Hbf": {
+  "eva": "8000085",
+  "name": "Düsseldorf Hbf"
+ },
+ "Eisenach Hbf": {
+  "eva": "8010097",
+  "name": "Eisenach Hbf"
+ },
+ "Erfurt Hbf": {
+  "eva": "8010101",
+  "name": "Erfurt Hbf"
+ },
+ "Erlangen": {
+  "eva": "8001844",
+  "name": "Erlangen"
+ },
+ "Essen Hbf": {
+  "eva": "8000098",
+  "name": "Essen Hbf"
+ },
+ "Frankfurt Flughafen": {
+  "eva": "8070003",
+  "name": "Frankfurt(M) Flughafen Fernbf"
+ },
+ "Frankfurt Hbf": {
+  "eva": "8000105",
+  "name": "Frankfurt(Main)Hbf"
+ },
+ "Freiburg Hbf": {
+  "eva": "8000107",
+  "name": "Freiburg(Breisgau) Hbf"
+ },
+ "Fulda": {
+  "eva": "8000115",
+  "name": "Fulda"
+ },
+ "Gelsenkirchen Hbf": {
+  "eva": "8000118",
+  "name": "Gelsenkirchen Hbf"
+ },
+ "Göttingen": {
+  "eva": "8000128",
+  "name": "Göttingen"
+ },
+ "Gütersloh Hbf": {
+  "eva": "8002461",
+  "name": "Gütersloh Hbf"
+ },
+ "Halle Hbf": {
+  "eva": "8010159",
+  "name": "Halle(Saale)Hbf"
+ },
+ "Hamburg Dammtor": {
+  "eva": "8002548",
+  "name": "Hamburg Dammtor"
+ },
+ "Hamburg Hbf": {
+  "eva": "8002549",
+  "name": "Hamburg Hbf"
+ },
+ "Hamburg-Altona": {
+  "eva": "8002553",
+  "name": "Hamburg-Altona"
+ },
+ "Hamburg-Harburg": {
+  "eva": "8000147",
+  "name": "Hamburg-Harburg"
+ },
+ "Hamm Hbf": {
+  "eva": "8000149",
+  "name": "Hamm(Westf)Hbf"
+ },
+ "Hannover Hbf": {
+  "eva": "8000152",
+  "name": "Hannover Hbf"
+ },
+ "Heidelberg Hbf": {
+  "eva": "8000156",
+  "name": "Heidelberg Hbf"
+ },
+ "Hildesheim Hbf": {
+  "eva": "8000169",
+  "name": "Hildesheim Hbf"
+ },
+ "Horb": {
+  "eva": "8000177",
+  "name": "Horb"
+ },
+ "Ingolstadt Hbf": {
+  "eva": "8000183",
+  "name": "Ingolstadt Hbf"
+ },
+ "Karlsruhe Hbf": {
+  "eva": "8000191",
+  "name": "Karlsruhe Hbf"
+ },
+ "Kassel-Wilhelmshöhe": {
+  "eva": "8003200",
+  "name": "Kassel-Wilhelmshöhe"
+ },
+ "Koblenz Hbf": {
+  "eva": "8000206",
+  "name": "Koblenz Hbf"
+ },
+ "Köln Hbf": {
+  "eva": "8000207",
+  "name": "Köln Hbf"
+ },
+ "Köln Messe/Deutz": {
+  "eva": "8003368",
+  "name": "Köln Messe/Deutz"
+ },
+ "Köthen": {
+  "eva": "8010195",
+  "name": "Köthen"
+ },
+ "Leipzig Hbf": {
+  "eva": "8010205",
+  "name": "Leipzig Hbf"
+ },
+ "Lutherstadt Wittenberg Hbf": {
+  "eva": "8010222",
+  "name": "Lutherstadt Wittenberg Hbf"
+ },
+ "Lüneburg": {
+  "eva": "8000238",
+  "name": "Lüneburg"
+ },
+ "Magdeburg Hbf": {
+  "eva": "8010224",
+  "name": "Magdeburg Hbf"
+ },
+ "Mannheim Hbf": {
+  "eva": "8000244",
+  "name": "Mannheim Hbf"
+ },
+ "Minden": {
+  "eva": "8000252",
+  "name": "Minden(Westf)"
+ },
+ "München Hbf": {
+  "eva": "8000261",
+  "name": "München Hbf"
+ },
+ "München Ost": {
+  "eva": "8000262",
+  "name": "München Ost"
+ },
+ "München-Pasing": {
+  "eva": "8004158",
+  "name": "München-Pasing"
+ },
+ "Münster Hbf": {
+  "eva": "8000263",
+  "name": "Münster(Westf)Hbf"
+ },
+ "Nürnberg Hbf": {
+  "eva": "8000284",
+  "name": "Nürnberg Hbf"
+ },
+ "Oberhausen Hbf": {
+  "eva": "8000286",
+  "name": "Oberhausen Hbf"
+ },
+ "Offenburg": {
+  "eva": "8000290",
+  "name": "Offenburg"
+ },
+ "Osnabrück Hbf": {
+  "eva": "8000294",
+  "name": "Osnabrück Hbf"
+ },
+ "Riesa": {
+  "eva": "8010297",
+  "name": "Riesa"
+ },
+ "Rosenheim": {
+  "eva": "8000320",
+  "name": "Rosenheim"
+ },
+ "Rottweil": {
+  "eva": "8000322",
+  "name": "Rottweil"
+ },
+ "Siegburg/Bonn": {
+  "eva": "8005556",
+  "name": "Siegburg/Bonn"
+ },
+ "Singen (Hohentwiel)": {
+  "eva": "8000073",
+  "name": "Singen(Hohentwiel)"
+ },
+ "Stendal Hbf": {
+  "eva": "8010334",
+  "name": "Stendal Hbf"
+ },
+ "Stuttgart Hbf": {
+  "eva": "8000096",
+  "name": "Stuttgart Hbf"
+ },
+ "Traunstein": {
+  "eva": "8000116",
+  "name": "Traunstein"
+ },
+ "Tuttlingen": {
+  "eva": "8000163",
+  "name": "Tuttlingen"
+ },
+ "Uelzen": {
+  "eva": "8000168",
+  "name": "Uelzen"
+ },
+ "Ulm Hbf": {
+  "eva": "8000170",
+  "name": "Ulm Hbf"
+ },
+ "Wolfsburg Hbf": {
+  "eva": "8006552",
+  "name": "Wolfsburg Hbf"
+ },
+ "Würzburg Hbf": {
+  "eva": "8000260",
+  "name": "Würzburg Hbf"
+ }
+}
