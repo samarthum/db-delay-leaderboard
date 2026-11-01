@@ -90,8 +90,14 @@ redeploy. The variable is inlined at build time, so a redeploy is required.
 ## Attribution
 
 - Data: Deutsche Bahn via [piebro/deutsche-bahn-data](https://github.com/piebro/deutsche-bahn-data), CC BY 4.0.
+- Live status: Deutsche Bahn AG, Timetables API, CC BY 4.0. Abroad: [Transitous](https://transitous.org/sources/)
+  (open data of each country's railways, OpenStreetMap ODbL), used under its non-commercial, open-source usage policy.
 - Station coordinates: [Trainline stations](https://github.com/trainline-eu/stations) (ODbL).
 - Map outline: [Natural Earth](https://www.naturalearthdata.com) (public domain), simplified by `scripts/germany_outline.py`.
 - Fonts: Barlow, Barlow Condensed and Roboto Mono (SIL OFL, licences in `scripts/fonts/`).
 
 Not affiliated with Deutsche Bahn.
+
+## Licence
+
+Code: MIT (see `LICENSE`). Data files keep the licences of their sources listed above.

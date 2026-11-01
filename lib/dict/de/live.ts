@@ -14,6 +14,7 @@ export const liveDe = {
   "live.updated": "Stand {time} Uhr, aktualisiert sich jede Minute.",
   "live.source": "Live-Daten: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0. Verspätungen können sich ändern: Schau vor der Fahrt im DB Navigator nach.",
   "footer.live": "Live-Status: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0",
+  "footer.liveAbroad": "Live-Status im Ausland: [Transitous](https://transitous.org/sources/) (offene Daten der Bahnen der einzelnen Länder; Kartendaten © OpenStreetMap-Mitwirkende, ODbL)",
   "live.next": "Nächste Fahrt: {day} um {time} ab {from}.",
   "live.next.when": "Live-Daten ab {time} Uhr.",
   "live.next.today": "heute",

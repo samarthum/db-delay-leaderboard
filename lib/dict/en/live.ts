@@ -14,6 +14,7 @@ export const live = {
   "live.updated": "Updated {time}, refreshes every minute.",
   "live.source": "Live data: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0. Delays can change: check the DB Navigator before you travel.",
   "footer.live": "Live status: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0",
+  "footer.liveAbroad": "Live status abroad: [Transitous](https://transitous.org/sources/) (open data of each country's railways; map data © OpenStreetMap contributors, ODbL)",
   "live.next": "Next: {day} {time} from {from}.",
   "live.next.when": "Live times from {time}.",
   "live.next.today": "today",

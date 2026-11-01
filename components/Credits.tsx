@@ -21,6 +21,9 @@ export function Credits({ lang, generatedAt }: { lang: Lang; generatedAt: string
           <Rich text={t("footer.live")} />
         </li>
         <li>
+          <Rich text={t("footer.liveAbroad")} />
+        </li>
+        <li>
           <Rich text={t("footer.map")} />
         </li>
         <li>{t("footer.affiliation")}</li>
