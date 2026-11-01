@@ -31,3 +31,70 @@ Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0),
 - Diagnose a missing pair by following the real trains through each filter (dropped entirely / unstable planned time / rare stop) before touching thresholds; the cause is usually a data-shaping filter, not a threshold.
 - Python `%` formatting breaks when a label contains `%`; use f-strings in check scripts.
 - A pipe to tail/head hides the real exit code: when a step prints failure words, re-run it unpiped.
+
+## Last 7 days (scripts/last7.py -> data/last7.json, daily)
+Per long-distance train number and service day: departure delay at the first German stop, arrival delay at the last
+German stop, cancelled, or no data. Shown on every train page and search card (`components/LastWeek.tsx`). Runs daily in
+GitHub Actions (`.github/workflows/last7.yml`); tests `tests/data/test_last7.py` (fixture), independent check
+`tests/data/verify_last7.py`, UI `tests/e2e/last7.mjs`.
+
+### The raw files (inspected Nov 2026 from piebro's code; Hugging Face was blocked from the build sandbox)
+- Path `raw_data/year=YYYY/month=M/day=D/date_YYYY-MM-DD_hour_HH_HH....parquet`. The FOLDER is the UTC day of the
+  fetch (piebro's runner clock, `datetime.now()` on GitHub Actions); the FILE NAME is the plan date and the Berlin plan
+  hours it holds. One fetch run that covers hours of two dates writes two files (and fetches `fchg` twice). Older files
+  may be named `.../day=D/hour_HH_HH.parquet` (same meaning).
+- Columns: `timestamp` (fetch time, naive, UTC), `url`, `api_name`, `query_params`, `response_data` (the raw answer),
+  `status_code` (a STRING, "200"), `error`, `duration_ms` (+ year/month/day partition ints). One row per API call.
+- `api_name` values used: `timetables/v1/plan` (url `.../plan/<eva>/<yyMMdd>/<HH>`: the planned stops of one station
+  and hour) and `timetables/v1/fchg` (url `.../fchg/<eva>`: every known change at a station, about 6 hours back).
+  Also `station-data/v2/stations` and `fasta/v2/facilities` (ignored). Failed calls have another status code.
+- XML: `<timetable station="..."><s id="<trip>-<yyMMddHHmm start>-<stop no>">` with `<tl c="ICE" n="123" t="p" .../>`
+  (type, number; t="e" extra train), `<ar>` / `<dp>` with `pt` planned, `ct` changed time, `cs` status (c cancelled,
+  p planned/reinstated), `clt` cancellation time, `ps="a"` additional stop, `ppth` planned path; `<ref><tl/></ref>` in
+  fchg names the train a replacement replaces. fchg entries usually have no `tl`: they are matched to the plan by id.
+  Times are Berlin wall clock.
+- Schedule (piebro `fetch_and_upload_data.yml`): 03:17, 09:17, 15:17, 21:17 UTC; each run fetches the plan for the
+  Berlin hours from 9 h back to 2 h ahead that are not on Hugging Face yet (repairs gaps), plus one fchg per station
+  (~5,400 stations, categories 1-7), then uploads. The upload is one Hugging Face commit.
+
+### Rules (same as piebro's monthly stop table + compute.py)
+- Stop rows: latest plan snapshot per stop id, latest fchg snapshot per id among those that carry a change (piebro's
+  filter), full outer join; changed time = fchg `ct`, else the planned time (a stop with no change record counts as no
+  delay: say "no delay reported"); cancelled = `cs == "c"` if `cs` is set, else `clt` present (reinstated is not
+  cancelled); replacement = tl t="e" or a `ref`; additional = ps="a". Rows with no time at all are dropped (as in the
+  monthly files).
+- Scope: compute.py's long-distance types (ICE IC EC ECE RJ RJX FLX TGV WB), no replacement trains. A run is all stops
+  with the same `<trip>-<start>` id prefix; it belongs to the day of its scheduled start (min planned time); delays
+  outside -10..600 min are not measured (null). A number running twice on one day keeps the earlier run (logged).
+- Departure = the first stop (by stop number) with a planned departure; arrival = the LAST stop with a planned arrival
+  (the planned final German stop, cancelled or not). This differs on purpose from the 11-month figure, which measures
+  at the last stop actually served: a rider at the final stop needs to see "cancelled" there.
+- Whole run cancelled = every timed stop cancelled -> "x". An end stop cancelled -> that end "x".
+- Window: the 7 newest COMPLETE service days. A day is complete once a change list exists from 10:00 Berlin the next
+  day (piebro's 09:17 UTC fetch): the last trains arrive after midnight, overnight ICEs about 07:00-08:00, and fchg
+  keeps an event only ~6 h. The newest complete day is yesterday at best.
+- Missing data is never shown as a delay. A run is "?" when (a) one of its stops has a change record but no plan
+  record (its plan hour was never fetched), or (b) an hour between its start and 2 h after its last planned time is
+  missing: a plan hour no file name covers, or a stretch between two fetch runs more than 7 h apart (fchg's ~6 h reach
+  then loses the final delays: in the fixture ICE 100 then reads the stale 4-min forecast instead of its real 9). The
+  per-day missing hours are in `gaps`.
+- Unknown until the first real run (check its log): how far fchg really reaches back (assumed 6 h; the 7 h gap rule
+  depends on it) and the real file sizes (the job logs GB and per-file MB).
+
+### Output and size
+`{"asOf", "dataTo", "days": [7 ISO dates], "gaps": {date: [Berlin hours]}, "stations": [names], "trains": {"ICE 123":
+[usual first stop idx, usual last stop idx, [7 cells]]}}`; a cell is null (no run in the data), "x", "?", or
+[dep, arr] (minutes, "x" or null), with [dep, arr, first idx, last idx] when that day's ends differ from the usual.
+Every long-distance number seen in the week is in it, so every card (not only the 50 train pages) has it. Measured
+with a synthetic week at full scale (1,732 trains, the real station list): 124 kB, 40 kB gzip. `copy-search.mjs` splits
+it into `public/last7/<first two digits>.json` (~1-2 kB each, like the search shards) plus `index.json`; a missing file
+gives an empty index (no 404 in the console). Per-stop 7-day data for the "Getting on or off at another stop?" picker
+was left out: ~10-15 stops per train would make it ~10x bigger (~1.2 MB, 400 kB gzip) for a fold few open; the block
+says it is for the whole run and names both stops.
+
+### Verify
+`tests/data/verify_last7.py` re-derives the window, the missing hours and every cell for a sample (all train pages,
+every train with a cancellation or "?", a spread of the rest) with regular expressions and plain dicts (no lxml, no
+DuckDB), and the workflow refuses to commit on any difference. `scripts/last7.py --check` gates the commit: 7
+consecutive days, asOf at most 4 days old and never older than the committed one, 600+ trains, 5+ days with 300+
+measured runs, under 400 kB.

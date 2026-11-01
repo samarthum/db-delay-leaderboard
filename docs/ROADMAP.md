@@ -11,6 +11,8 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 6. Trains from abroad: real origin, route search from abroad, border stations live, departure abroad via Transitous.
 7. Weekly refresh job for the abroad data. Repo made public under MIT.
 8. Home redesign around "my train today" (1 Nov 2026; branch, owner's yes pending): log in `docs/notes/home-redesign-log.md`.
+9. Last 7 days per train on every train page and card, from piebro's raw files, refreshed daily by GitHub Actions
+   (Nov 2026, PR; owner's yes pending): `docs/notes/data-pipeline.md` ("Last 7 days"), log `docs/notes/last7-log.md`.
 
 ## Next (owner picks the order)
 1. **Monthly report card.** A shareable monthly summary ("October: long-distance trains averaged 17 min late, worst
@@ -22,10 +24,9 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
    Owner: wait until there is traffic (it costs money and upkeep).
 
 ## Data gaps found by the home redesign (story: "how has my train been doing lately?")
-- **Last 7 days per train**: no data. History is monthly (Parquet, Nov 2025 - Sep 2026) and the live collector
-  (`gp-collect.service`, gtfs.de feed) is stopped. To fill it: restart the collector (or poll DB Timetables `/fchg`
-  for saved trains), store per-run final delays, then show "last 7 days: X of Y runs 15+ min late" on card and page.
-  Note the free gtfs.de feed covers ~66% of ICE/IC and almost no EC/ECE/RJ (see live-and-international notes).
+- ~~Last 7 days per train~~: done (item 9), from piebro's raw files (updated every 6 h), not the stopped collector.
+  Left open: per-stop 7-day data for riders getting on/off mid-route (~10x the file; the block says "whole run");
+  check the first real runs' logs for the fchg reach-back and file sizes (data-pipeline notes).
 - **Latest month on the search result card**: only the 50 train pages carry per-month averages; the search index
   (`data/search/n-*.json`, from `scripts/compute.py`) has none. Add a `[month, runs, avg]` field for the last 1-3
   months per unit, recompute from Parquet, verify independently (RULES), then show the same "latest month" line the

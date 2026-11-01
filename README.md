@@ -91,7 +91,9 @@ redeploy. The variable is inlined at build time, so a redeploy is required.
 
 ## Attribution
 
-- Data: Deutsche Bahn via [piebro/deutsche-bahn-data](https://github.com/piebro/deutsche-bahn-data), CC BY 4.0.
+- Data: Deutsche Bahn via [piebro/deutsche-bahn-data](https://github.com/piebro/deutsche-bahn-data), CC BY 4.0
+  (monthly files for the history, the raw API answers for the last 7 days; station names from that project's
+  `config/eva_to_station_name.json`, MIT).
 - Live status: Deutsche Bahn AG, Timetables API, CC BY 4.0. Abroad: [Transitous](https://transitous.org/sources/)
   (open data of each country's railways, OpenStreetMap ODbL), used under its non-commercial, open-source usage policy.
 - Station coordinates: [Trainline stations](https://github.com/trainline-eu/stations) (ODbL).

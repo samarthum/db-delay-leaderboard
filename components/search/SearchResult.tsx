@@ -14,6 +14,7 @@ import { Figure } from "../Figure";
 import { LiveNow } from "../LiveNow";
 import { SaveButton } from "../SaveButton";
 import { OwnStops } from "../OwnStops";
+import { LastWeek } from "../LastWeek";
 import { remember } from "@/lib/recent";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
@@ -178,6 +179,7 @@ export function SearchResult({
       {abroadEnd ? <p className={styles.fineNote}>{t("res.toBorder", { dest: shortStation(unit.dest) })}</p> : null}
       {unit.kind === 0 ? <LiveNow train={name} lang={lang} quiet dest={abroadEnd ? shortStation(unit.dest) : undefined} origin={foreignOrigin(name) ? undefined : shortStation(unit.origin)} /> : null}
       {unit.kind === 0 ? <OwnStops train={name} lang={lang} /> : null}
+      {unit.kind === 0 ? <LastWeek train={name} lang={lang} /> : null}
 
       <h4 className={styles.past}>{t("res.past", { span })}</h4>
       <div className={styles.leadWrap}>

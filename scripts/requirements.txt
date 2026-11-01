@@ -1,1 +1,4 @@
 duckdb==2.0.0
+# scripts/last7.py (raw XML files)
+pyarrow==26.0.0
+lxml==6.1.3

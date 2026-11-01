@@ -13,6 +13,7 @@ import { conn } from "./en/conn";
 import { comp } from "./en/comp";
 import { live } from "./en/live";
 import { today } from "./en/today";
+import { week } from "./en/week";
 import { shellDe } from "./de/shell";
 import { homeDe } from "./de/home";
 import { miscDe } from "./de/misc";
@@ -28,8 +29,9 @@ import { connDe } from "./de/conn";
 import { compDe } from "./de/comp";
 import { liveDe } from "./de/live";
 import { todayDe } from "./de/today";
+import { weekDe } from "./de/week";
 
 /** Every string on the site. English is the source of truth; German must have exactly the same keys. */
-export const EN = { ...shell, ...home, ...misc, ...ranking, ...network, ...method, ...unit, ...recap, ...seo, ...routes, ...voice, ...conn, ...comp, ...live, ...today };
+export const EN = { ...shell, ...home, ...misc, ...ranking, ...network, ...method, ...unit, ...recap, ...seo, ...routes, ...voice, ...conn, ...comp, ...live, ...today, ...week };
 export type Key = keyof typeof EN;
-export const DE: Record<Key, string> = { ...shellDe, ...homeDe, ...miscDe, ...rankingDe, ...networkDe, ...methodDe, ...unitDe, ...recapDe, ...seoDe, ...routesDe, ...voiceDe, ...connDe, ...compDe, ...liveDe, ...todayDe };
+export const DE: Record<Key, string> = { ...shellDe, ...homeDe, ...miscDe, ...rankingDe, ...networkDe, ...methodDe, ...unitDe, ...recapDe, ...seoDe, ...routesDe, ...voiceDe, ...connDe, ...compDe, ...liveDe, ...todayDe, ...weekDe };

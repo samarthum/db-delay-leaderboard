@@ -122,3 +122,38 @@ const stations = [...byStation.entries()].sort((a, b) => a[0].localeCompare(b[0]
 const out = JSON.stringify({ trains, stations });
 await fs.writeFile(path.join(TO, "ta.json"), out);
 console.log(`typeahead: ${trains.length} trains and lines, ${stations.length} stations, ${(out.length / 1e3).toFixed(0)} kB`);
+
+// Last 7 days per train (scripts/last7.py, refreshed daily by .github/workflows/last7.yml): one committed file, split
+// here by the first two digits of the number (as the search shards) so a card fetches ~1-2 kB, not the whole week.
+// public/last7/index.json has the dates and the shard list; each shard {"ICE 123": {o, d, c}} has station names inline.
+{
+  const OUT = path.join(ROOT, "public", "last7");
+  await fs.rm(OUT, { recursive: true, force: true });
+  try {
+    const week = JSON.parse(await fs.readFile(path.join(ROOT, "data", "last7.json"), "utf8"));
+    const st = week.stations;
+    const name = (i) => (i === null || i === undefined ? null : st[i]);
+    const shards = {};
+    for (const [unit, [o, d, cells]] of Object.entries(week.trains)) {
+      const num = unit.split(" ")[1] ?? "";
+      const key = (/^\d*/.exec(num)?.[0] ?? "").slice(0, 2) || "_"; // lib/searchCore.ts shardKey
+      const c = cells.map((x) => (Array.isArray(x) && x.length > 2 ? [x[0], x[1], name(x[2]), name(x[3])] : x));
+      (shards[key] ??= {})[unit] = { o: name(o), d: name(d), c };
+    }
+    await fs.mkdir(OUT, { recursive: true });
+    let bytes = 0;
+    for (const [key, trains] of Object.entries(shards)) {
+      const body = JSON.stringify(trains);
+      bytes += Buffer.byteLength(body);
+      await fs.writeFile(path.join(OUT, `${key}.json`), body);
+    }
+    const index = { asOf: week.asOf, days: week.days, gaps: week.gaps, shards: Object.keys(shards).sort() };
+    await fs.writeFile(path.join(OUT, "index.json"), JSON.stringify(index));
+    console.log(`last7: ${Object.keys(week.trains).length} trains to ${week.asOf} in ${Object.keys(shards).length} shards (${(bytes / 1e3).toFixed(0)} kB) in public/last7`);
+  } catch (e) {
+    // An empty index (not a missing file): the browser would log a 404 as a console error on every train page.
+    await fs.mkdir(OUT, { recursive: true });
+    await fs.writeFile(path.join(OUT, "index.json"), JSON.stringify({ asOf: null, days: [], gaps: {}, shards: [] }));
+    console.log(`last7: data/last7.json not found or unreadable (${e.code ?? e.message}); the "last 7 days" block stays hidden`);
+  }
+}

@@ -1,0 +1,82 @@
+name: Last 7 days
+
+# Daily: per long-distance train, the last 7 complete service days (scripts/last7.py -> data/last7.json).
+# piebro/deutsche-bahn-data fetches DB's Timetables API at 03:17, 09:17, 15:17 and 21:17 UTC and uploads the raw
+# answers to Hugging Face after each fetch (about 30-45 min). A service day is complete only with the 09:17 UTC
+# change list of the NEXT day: the last trains of a day arrive after midnight, overnight ones around 07:00-08:00, and a
+# change list keeps an event for about 6 hours. A late-evening run (after the 21:17 UTC upload) would publish exactly
+# the same 7 days as this run, only 12 hours later. So: 10:41 UTC, after the 09:17 upload; 16:23 UTC catches up when
+# that upload was late (it commits nothing if the data did not change).
+on:
+  schedule:
+    - cron: "41 10 * * *"
+    - cron: "23 16 * * *"
+  workflow_dispatch:
+  # A dry run on pull requests that change the job: real data, same checks, uploaded as an artifact, never committed.
+  pull_request:
+    paths:
+      - scripts/last7.py
+      - tests/data/verify_last7.py
+      - .github/workflows/last7.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: last7
+  cancel-in-progress: false
+
+jobs:
+  last7:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - run: pip install -r scripts/requirements.txt
+
+      - name: Compute the last 7 days from the raw files
+        run: python scripts/last7.py --cache "$RUNNER_TEMP/raw" --out "$RUNNER_TEMP/last7.json"
+
+      - name: Independent recompute of a sample (all train pages, every cancellation and gap, a spread of the rest)
+        run: python tests/data/verify_last7.py --raw "$RUNNER_TEMP/raw" --json "$RUNNER_TEMP/last7.json" --sample 120
+
+      - name: Sanity checks (7 consecutive days, coverage, size, date never goes back)
+        run: python scripts/last7.py --check "$RUNNER_TEMP/last7.json" --previous data/last7.json
+
+      - if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: last7
+          path: ${{ runner.temp }}/last7.json
+
+      - name: Commit if only data/last7.json changed
+        if: github.event_name != 'pull_request'
+        run: |
+          cp "$RUNNER_TEMP/last7.json" data/last7.json
+          changed="$(git status --porcelain)"
+          if [ -z "$changed" ]; then
+            echo "Data unchanged."
+            exit 0
+          fi
+          if [ "$changed" != " M data/last7.json" ] && [ "$changed" != "?? data/last7.json" ]; then
+            echo "Unexpected changes, not committing:"
+            echo "$changed"
+            exit 1
+          fi
+          as_of=$(python -c "import json; print(json.load(open('data/last7.json'))['asOf'])")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/last7.json
+          git commit -m "data: last 7 days to $as_of"
+          for i in 1 2 3 4; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
