@@ -8,6 +8,9 @@ import { daysSince, loadTrainWeek, summarise, weekdayOf, type Day, type End, typ
 import { shortStation } from "@/lib/routeSlug";
 import { makeT, type Key, type T } from "@/lib/t";
 
+/** A full stop at the end, unless the text already ends in one ("… 26. Okt."). */
+const endStop = (s: string) => (s.endsWith(".") ? s : `${s}.`);
+
 /** "Sat 24" / "Sa 24" over a day column. */
 function dayHead(iso: string, t: T, lang: Lang) {
   return { wd: t(`wds.${weekdayOf(iso)}` as Key), d: `${Number(iso.slice(8, 10))}${lang === "de" ? "." : ""}` };
@@ -42,7 +45,7 @@ function Row({ cells, which, label, days, t, lang }: { cells: Day[]; which: 0 | 
       <tr className="wk-marks">
         {cells.map((c, i) => {
           const e = endOf(c, which, t);
-          const color = e.kind === "min" ? liveColor(e.n) : e.kind === "canc" ? LATE : undefined;
+          const color = e.kind === "min" || e.kind === "elsewhere" ? liveColor(e.n) : e.kind === "canc" ? LATE : undefined;
           const h = dayHead(days[i], t, lang);
           return (
             <td key={days[i]} className={`wk-cell wk-${e.kind}`}>
@@ -115,6 +118,9 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
     );
   }
   const s = summarise(week.c);
+  // The key lists only what this week shows.
+  const kinds = new Set(week.c.flatMap((c) => [endOf(c, 0, t).kind, endOf(c, 1, t).kind]));
+  const has = { canc: kinds.has("canc"), none: kinds.has("none"), unmeasured: kinds.has("unmeasured"), gap: kinds.has("gap"), elsewhere: kinds.has("elsewhere") };
   const dest = week.d ? shortStation(week.d) : "";
   const origin = week.o ? shortStation(week.o) : "";
   const avg = s.arrAvg === null ? "" : Math.round(s.arrAvg) >= 1 ? t("wk.avg", { n: Math.round(s.arrAvg) }) : t("wk.avgUnder");
@@ -148,7 +154,8 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
   return (
     <section className="wk" aria-labelledby={`wk-${train.replace(/\s/g, "-")}`}>
       {head}
-      <p className={stale ? "wk-asof wk-stale" : "wk-asof"}>{t(stale ? "wk.asOfStale" : "wk.asOf", { first: firstWd, date: asOf, n: age })}</p>
+      {stale ? <p className="wk-stale">{t("wk.stale", { n: age })}</p> : null}
+      <p className="wk-asof">{stale ? endStop(t("wk.asOfStale", { first: firstWd, date: asOf })) : t("wk.asOf", { first: firstWd, date: asOf })}</p>
       <p className="wk-sum">
         {sum}
         {canc ? ` ${canc}` : ""}
@@ -176,26 +183,30 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
       <p className="wk-key" aria-hidden="true">
         <span className="wk-k">
           {t("wk.key.min")}
-          {([[20, "15+"], [8, "6–14"], [3, "1–5"], [0, "0"]] as const).map(([v, l]) => (
+          {([[3, "1–5"], [8, "6–14"], [20, "15+"], [0, t("wk.key.zero")]] as const).map(([v, l]) => (
             <span key={l} className="wk-sw">
               <span className="wk-mark wk-km" style={{ ["--c" as string]: liveColor(v) }} />
               {l}
             </span>
           ))}
-          <span className="wk-sw">{t("wk.key.zero")}</span>
         </span>
-        <span className="wk-k">
+        {has.canc ? <span className="wk-k">
           <span className="wk-mark wk-km" style={{ ["--c" as string]: LATE }}>
             <svg viewBox="0 0 10 10" width="8" height="8">
               <path d="M2 2 8 8M8 2 2 8" stroke="#fff" strokeWidth="1.8" />
             </svg>
           </span>{" "}
           {t("wk.key.canc")}
-        </span>
-        <span className="wk-k wk-kh">
-          <span className="wk-mark wk-km wk-hollow" />
-          <span>{t("wk.key.none")}</span>
-        </span>
+        </span> : null}
+        {has.none ? (
+          <span className="wk-k wk-kh">
+            <span className="wk-mark wk-km wk-hollow" />
+            <span>{t("wk.key.none")}</span>
+          </span>
+        ) : null}
+        {has.unmeasured ? <span className="wk-k">{t("wk.key.unmeasured")}</span> : null}
+        {has.gap ? <span className="wk-k">{t("wk.key.gap")}</span> : null}
+        {has.elsewhere ? <span className="wk-k">{t("wk.key.else")}</span> : null}
       </p>
       {origin && dest ? <p className="wk-fine">{t("wk.note", { o: origin, d: dest, fold: t("own.toggle") })}</p> : null}
     </section>

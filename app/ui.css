@@ -1701,8 +1701,10 @@ main:has(.yt-wrap) .home-lead {
   color: var(--ink-2);
 }
 .wk-stale {
-  color: var(--ink);
+  margin-top: 2px;
+  font-size: 15px;
   font-weight: 650;
+  color: var(--ink);
 }
 .wk-sum {
   margin-top: 8px;
@@ -1712,7 +1714,6 @@ main:has(.yt-wrap) .home-lead {
 }
 .wk-table {
   width: 100%;
-  max-width: 560px;
   margin-top: 10px;
   border-collapse: collapse;
   table-layout: fixed;
@@ -1753,13 +1754,19 @@ main:has(.yt-wrap) .home-lead {
   background: var(--c, transparent);
   vertical-align: middle;
 }
+/* Hollow box: no run of this number in the data. Not measured / incomplete: no box, just "–" / "?" in ink. */
 .wk-none .wk-mark,
-.wk-gap .wk-mark,
-.wk-unmeasured .wk-mark,
-.wk-elsewhere .wk-mark,
 .wk-hollow {
   box-shadow: inset 0 0 0 1.5px var(--muted);
   background: transparent;
+}
+.wk-gap .wk-mark,
+.wk-unmeasured .wk-mark {
+  background: transparent;
+}
+/* Measured at another station: its colour, faded, with the starred number (not counted). */
+.wk-elsewhere .wk-mark {
+  opacity: 0.4;
 }
 .wk-v {
   display: block;
@@ -1769,11 +1776,14 @@ main:has(.yt-wrap) .home-lead {
   line-height: 1.2;
 }
 .wk-none .wk-v,
-.wk-gap .wk-v,
-.wk-unmeasured .wk-v,
 .wk-elsewhere .wk-v {
   font-weight: 400;
   color: var(--muted);
+}
+.wk-gap .wk-v,
+.wk-unmeasured .wk-v {
+  font-weight: 650;
+  color: var(--ink);
 }
 .wk-canc .wk-v {
   color: var(--late);

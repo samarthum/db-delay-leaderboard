@@ -77,7 +77,7 @@ wholesale (see RULES).
 | `data/verify_bins.py`, `data/verify_train_avg.py` | Independent recompute from raw Parquet (different query shape) | `GP_PARQUET` |
 | `data/test_last7.py` | `scripts/last7.py` + `verify_last7.py` against a simulated raw-data tree (`data/last7_fixture.py`: 6-hourly fetches, DST change, a missed fetch, a lost plan hour, cancellations, replacement train) | Python deps only |
 | `data/verify_last7.py` | Independent recompute of `data/last7.json` from the raw files (regex + dicts; the daily job runs it) | raw files (`--raw`) |
-| `e2e/last7.mjs` | "The last 7 days" on card + train page in every data state against MOCKED `/last7/` (`tests/fixtures/last7.mjs`) | test server |
+| `e2e/last7.mjs` | "The last 7 days" (57 checks) on card + train page in every data state against MOCKED `/last7/` (`tests/fixtures/last7.mjs`) | test server |
 | `tools/last7-shots.mjs` | Screenshots of that block (390 / 320 DE / 1280, full / gaps / cancel ...) for reviews (`OUT=dir`) | test server |
 | `tools/secretscan.py` | Every blob in history for secrets; `--known .env.local` checks exact values | - |
 Also `npx tsc --noEmit` and `node scripts/check-dict.mjs` (EN/DE key + placeholder parity). Use `BASE=` to point

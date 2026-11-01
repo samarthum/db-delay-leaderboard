@@ -38,6 +38,7 @@ try {
       ok(await p.locator('.wk .wk-cell').count() === 14, `${where} full: departure and arrival mark per day`);
       ok(/11 min late on average, 15\+ min late on 2 of 7 days/.test(wk), `${where} full: sentence ` + wk);
       ok(!/on time/i.test(wk), `${where} full: never "on time"`);
+      ok(!/cancelled|no run/.test(await text(p, '.wk-key')), `${where} full: key lists only what the week shows`);
       ok(/the latest day with complete data/.test(wk), `${where} full: as-of date said`);
       ok(/Measured only at .* and /.test(wk), `${where} full: names the two stations it is measured at`);
       // The block sits under today's live box, above the long history.
@@ -59,13 +60,14 @@ try {
 
     { const p = await open(url, { week: 'cancel' }); const wk = flat(await text(p, '.wk'));
       ok(/Cancelled on 3 days, all or part of the way/.test(wk), `${where} cancel: sentence ` + wk);
+      ok(/cancelled/.test(await text(p, '.wk-key')), `${where} cancel: key explains ×`);
       ok(await p.locator('.wk-marks .wk-canc').count() === 4, `${where} cancel: × marks (whole run at both ends + one end each)`);
       await close(p); }
   }
 
   { const p = await open(CARD, { week: 'other' }); { const wk = flat(await text(p, '.wk')); ok(/ended at Hannover Hbf, not Oberhausen Hbf\. Not counted/.test(wk) && /22\*/.test(wk), 'card other: a different end stop is named and starred ' + wk); ok(await p.locator('.wk-marks .wk-elsewhere').count() === 1, 'card other: that cell drawn as not counted'); ok(/Ended at another station on 1 day/.test(wk), 'card other: said in the sentence'); ok(/9 min late on average, 15\+ min late on 1 of 6 days/.test(wk), 'card other: that day left out of the average ' + wk); } await close(p); }
   { const p = await open(CARD, { week: 'one' }); ok(/measured on one day only, 12 min late/.test(flat(await text(p, '.wk'))), 'card one: one measured day'); await close(p); }
-  { const p = await open(CARD, { week: 'absent' }); ok(/No runs of ICE 224 found in Deutsche Bahn's data/.test(flat(await text(p, '.wk'))) && await p.locator('.wk-table').count() === 0, 'card absent: says no run'); ok(p.errs.length === 0, 'card absent: clean console'); await close(p); }
+  { const p = await open(CARD, { week: 'absent' }); ok(/No data for ICE 224 in Deutsche Bahn's records/.test(flat(await text(p, '.wk'))) && await p.locator('.wk-table').count() === 0, 'card absent: says no run'); ok(p.errs.length === 0, 'card absent: clean console'); await close(p); }
   { const p = await open(CARD, { week: 'empty' }); ok(await p.locator('.wk').count() === 0 && p.errs.length === 0, 'card empty index: no block, clean console'); await close(p); }
   { const p = await open(PAGE, { week: 'stale' }); ok(/Not updated for 6 days/.test(await text(p, '.wk')) && /^7 days to /.test(await text(p, '.wk-h')), 'page stale: says so, heading no longer says "last"'); ok(p.errs.length === 0, 'page stale: clean console'); await close(p); }
   { const p = await open(PAGE, { week: 'old' }); ok(await p.locator('.wk').count() === 0, 'page old (9 days): block hidden'); await close(p); }
