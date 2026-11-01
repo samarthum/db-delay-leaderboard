@@ -211,11 +211,25 @@ function runNow(entry, nowMin) {
   return null;
 }
 
+/** The next planned start of this train after now (from the usual timetable; no call to DB), within a week. */
+function nextStart(entry, nowMin) {
+  const [, , dep, , , , days] = entry;
+  const [h, m] = dep.split(":").map(Number);
+  const today = Math.floor(nowMin / 1440) * 1440;
+  for (let k = 0; k < 8; k++) {
+    const day = today + k * 1440;
+    const start = day + h * 60 + m;
+    const wd = (new Date(day * 60000).getUTCDay() + 6) % 7;
+    if ((days >> wd) & 1 && start > nowMin) return { pd: stampAt(start), liveFrom: stampAt(start - BEFORE_MIN) };
+  }
+  return null;
+}
+
 async function trainNow(name) {
   const e = TRAINS[name];
   const nowMin = minutesOf(stampOf(Date.now()));
   const run = runNow(e, nowMin);
-  if (!run) return { run: null };
+  if (!run) return { run: null, next: nextStart(e, nowMin) };
   const [tt, num] = name.split(" ");
   const depStamp = stampAt(run.start);
   const [oPlan, oChg] = await Promise.all([plan(e[0], depStamp), changes(e[0])]);
@@ -351,7 +365,8 @@ module.exports = async function handler(req, res) {
     }
   }
   if (train !== null) {
-    if (!TRAINS[train]) return send(res, 400, { error: "train" });
+    // Unknown or irregular trains: a quiet 200 so search results can ask for any train without console errors.
+    if (!TRAINS[train]) return send(res, 200, { ok: false, error: "unknown" }, "public, s-maxage=86400");
     try {
       const out = await trainNow(train);
       return send(res, 200, { ok: true, train, from: TRAINS[train][1], to: TRAINS[train][4], ...out }, "public, s-maxage=45");

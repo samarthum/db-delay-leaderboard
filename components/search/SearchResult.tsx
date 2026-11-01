@@ -10,6 +10,7 @@ import { makeT, type Key } from "@/lib/t";
 import { absoluteUrl, portraitPath, unitHref } from "@/lib/site";
 import { Arrow } from "../Arrow";
 import { Figure } from "../Figure";
+import { LiveNow } from "../LiveNow";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
 import { shortStation } from "@/lib/routeSlug";
@@ -139,6 +140,8 @@ export function SearchResult({
           {line ? `, ${routeText(line)}` : ""}.
         </p>
       ) : null}
+
+      {unit.kind === 0 ? <LiveNow train={name} lang={lang} /> : null}
 
       <div className={styles.leadWrap}>
         <Figure

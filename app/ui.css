@@ -1291,3 +1291,17 @@ ul.plain li {
   margin-top: 8px;
   font-size: 15px;
 }
+
+/* Train not on now: its next planned run, one quiet line */
+.ln-next {
+  margin-top: 14px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  background: #fff;
+  border-left: 4px solid var(--rule);
+}
+.ln-next span {
+  font-weight: 400;
+  color: var(--muted);
+}
