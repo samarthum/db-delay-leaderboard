@@ -36,6 +36,10 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
   hidden rows also fed route runs/trips/shares/cancelled/train count, see `monthly-log.md`). **Left:** remove
   `runsThisWay` (`lib/routePage.ts`, `components/pages/RoutePage.tsx`, `scripts/copy-search.mjs`) once refreshed
   data with 0 backward rows is live.
+- **A run's last stop by planned time (decide)**: 4.2% of long-distance runs carry stop rows numbered 100+ (diversions,
+  repeated stations), so `compute.py`'s "last stop by number" can be a mid-route station (ICE 504: Berlin Hbf, not
+  Hamburg-Altona). Routes were fixed (planned time); the headline, train figures, compensation and connections still
+  use stop numbers, like piebro's reference query. Changing it moves published numbers: `docs/notes/monthly-log.md`.
 - **Station view by time**: the station list only has trains that start or end there, by delay. A time-sorted list of
   every train calling there needs per-station times in the typeahead data (they exist in `stops.json`).
 

@@ -55,3 +55,19 @@ dry run or real refresh: window, verifier and gate result, what changed.
   Flughafen 21.8 -> 24.0%), 6+ share 314, average 292 (largest Stendal -> Berlin Hbf 13.8 -> 15.0 min), cancelled 191,
   planned minutes 18. Far more than the 97 routes with visible backward rows: `tests/data/probe_direction.py` (next run)
   counts runs whose stop numbers disagree with planned times and shows sample runs for those pairs.
+
+## Dry run 4 (1 Nov 2026, Actions run 41351639627, head 98ca83d): green; why 654 routes move
+`probe_direction.py` on the committed window: **14,000 of 336,428 long-distance runs (4.2%)** have stop rows whose
+numbers disagree with their planned times; 12 are fully reversed. They are rows numbered **100 and up**, appended after
+the planned stop list: diversions (ICE 953 Köln -> Berlin diverted via Magdeburg 100 / Stendal 101, 19:31, before
+Berlin Hbf 8, 20:17) and repeated stations (ICE 504 München -> Hamburg lists Berlin Hbf as stop 10 AND as stop 100 with
+the same times). The stop-number rule therefore counted ICE 504 / ICE 600 for Stendal -> Berlin (Berlin's "last" row
+was 100, after Stendal 12) and missed the diverted ICE 953 runs that really went Stendal -> Berlin. Every sampled
+"only old rule" run was wrong, every "only new rule" run right (Stendal -> Berlin: old 8,375 runs, new 8,543; 75 only
+old, 243 only new). So the 654 changed routes are a correction, not a side effect.
+
+**Open (owner to decide; not changed here):** the same 100+ rows affect `compute.py`'s run delay, "the arrival delay
+at the last stop (by stop number) not cancelled" (as piebro's reference query year.py does): for ICE 504 that is the
+duplicate Berlin Hbf row 100, not Hamburg-Altona. ~4% of long-distance runs may be measured at a mid-route stop. A
+fix (last stop by planned time) would move the headline, every train figure and compensation; it needs its own
+verification and the owner's yes. `connections.py`'s previous/next stop (by stop number) has the same blind spot.
