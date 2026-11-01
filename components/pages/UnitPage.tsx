@@ -18,6 +18,7 @@ import { ShareButton } from "../ShareButton";
 import { Columns, StopLine } from "../charts";
 import { RememberPage, StickyTitle } from "../PageTools";
 import { LiveNow } from "../LiveNow";
+import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { SaveButton } from "../SaveButton";
 import { categoryCopy, unitKind } from "../pageFormat";
 
@@ -77,7 +78,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const monthItems = t.monthly.map((m) => ({ label: monthShort(m.month, lang).charAt(0), value: m.avg, color: m.month === worstMonth?.month ? "#14161A" : "#9AA0A8" }));
   const emptyMonths = t.monthly.filter((m) => m.avg === null).map((m) => monthLabel(m.month, lang));
 
-  const where = tr(isLine ? "unit.where.line" : "unit.where.train", { o: shortStation(t.origin), d: shortStation(t.dest) });
+  const where = tr(isLine ? "unit.where.line" : "unit.where.train", { o: shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin)), d: shortStation(t.dest) });
   const shareText = tr("unit.shareText", { name: t.name, where, pct: fmtShare1(latePct, lang), avg: Math.round(t.minutes.avg), rank: rankSentence(t, lang) }).trim();
 
   // Routes this train runs: route pages that list it, biggest first.
@@ -131,7 +132,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
 
   return (
     <main id="main" className="container page">
-      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(t.origin)} → ${shortStation(t.dest)}`, value: tr("list.avg", { x: fmt1(t.minutes.avg, lang) }) }} />
+      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} → ${shortStation(t.dest)}`, value: tr("list.avg", { x: fmt1(t.minutes.avg, lang) }) }} />
       <StickyTitle title={t.name} value={tr("list.avg", { x: fmt1(t.minutes.avg, lang) })} />
       <BackLink lang={lang} />
 
@@ -143,7 +144,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
           <div className="titlerow" style={{ marginTop: 2 }}>
             <h1 className="h1">{t.name}</h1>
             <div className="acts">
-              <SaveButton lang={lang} item={{ kind: "train", href: unitHref(t, lang), title: t.name, sub: `${shortStation(t.origin)} → ${shortStation(t.dest)}`, avg: t.minutes.avg, live: !isLine && hasLiveTrain(t.name) ? t.name : undefined }} />
+              <SaveButton lang={lang} item={{ kind: "train", href: unitHref(t, lang), title: t.name, sub: `${shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} → ${shortStation(t.dest)}`, avg: t.minutes.avg, live: !isLine && hasLiveTrain(t.name) ? t.name : undefined }} />
               <ShareButton look="icon" lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
             </div>
           </div>
@@ -152,12 +153,17 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               <RouteText unit={t} lang={lang} />
             ) : (
               <>
-                <RouteName from={shortStation(t.origin)} to={shortStation(t.dest)} word={nameWord} />, {fmtDuration(t.avgScheduledMin, lang)}
+                <RouteName from={shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} to={shortStation(t.dest)} word={nameWord} />, {fmtDuration(t.avgScheduledMin, lang)}
               </>
             )}
           </p>
           {t.alsoRunsAs.length > 0 ? <p className="basis">{tr("unit.alsoRunsAs", { list: t.alsoRunsAs.join(", ") })}</p> : null}
 
+          {!isLine && foreignOrigin(t.name) ? (
+            <p className="note" style={{ marginTop: 8 }}>
+              {tr("res.fromBorder", { origin: shortStation(foreignOrigin(t.name)!.origin), border: shortStation(foreignOrigin(t.name)!.border) })}
+            </p>
+          ) : null}
           {!isLine && hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} /> : null}
 
           <Figure

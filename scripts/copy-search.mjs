@@ -25,7 +25,22 @@ console.log(`search: ${files} files, ${(bytes / 1e6).toFixed(1)} MB copied to pu
 
 // Per-stop data for route search, written by scripts/stops.py.
 try {
-  await fs.copyFile(path.join(ROOT, "data", "stops.json"), path.join(TO, "stops.json"));
+  // Route search: trains from abroad get their real origin as a fifth field (index into `foreign`), so
+  // "Amsterdam to Köln" finds ICE 221 boarding at its first German stop.
+  const stops = JSON.parse(await fs.readFile(path.join(ROOT, "data", "stops.json"), "utf8"));
+  let fo = {};
+  try {
+    fo = JSON.parse(await fs.readFile(path.join(ROOT, "data", "foreign-origins.json"), "utf8"));
+  } catch {}
+  for (const tr of stops.trains) {
+    const o = fo[`${tr[0]} ${tr[1]}`];
+    if (!o) continue;
+    let i = stops.foreign.indexOf(o[0]);
+    if (i < 0) i = stops.foreign.push(o[0]) - 1;
+    while (tr.length < 4) tr.push(null);
+    tr[4] = i;
+  }
+  await fs.writeFile(path.join(TO, "stops.json"), JSON.stringify(stops));
   console.log(`stops: ${((await fs.stat(path.join(TO, "stops.json"))).size / 1e6).toFixed(2)} MB copied`);
 } catch {
   console.log("stops: data/stops.json not found, route search will be off (run scripts/stops.py)");
@@ -68,6 +83,14 @@ try {
   console.log("connection pairs: data/connection-pairs.json not found, the Change trains flow will show an error (run scripts/connections.py)");
 }
 
+// Trains that come from abroad: their real first station (scripts/foreign_origins.mjs), so ICE 221 reads
+// "Amsterdam Centraal → Frankfurt Hbf" and "Amsterdam" finds it.
+let ORIGINS = {};
+try {
+  ORIGINS = JSON.parse(await fs.readFile(path.join(ROOT, "data", "foreign-origins.json"), "utf8"));
+} catch {
+  console.log("foreign origins: data/foreign-origins.json not found, trains from abroad start at the border");
+}
 // Record layout: [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line]
 const trains = [];
 for (const name of shards.sort()) {
@@ -78,7 +101,8 @@ for (const name of shards.sort()) {
     const hash = r[13] ?? null;
     const prefix = kind === 1 ? "line-" : "";
     const key = `${prefix}${type}-${num}${hash ? `.${hash}` : ""}`.toLowerCase();
-    trains.push([type, num, kind, Math.round(late * 10) / 10, measured, origin, dest, key, Math.round(avg * 10) / 10]);
+    const realOrigin = kind === 0 && ORIGINS[`${type} ${num}`] ? ORIGINS[`${type} ${num}`][0] : origin;
+    trains.push([type, num, kind, Math.round(late * 10) / 10, measured, realOrigin, dest, key, Math.round(avg * 10) / 10]);
   }
 }
 trains.sort((a, b) => b[4] - a[4]);

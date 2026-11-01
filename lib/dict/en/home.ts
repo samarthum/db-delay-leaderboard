@@ -150,4 +150,7 @@ export const home = {
   "home.top.trips": "{n} trips",
   "fig.home": "**average delay** of long-distance trips.",
   "sug.avg": "{x} min late on average",
+  "rt.subFromAbroad": "Long-distance trains from {from} to {to}, with how often each arrives 15+ min late at {to}.",
+  "rt.fromBorder": "These trains start abroad. Delay is measured in Germany only; times shown are at the first German stop.",
+  "res.fromBorder": "Starts in {origin}. Our delay figures begin at {border}, its first stop in Germany.",
 } as const;

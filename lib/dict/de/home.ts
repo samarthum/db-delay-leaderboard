@@ -152,4 +152,7 @@ export const homeDe: Record<keyof typeof home, string> = {
   "home.top.trips": "{n} Fahrten",
   "fig.home": "**durchschnittliche Verspätung** im Fernverkehr.",
   "sug.avg": "im Schnitt {x} Min. Verspätung",
+  "rt.subFromAbroad": "Fernzüge von {from} nach {to} und wie oft sie in {to} 15+ Min. zu spät ankommen.",
+  "rt.fromBorder": "Diese Züge starten im Ausland. Die Verspätung messen wir nur in Deutschland; angezeigt sind die Zeiten am ersten Halt in Deutschland.",
+  "res.fromBorder": "Startet in {origin}. Wir messen erst ab {border}, dem ersten Halt in Deutschland.",
 };

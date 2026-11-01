@@ -637,7 +637,8 @@ export function Search({
 
 /** The best-known station on each side: "Köln Hbf", "Berlin Hauptbahnhof". */
 function routeHeading(idx: StopsIndex, q: RouteQuery): [string, string] {
-  return [idx.raw.stations[q.from[0]], q.to.length ? idx.raw.stations[q.to[0]] : idx.raw.foreign[q.toForeign[0]]];
+  const from = q.from.length ? idx.raw.stations[q.from[0]] : idx.raw.foreign[(q.fromForeign ?? [])[0]];
+  return [from, q.to.length ? idx.raw.stations[q.to[0]] : idx.raw.foreign[q.toForeign[0]]];
 }
 
 function RouteView({
@@ -662,7 +663,7 @@ function RouteView({
   }, []);
   // A pair with a route page: use that page's exact numbers (only trips that stop at both stations), so the two agree.
   const heading = query ? routeHeading(idx, query) : null;
-  const pageSlug = heading && query && query.to.length ? routeSlug(heading[0], heading[1]) : null;
+  const pageSlug = heading && query && query.to.length && query.from.length ? routeSlug(heading[0], heading[1]) : null;
   const exact = pageSlug && table ? table[pageSlug] : undefined;
   const hits = useMemo(() => {
     if (!exact) return found;
@@ -706,7 +707,7 @@ function RouteView({
         {shortStation(to)}
       </h2>
       <p className={styles.stationSub}>
-        {t(abroad ? "rt.subAbroad" : "rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
+        {t(abroad ? "rt.subAbroad" : query.fromForeign?.length ? "rt.subFromAbroad" : "rt.sub", { from, to })} {spanLabel(win.firstMonth, win.lastMonth, lang)}.{" "}
         {query.time !== null ? t("rt.nearTime", { time: clock(query.time) }) : t("rt.earliest")}
       </p>
       {exact && pageSlug ? (
@@ -718,7 +719,7 @@ function RouteView({
         <div className={styles.none}>
           <p className={styles.message}>{t("rt.none", { from, to })}</p>
           <p className={styles.message}>{t("rt.noneHint")}</p>
-          {abroad ? null : (
+          {abroad || query.fromForeign?.length ? null : (
             <button type="button" className={styles.chip} onClick={() => ask(`${to} ${lang === "de" ? "nach" : "to"} ${from}`, null, true)}>
               {t("rt.reverse", { from, to })}
             </button>
@@ -736,7 +737,7 @@ function RouteView({
               {t("rt.showAll", { n: hits.length })}
             </button>
           ) : null}
-          <p className={styles.fine}>{t(abroad ? "rt.border" : "rt.measuredAt")}</p>
+          <p className={styles.fine}>{t(abroad ? "rt.border" : query.fromForeign?.length ? "rt.fromBorder" : "rt.measuredAt")}</p>
           <p className={styles.fine}>{t("rt.times")}</p>
         </>
       )}
@@ -754,7 +755,7 @@ function RouteRow({ hit, lang, top, onPick }: { hit: RouteHit; lang: Lang; top: 
           {hit.type} {hit.num}
         </span>
         <span className={styles.optRoute}>
-          {clock(hit.dep)} → {hit.arr === null ? "" : clock(hit.arr)}
+          {hit.fromAbroad ? `${shortStation(hit.fromName)} ` : ""}{clock(hit.dep)} → {hit.arr === null ? "" : clock(hit.arr)}
           {place}
         </span>
         {hit.late === null ? (

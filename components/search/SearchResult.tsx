@@ -9,6 +9,7 @@ import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
 import { absoluteUrl, portraitPath, unitHref } from "@/lib/site";
 import { Arrow } from "../Arrow";
+import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { Figure } from "../Figure";
 import { LiveNow } from "../LiveNow";
 import { Rich } from "../Rich";
@@ -21,7 +22,8 @@ export function kindLabel(u: SearchUnit, lang: Lang): string {
 }
 
 export function routeText(u: SearchUnit): string {
-  return `${shortStation(u.origin)} ${u.kind === 1 ? "↔" : "→"} ${shortStation(u.dest)}`;
+  const o = u.kind === 0 ? shownOrigin(unitName(u), u.origin) : u.origin;
+  return `${shortStation(o)} ${u.kind === 1 ? "↔" : "→"} ${shortStation(u.dest)}`;
 }
 
 function shareUrl(u: SearchUnit, lang: Lang): string {
@@ -141,6 +143,9 @@ export function SearchResult({
         </p>
       ) : null}
 
+      {unit.kind === 0 && foreignOrigin(name) ? (
+        <p className={styles.lineNote}>{t("res.fromBorder", { origin: shortStation(foreignOrigin(name)!.origin), border: shortStation(foreignOrigin(name)!.border) })}</p>
+      ) : null}
       {unit.kind === 0 ? <LiveNow train={name} lang={lang} /> : null}
 
       <div className={styles.leadWrap}>
