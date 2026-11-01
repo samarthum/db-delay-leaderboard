@@ -14,6 +14,31 @@ Publishing = fast-forwarding `main` (Vercel deploys on push). Ask the user first
 - Foreground tool calls cannot use `nohup`/`setsid`; use the terminal's own background mode. 
 - Dirty tree before publishing: read `git diff`; if it finishes the work of the last commit, commit it; if half-done, stash and say so.
 
+## Old tabs after a deploy (version skew)
+- The site redeploys at least daily (the last-7-days job pushes `data/last7.json` every morning), so a tab left open
+  overnight runs an old build against a new one. Owner, Android Chrome, Nov 2026: a route tap from the search page did
+  nothing until the page was reloaded; not reproducible from a fresh load.
+- What Next 16 does by itself (static export): every soft navigation fetches the target's `index.txt`; its `b` field
+  is the build id, and a mismatch makes the router do a full page load (`fetch-server-response.js`,
+  `doMpaNavigation`). Reproduced locally (build A open, `out/` swapped for build B, tap): that fallback works for link
+  taps, search suggestions, Back then tap again, and also with `NEXT_DEPLOYMENT_ID` set (the Vercel Skew Protection
+  mode: constant build id, the RSC payload then has no `b` and every soft navigation becomes a full load). Next's
+  `deploymentId` / Skew Protection relies on a response header or deployment routing that a static `out/` on Vercel
+  does not give us, so it is not the fix. The one way found to get a dead tap: a soft navigation whose data request
+  never answers (flaky phone network, a request the edge holds): Next waits forever and the address does not move.
+  Production itself could not be checked from the build sandbox (403), so the exact production trigger is unproven.
+- Guard (`lib/deploy.ts`, `components/shell/DeployGuard.tsx`, `app/version.txt/route.ts`): each build gets an id
+  (`GP_BUILD_ID` in `next.config.mjs`, also `data-build` on `<html>`) and serves it at `/version.txt`. When the tab
+  comes back (visibilitychange, focus, back/forward restore; at most once a minute, none in the first minute after a
+  load) it fetches that file; if it names another build, every later tap (window capture listener for links; `softGo`
+  for `router.push/replace` in Search and OwnStops) is `location.assign` to the same address. A tap during the check
+  waits for it. Any soft navigation that leaves the address unchanged for 8 s becomes a full load to the target. No
+  loop: a full load is the new build. Normal taps: no extra request.
+- Test: `tests/e2e/skew.mjs` (builds twice with `next build`, ~1 min each warm, then ~30 s of browser checks; or
+  `SKEW_A=dir SKEW_B=dir`). It leaves `out/` as a test build: run `npm run build` again before other suites.
+  Against the old code it shows Next's own fallback (one wasted data request, then a full load) and the dead tap on a
+  hung data request.
+
 ## Production sweeps are rate-limited
 - Vercel's bot protection challenged the VPS IP (403, `x-vercel-mitigated: challenge`, "Failed to verify your browser") on every page, for curl and real Chromium alike, after a day of repeated full sweeps (prod_check over ~3,400 URLs plus ~10 browser suites, several times). Run the full sweep once per release, not once per fix; test fixes against the local server.
 - For the deploy marker, poll the direct URL with a browser User-Agent every ~45 s in a background process with notify, and fall back to the outside reader only on 403 (the block can lift on its own). When blocked, do not hammer it. Check through an outside reader: `https://r.jina.ai/https://german-punctuality.vercel.app/<path>` returns the real page and data files. Report "site fine, VPS blocked" and ask the owner to open the page on his phone if a visual check is needed.

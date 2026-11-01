@@ -5,6 +5,7 @@ import { makeT } from "@/lib/t";
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
 import { TabBar } from "./TabBar";
+import { DeployGuard } from "./DeployGuard";
 import "@/app/globals.css";
 import "@/app/ui.css";
 
@@ -12,7 +13,7 @@ import "@/app/ui.css";
 export function RootShell({ lang, children }: { lang: Lang; children: ReactNode }) {
   const t = makeT(lang);
   return (
-    <html lang={lang} className={fontClasses}>
+    <html lang={lang} className={fontClasses} data-build={process.env.GP_BUILD_ID}>
       <body>
         <a href="#main" className="skip">
           {t("skip")}
@@ -21,6 +22,7 @@ export function RootShell({ lang, children }: { lang: Lang; children: ReactNode 
         {children}
         <SiteFooter lang={lang} />
         <TabBar lang={lang} />
+        <DeployGuard />
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { softGo } from "@/lib/deploy";
 import { useEffect, useState } from "react";
 import { route, type Lang } from "@/lib/i18n";
 import { timeParam } from "@/lib/routePage";
@@ -54,10 +55,10 @@ export function OwnStops({ train, lang }: { train: string; lang: Lang }) {
     const time = a.time;
     loadRouteTable().then((table) => {
       const slug = routeSlug(a.name, b.name);
-      if (table[slug]) router.push(route(lang, "route", slug) + (time !== null ? `?t=${timeParam(time)}` : ""));
+      if (table[slug]) softGo(router, route(lang, "route", slug) + (time !== null ? `?t=${timeParam(time)}` : ""));
       else {
         const q = `${time !== null ? `${clock(time)} ` : ""}${shortStation(a.name)} ${lang === "de" ? "nach" : "to"} ${shortStation(b.name)}`;
-        router.push(`${route(lang, "home")}?${new URLSearchParams({ q, r: "1" }).toString()}`);
+        softGo(router, `${route(lang, "home")}?${new URLSearchParams({ q, r: "1" }).toString()}`);
       }
     });
   }

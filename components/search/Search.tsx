@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { softGo } from "@/lib/deploy";
 import { SEARCH_INDEX, loadRouteTable, loadStops, loadTypeahead, pickByKey, runSearch, type RouteTable, type SearchOutcome } from "@/lib/searchClient";
 import { routeSlug, shortStation } from "@/lib/routeSlug";
 import { pageFor, timeParam } from "@/lib/routePage";
@@ -180,7 +181,7 @@ export function Search({
       if (window.location.pathname === route(lang, "home")) {
         window.history.pushState(null, "", href);
         window.dispatchEvent(new Event("gp:url"));
-      } else router.push(href);
+      } else softGo(router, href);
       return;
     }
     const href = urlFor(next);
@@ -277,7 +278,7 @@ export function Search({
     return slug && query ? route(lang, "route", slug) + (query.time !== null ? `?t=${timeParam(query.time)}` : "") : null;
   }, [applied.r, applied.q, stops, table, lang]);
   useEffect(() => {
-    if (pageTarget) router.replace(pageTarget);
+    if (pageTarget) softGo(router, pageTarget, "replace");
   }, [pageTarget, router]);
   const dests = useMemo<DestItem[]>(() => {
     if (!stops || !text.trim()) return [];
@@ -328,7 +329,7 @@ export function Search({
     Promise.all([stopsRef.current ?? loadStops(), tableRef.current ?? loadRouteTable()]).then(([idx, tbl]) => {
       const query = parseRoute(idx, value);
       const slug = query ? pageFor(idx, query, tbl) : null;
-      if (slug && query) router.push(route(lang, "route", slug) + (query.time !== null ? `?t=${timeParam(query.time)}` : ""));
+      if (slug && query) softGo(router, route(lang, "route", slug) + (query.time !== null ? `?t=${timeParam(query.time)}` : ""));
       else fallback();
     }, () => commit({ q: value, u: null, s: null, r: false }, "push"));
   }
@@ -524,7 +525,7 @@ export function Search({
   // A corrected type ("ICEE 1541" -> ICE) stays here with its note: a silent jump would hide that the visitor typed something else.
   const pageHref = shown?.slug && !ready?.typeNote ? unitHref({ category: shown.kind === 0 ? "longDistance" : "regional", slug: shown.slug }, lang) : null;
   useEffect(() => {
-    if (pageHref) router.replace(pageHref);
+    if (pageHref) softGo(router, pageHref, "replace");
   }, [pageHref, router]);
 
   // A name that is exactly one station ("Köln Hbf" from a link or an example) is that station's view, not a train query.

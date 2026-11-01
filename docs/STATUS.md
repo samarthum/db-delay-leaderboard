@@ -80,6 +80,7 @@ wholesale (see RULES).
 | `data/test_last7.py` | `scripts/last7.py` + `verify_last7.py` against a simulated raw-data tree (`data/last7_fixture.py`: 6-hourly fetches, DST change, a missed fetch, a lost plan hour, cancellations, replacement train) | Python deps only |
 | `data/verify_last7.py` | Independent recompute of `data/last7.json` from the raw files (regex + dicts; the daily job runs it) | raw files (`--raw`) |
 | `data/compare_monthly.py` | `last7.py`'s per-run logic on a September 2026 week of raw files vs piebro's monthly file (the 11-month history's source): per-ride first/last-stop delays must agree 98%+ exactly (PR-only job in `last7.yml`) | Hugging Face (Actions), or `--raw` + `--monthly` |
+| `e2e/skew.mjs` | Version skew: a tab on build A taps links, search suggestions, tabs, menu, recent list after `out/` is swapped for build B; a hung soft navigation ends as a full load. Builds twice (~2-3 min), leaves `out/` as a test build | none (own server on :4612) |
 | `e2e/last7.mjs` | "The last 7 days" (57 checks) on card + train page in every data state against MOCKED `/last7/` (`tests/fixtures/last7.mjs`) | test server |
 | `tools/last7-shots.mjs` | Screenshots of that block (390 / 320 DE / 1280, full / gaps / cancel ...) for reviews (`OUT=dir`) | test server |
 | `tools/secretscan.py` | Every blob in history for secrets; `--known .env.local` checks exact values | - |
@@ -103,6 +104,7 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
 - Vercel builds on push (~2-10 min; ~10 min when all share cards redraw).
 
 ## Known gaps and caveats
+- Old tabs after a deploy: `/version.txt` + `lib/deploy.ts` turn taps into full page loads once a newer build is live, and any soft navigation stuck for 8 s into a full load (`docs/notes/release.md`, "Old tabs after a deploy"). The production trigger of the Nov 2026 dead tap was not reproduced (local Next falls back by itself).
 - About half of searchable long-distance trains have live times; irregular trains and 15 border stations whose DB id
   lists no long-distance trains (Passau, Flensburg, Mönchengladbach...) have none.
 - ~135 trains from abroad still lack their real origin (not running on the days the lookup ran, or renamed numbers);
