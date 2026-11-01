@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { delayColor, LATE, liveColor } from "@/lib/colors";
-import { fmt1 } from "@/lib/format";
+import { fmt1, spanLabel } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
 import { onSavedChange, readSaved, type Saved } from "@/lib/saved";
 import { readRecent } from "@/lib/recent";
-import { loadRouteTable, runSearch } from "@/lib/searchClient";
+import { SEARCH_INDEX, loadRouteTable, runSearch } from "@/lib/searchClient";
 import { unitName } from "@/lib/searchCore";
 import { makeT } from "@/lib/t";
 import type { LiveTrain } from "./LiveBoard";
 import { clockAfter, clockOf, dayWord, liveName, useLiveAnswer } from "./LiveNow";
 
+/** "Nov 2025 to Sep 2026": the period the usual delay on each row covers. */
+const SPAN = (lang: Lang) => spanLabel(SEARCH_INDEX.window.firstMonth, SEARCH_INDEX.window.lastMonth, lang);
 const LIVE_ROWS = 4; // live lookups per visit: the API's call budget is shared by every visitor
 const RECENT_ROWS = 3;
 
@@ -75,7 +77,7 @@ function St({ text, minutes, canc, small = false }: { text: string; minutes: num
 }
 
 /** "München Hbf" and "ICE 949" never break across lines. */
-export const nb = (s: string) => s.replace(/ (Hbf|\d)/g, "\u00a0$1");
+export const nb = (s: string) => s.replace(/ (Hbf|\d)/g, "\u00a0$1").replace(/ → /g, "\u00a0→\u00a0");
 
 function arrText(t: T, to: string, pa: string | null | undefined, lateArr: number | null | undefined, arrCanc: boolean): string {
   if (arrCanc) return t("live.arrCanc", { to: nb(to) });
@@ -110,6 +112,7 @@ function TrainRow({ r, lang, live }: { r: Row; lang: Lang; live: boolean }) {
             {on.canc ? <span className="yt-hint">{t("yt.cancHint")}</span> : null}
             {on.platChanged && on.plat && !on.canc ? <span className="yt-st yt-plat">{t("live.platChanged", { p: on.plat })}</span> : null}
             {!on.canc && on.pa ? <St text={arrText(t, a.to, on.pa, on.lateArr, Boolean(on.arrCanc))} minutes={on.lateArr} canc={Boolean(on.arrCanc)} small /> : null}
+            {on.arrCanc && !on.canc ? <span className="yt-hint">{t("yt.cancHint")}</span> : null}
           </span>
         ) : down ? (
           <span className="yt-live">
@@ -216,12 +219,14 @@ export function YourTrains({ lang }: { lang: Lang }) {
       {saved.length > 0 ? (
         <section className="yt" aria-labelledby="yt-h">
           <h2 id="yt-h">{t("save.title")}</h2>
+          <p className="yt-note">{t("yt.usualNote", { span: SPAN(lang) })}</p>
           {list(saved)}
         </section>
       ) : null}
       {recent.length > 0 ? (
         <section className="yt" aria-labelledby="yt-r">
           <h2 id="yt-r">{t("yt.recent")}</h2>
+          {saved.length === 0 ? <p className="yt-note">{t("yt.usualNote", { span: SPAN(lang) })}</p> : null}
           {list(recent)}
         </section>
       ) : null}

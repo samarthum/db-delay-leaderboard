@@ -9,7 +9,7 @@ import { clock, clockGap } from "@/lib/routeSearch";
 import { parseTimeParam } from "@/lib/routePage";
 import { makeT } from "@/lib/t";
 import { useSharedBoard } from "./LiveBoard";
-import { clockAfter } from "./LiveNow";
+import { clockAfter, clockOf, useLiveAnswer } from "./LiveNow";
 
 export interface NearRow {
   name: string;
@@ -25,6 +25,12 @@ export interface NearRow {
 
 const SHOWN = 5;
 
+/** Minutes from now (Berlin) until a planned time today: negative once it has passed. */
+function leavesIn(dep: number): number {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return dep - (Number(p.hour) * 60 + Number(p.minute));
+}
+
 /**
  * "8:14 Köln to Berlin" opens the route page with ?t=08:14. This island reads it and lists the trains that leave
  * closest to that time, in departure order, with the nearest one marked: the visitor typed a time, so the first screen
@@ -38,13 +44,25 @@ export function NearTime({ rows, from, to, lang }: { rows: NearRow[]; from: stri
     setTime(parseTimeParam(new URLSearchParams(window.location.search).get("t")));
   }, []);
   const board = useSharedBoard();
+  // The marked train, worked out before the early return so the live hook below always runs.
+  const first = time === null ? null : [...rows].sort((a, b) => clockGap(a.dep, time) - clockGap(b.dep, time) || a.dep - b.dep)[0] ?? null;
+  const onBoard = first && board ? board.trains.some((x) => `${x.cat} ${x.n}` === first.name) : false;
+  // Not on the two-hour board (it left already, or leaves later): ask for that one train's run today instead.
+  const { live: own, next: ownNext, error: ownErr } = useLiveAnswer(first && board && !onBoard ? first.name : null);
   if (time === null) return null;
   const byGap = [...rows].sort((a, b) => clockGap(a.dep, time) - clockGap(b.dep, time) || a.dep - b.dep);
   const hit = byGap[0];
   // Departure order, read from the typed time so 23:50 and 00:10 sort around midnight correctly.
   const rel = (m: number) => (((m - time + 720) % 1440) + 1440) % 1440;
   const near = byGap.slice(0, SHOWN).sort((a, b) => rel(a.dep) - rel(b.dep));
-  const live = hit && board ? board.trains.find((x) => `${x.cat} ${x.n}` === hit.name && Number(x.pd.slice(6, 8)) * 60 + Number(x.pd.slice(8, 10)) === hit.dep) : null;
+  const fromBoard = hit && board ? board.trains.find((x) => `${x.cat} ${x.n}` === hit.name && Number(x.pd.slice(6, 8)) * 60 + Number(x.pd.slice(8, 10)) === hit.dep) : null;
+  // The per-train answer names the train's first and last German stops: use an end only where it is this route's end.
+  const ownRun = own && hit && !own.run.borderUnknown && own.from === from && clockOf(own.run.pd) === clock(hit.dep) ? own : null;
+  const live = fromBoard
+    ? fromBoard
+    : ownRun
+      ? { cat: "", n: "", pd: ownRun.run.pd, late: ownRun.run.late ?? null, canc: Boolean(ownRun.run.canc), plat: null, platChanged: false, pa: ownRun.to === to ? (ownRun.run.pa ?? null) : null, lateArr: ownRun.to === to ? (ownRun.run.lateArr ?? null) : null, arrCanc: ownRun.to === to && Boolean(ownRun.run.arrCanc) }
+      : null;
   return (
     <section className="sec near" aria-labelledby="near">
       <h2 id="near">{t("route.near.title", { time: clock(time) })}</h2>
@@ -92,6 +110,26 @@ export function NearTime({ rows, from, to, lang }: { rows: NearRow[]; from: stri
                   )}
                 </td>
               </tr>
+              {mine && !live && board && !onBoard ? (
+                <tr className="near-liverow">
+                  <td colSpan={4}>
+                    <span className="near-today">{t("route.near.today2")}</span>
+                    <span className="near-quiet">
+                      {leavesIn(r.dep) > 120
+                        ? t("route.near.later", { from, to, time: clock(r.dep - 120) })
+                        : own && leavesIn(r.dep) < 0
+                        ? t("route.near.otherEnds", { train: r.name, from: own.from, to: own.to })
+                        : ownNext
+                          ? t("live.next.when", { time: clockOf(ownNext.next.liveFrom) })
+                          : ownErr === "unknown"
+                            ? t("live.none")
+                            : ownErr === "busy" || ownErr === "upstream"
+                              ? t("live.unavailable")
+                              : t("route.near.tap")}
+                    </span>
+                  </td>
+                </tr>
+              ) : null}
               {mine && live ? (
                 <tr className="near-liverow">
                   <td colSpan={4}>

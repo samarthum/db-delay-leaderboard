@@ -24,3 +24,11 @@ export function parseTimeParam(value: string | null): number | null {
   const m = value ? /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value) : null;
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
+
+/**
+ * A row of a route's train list whose planned arrival comes more than 12 h after its departure is a train running the
+ * other way (data/routes.json lists 241 such rows on 97 routes; a data-job bug, see ROADMAP). Never show those.
+ */
+export function runsThisWay(dep: number, arr: number): boolean {
+  return (((arr - dep) % 1440) + 1440) % 1440 <= 720;
+}

@@ -32,7 +32,7 @@ try {
   { const p = await open(card, { live: 'late' }); const box = await text(p, '.livenow');
     ok(/Departure/.test(box) && /12 min late/.test(box) && /Arrival/.test(box) && /9 min late/.test(box), 'card late: both ends ' + box.replace(/\s+/g, ' '));
     ok(/How late it has run/.test(await text(p, 'main')), 'card: history labelled');
-    ok(await p.locator('main .savebtn').count() === 1, 'card: save star');
+    ok(await p.locator('main .savebtn').count() === 1 && /Save to home/.test(await text(p, 'main .savebtn')), 'card: save star, said in words');
     ok(p.ov <= 0.5 && p.errs.length === 0, 'card late: no overflow, clean console ' + p.errs.join('|')); await close(p); }
   { const p = await open(card, { live: 'onTime' }); const box = await text(p, '.livenow');
     ok(/No delay reported/.test(box) && !/on time/i.test(box), 'card onTime: no delay reported, never on time');
@@ -45,14 +45,30 @@ try {
   { const p = await open(card, { live: 'disabled' }); ok(await p.locator('.livenow, .ln-next').count() === 0, 'card disabled: no live block'); await close(p); }
   { const p = await open(card, { live: 'next' }); ok(/Next: today/.test(await text(p, '.ln-next')), 'card next: next run line'); await close(p); }
   { const p = await open(card, { live: 'platform' }); ok(/Platform changed: now 12/.test(await text(p, '.livenow')), 'card platform change line'); await close(p); }
-  { const p = await open(card, { live: 'late' }); ok(/Ends in Amsterdam Centraal/.test(await text(p, 'main')) && /goes on to Amsterdam/.test(await text(p, '.livenow')), 'card: train ending abroad explained'); await close(p); }
+  { const p = await open(card, { live: 'late' }); ok(/last stop in Germany/.test(await text(p, 'main')) && /goes on to Amsterdam/.test(await text(p, '.livenow')), 'card: train ending abroad explained'); await close(p); }
+
+  // Route lists never show a train running the other way (arrival more than 12 h after departure).
+  { const p = await open('/route/ulm-hbf-duesseldorf-hbf/?t=15:33');
+    const bad = await p.$$eval('table.tt td.time', (tds) => tds.map((td) => td.innerText.split(/\s+/)).filter(([d, a]) => d && a).map(([d, a]) => { const m = (x) => +x.slice(0, 2) * 60 + +x.slice(3, 5); return (((m(a) - m(d)) % 1440) + 1440) % 1440; }).filter((x) => x > 720).length);
+    ok(bad === 0, 'route lists: no train running the other way (' + bad + ')');
+    ok(!/ICE\s517/.test(await text(p, 'main')), 'route: ICE 517 (other direction) not listed'); await close(p); }
+
+  // Mid-route riders: pick this train's own stops, land on that route with this train marked.
+  { const p = await open(card, { live: 'late' });
+    await p.locator('.own-toggle').click(); const n = await p.locator('.own-row').count();
+    ok(n >= 3, 'card: own stops listed ' + n);
+    await p.locator('.own-row').nth(2).click(); await p.locator('.own-row').nth(n - 2).click();
+    await p.waitForURL(/\/route\/|r=1/, { timeout: 8000 }).catch(() => {});
+    ok(/\/route\/.*\?t=\d\d:\d\d|r=1/.test(p.url()), 'card: own stops land on the route with the time ' + p.url());
+    if (/\/route\//.test(p.url())) { await p.waitForTimeout(800); ok(/ICE\s224/.test(await text(p, '.near .near-hit')), 'route: this train is the marked one'); }
+    await close(p); }
 
   // Home: box on the first screen; a starred train shows both ends, labelled.
   const store = { en: [{ kind: 'train', href: '/train/ice-1541/', title: 'ICE 1541', sub: 'Köln Hbf → Berlin Südkreuz', avg: 11.2, live: 'ICE 1541' }], de: [] };
   for (const [w, h] of [[390, 844], [320, 640], [1280, 900]]) {
     const p = await open('/', { w, h, live: 'late', store });
     const row = await text(p, '.yt li');
-    ok(/Departs \d\d:\d\d, 12 min late/.test(row) && /Arrives at Berlin Südkreuz \d\d:\d\d, 9 min late/.test(row), `home ${w}: starred row names both ends ` + row.replace(/\s+/g, ' '));
+    ok(/Departure: 12 min late, expected \d\d:\d\d/.test(row) && /Arrival at Berlin Südkreuz: 9 min late, expected \d\d:\d\d/.test(row), `home ${w}: starred row names both ends ` + row.replace(/\s+/g, ' '));
     ok(/46\.8 min/.test(row), `home ${w}: usual delay read from the index, same as the train page (46.8) ` + row.replace(/\s+/g, ' '));
     const box = await p.locator('main input[type=search]').boundingBox();
     ok(box && box.y + box.height < h, `home ${w}: box on first screen`);
@@ -65,7 +81,7 @@ try {
 
   // Card visit is remembered and shows on home under "Looked up lately".
   { const p = await open(card, { live: 'late' }); await p.goto(BASE + '/', { waitUntil: 'networkidle' }); await p.waitForTimeout(600);
-    ok(/Looked up lately/.test(await text(p, 'main')) && /ICE 224/.test(await text(p, '.yt')), 'home: looked-up train listed'); await close(p); }
+    ok(/Looked up lately/.test(await text(p, 'main')) && /ICE\s224/.test(await text(p, '.yt')), 'home: looked-up train listed'); await close(p); }
 
   // Route + time: the nearest train is marked, above the route figure.
   { const p = await open('/route/koeln-hbf-berlin-hbf/?t=08:14');

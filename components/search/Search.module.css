@@ -654,3 +654,11 @@ button.through {
   white-space: normal;
   overflow: visible;
 }
+
+/* The phone sheet: suggestion rows start at the same edge as the box and the rules (no jump when typing). */
+.root[data-variant="sheet"] .option,
+.root[data-variant="sheet"] .groupTitle,
+.root[data-variant="sheet"] .hint {
+  padding-left: 0;
+  padding-right: 0;
+}

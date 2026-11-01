@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { runsThisWay } from "@/lib/routePage";
 import type { RouteEntry, RouteTrain } from "@/lib/types";
 import { getReverseRoute, getRouteCompensation, getRoutes, getStats, getUnitSlugs } from "@/lib/data";
 import { lateShareColor } from "@/lib/colors";
@@ -40,7 +41,8 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
   const others = all.routes.filter((x) => x.from === r.from && x.slug !== r.slug).sort((a, b) => b.trips - a.trips).slice(0, 5);
   const url = absoluteUrl(route(lang, "route", r.slug));
   const shareText = t("route.shareText", { from: r.from, to: r.to, avg: Math.round(r.avg), pct: fmtShare1(r.late, lang), pct6: fmtShare1(r.late6, lang), span });
-  const nearRows: NearRow[] = r.list.map((tr) => ({ name: `${tr[0]} ${tr[1]}`, href: trainHref(tr, slugs, lang), dep: tr[2], arr: tr[3], late: tr[4], avg: tr[6] ?? null }));
+  const list = r.list.filter((tr) => runsThisWay(tr[2], tr[3]));
+  const nearRows: NearRow[] = list.map((tr) => ({ name: `${tr[0]} ${tr[1]}`, href: trainHref(tr, slugs, lang), dep: tr[2], arr: tr[3], late: tr[4], avg: tr[6] ?? null }));
 
   const pts = r.curve ? r.curve.points : [];
   let jump: { i: number; from: string; to: string } | null = null;
@@ -55,7 +57,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
   const xmax = pts.length ? Math.max(40, Math.ceil(Math.max(...pts.map((p) => p[1])) / 20) * 20) : 60;
 
 
-  const trainRows: TrainRow[] = r.list.map((tr) => ({ t: tr, href: trainHref(tr, slugs, lang) }));
+  const trainRows: TrainRow[] = list.map((tr) => ({ t: tr, href: trainHref(tr, slugs, lang) }));
   const facts = (
     <dl className="kv">
       <div>

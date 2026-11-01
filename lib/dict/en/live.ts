@@ -10,7 +10,7 @@ export const live = {
   "live.plat": "Platform {p}",
   "live.platNew": "Now platform {p}",
   "live.empty": "No long-distance trains leave {from} for {to} in the next two hours.",
-  "live.unavailable": "Live data is not available right now. Try again in a minute.",
+  "live.unavailable": "Live times are not available right now. Trying again every minute.",
   "live.updated": "Updated {time}, refreshes every minute.",
   "live.source": "Live data: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0. Delays can change: check the DB Navigator before you travel.",
   "footer.live": "Live status: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0",

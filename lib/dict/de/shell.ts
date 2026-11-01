@@ -32,6 +32,6 @@ export const shellDe: Record<keyof typeof shell, string> = {
   "rule.db6": "ab 6 Min. verspätet",
   "card.data": "Daten: Deutsche Bahn über piebro/deutsche-bahn-data, CC BY 4.0. Kein Angebot der Deutschen Bahn.",
   "credits.title": "Quellen und Lizenzen",
-  "search.recent": "Deine Züge und zuletzt angesehen",
+  "search.recent": "Deine Züge und zuletzt angesehene Seiten",
   "search.close": "Schließen",
 };

@@ -41,7 +41,7 @@ const EXAMPLES_DE: Example[] = [
 const HELP: { en: string; de: string; kind: ExampleKind; key: Key }[] = [
   { en: "ICE 1541", de: "ICE 1541", kind: "train", key: "help.train" },
   { en: "Köln to Berlin", de: "Köln nach Berlin", kind: "route", key: "help.route" },
-  { en: "8:14 Köln to Berlin", de: "8:14 Köln nach Berlin", kind: "route", key: "help.time" },
+  { en: "8:25 Köln to Berlin", de: "8:25 Köln nach Berlin", kind: "route", key: "help.time" },
   { en: "Hannover Hbf", de: "Hannover Hbf", kind: "station", key: "help.station" },
 ];
 const TYPING_DELAY_MS = 220;
@@ -200,9 +200,9 @@ export function Search({
       setOpen(false);
     };
     sync();
-    if (initial) {
+    if (initial !== undefined) {
       setText(initial);
-      setOpen(true);
+      setOpen(Boolean(initial));
       if (variant === "sheet") setApplied({ q: "", u: null, s: null, r: false });
     }
     window.addEventListener("popstate", sync);
@@ -951,7 +951,7 @@ function Groups({
               >
                 <span className={styles.optStation}>{shortStation(d.name)}</span>
                 <span className={styles.optStat} style={{ color: "var(--muted)" }}>
-                  {d.trains === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: d.trains })}
+                  {routeItem ? "" : d.trains === 1 ? t("sug.routeCountOne") : t("sug.routeCount", { n: d.trains })}
                 </span>
               </button>
             );

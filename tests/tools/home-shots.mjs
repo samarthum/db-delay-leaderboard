@@ -103,7 +103,15 @@ await shot('43-station-through-390', { url: '/?q=Hannover%20Hbf&s=Hannover%20Hbf
   await shot('44-route-time-live-390', { url: `/route/koeln-hbf-berlin-hbf/?t=${hh(tr[2]).slice(0, 2)}:${hh(tr[2]).slice(2)}`, boardBody: body });
 }
 await shot('45-train-page-abroad-end-390', { url: '/train/ec-249/', live: 'late' });
+await shot('46-card-own-stops-open-390', { url: '/?q=ICE%20224', live: 'late', act: async (p) => { await p.locator('.own-toggle').click(); await p.waitForTimeout(300); await p.locator('.own-row').nth(2).click(); await p.waitForTimeout(300); await p.locator('.own-toggle').scrollIntoViewIfNeeded(); }, full: true });
+await shot('47-card-own-stops-landed-390', { url: '/?q=ICE%20224', live: 'late', act: async (p) => { await p.locator('.own-toggle').click(); await p.locator('.own-row').nth(2).click(); await p.locator('.own-row').nth(8).click(); await p.waitForURL(/route|r=1/, { timeout: 8000 }); await p.waitForTimeout(1200); } });
 
+// The stop picker's landing when the train leaves more than two hours from now: when live times will start.
+{
+  const p2 = (n) => String(n).padStart(2, '0');
+  const later = stamp(200);
+  await shot('48-route-later-390', { url: `/route/koeln-hbf-berlin-hbf/?t=${later.slice(6, 8)}:${later.slice(8, 10)}`, live: 'next', boardBody: { ok: true, from: 'Köln Hbf', to: 'Berlin Hbf', asOf: stamp(0), trains: [] } });
+}
 fs.writeFileSync(path.join(OUT, 'report.txt'), report.join('\n') + '\n');
 console.log(report.join('\n'));
 await b.close();

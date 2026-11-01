@@ -52,7 +52,7 @@ try {
 try {
   const routes = JSON.parse(await fs.readFile(path.join(ROOT, "data", "routes.json"), "utf8"));
   const table = {};
-  for (const r of routes.routes) table[r.slug] = { l: r.late, a: r.avg, n: r.trips, t: r.list.map((x) => [x[0], x[1], x[4], x[5], x[6] ?? null, x[2], x[3]]) };
+  for (const r of routes.routes) table[r.slug] = { l: r.late, a: r.avg, n: r.trips, t: r.list.filter((x) => (((x[3] - x[2]) % 1440) + 1440) % 1440 <= 720).map((x) => [x[0], x[1], x[4], x[5], x[6] ?? null, x[2], x[3]]) }; // rows running the other way are a data bug (ROADMAP)
   await fs.writeFile(path.join(TO, "routes.json"), JSON.stringify(table));
   console.log(`routes: ${Object.keys(table).length} routes written to public/search/routes.json`);
 } catch {

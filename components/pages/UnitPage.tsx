@@ -19,6 +19,7 @@ import { ShareButton } from "../ShareButton";
 import { Columns, StopLine } from "../charts";
 import { RememberPage, StickyTitle } from "../PageTools";
 import { LiveNow } from "../LiveNow";
+import { OwnStops } from "../OwnStops";
 import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { SaveButton } from "../SaveButton";
 import { categoryCopy, unitKind } from "../pageFormat";
@@ -176,6 +177,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             </p>
           ) : null}
           {!isLine && hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} dest={endsAbroad ? shortStation(t.dest) : undefined} origin={foreignOrigin(t.name) ? undefined : shortStation(t.origin)} /> : null}
+          {!isLine ? <OwnStops train={t.name} lang={lang} /> : null}
 
           <h2 className="past-h">{tr("res.past", { span })}</h2>
           <Figure

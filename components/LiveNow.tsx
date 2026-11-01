@@ -174,6 +174,9 @@ export function LiveNow({
     : null;
   const arr = arrivalOf(run, to, t);
   const plat = run.plat && !run.canc && !run.platChanged ? t("live.plat", { p: run.plat }) : "";
+  // "Other trains": the route between the same two stops, opened at this train's time (its live board lists the next ones).
+  const othersHref = `${route(lang, "home")}?${new URLSearchParams({ q: `${clockOf(run.pd)} ${from} ${lang === "de" ? "nach" : "to"} ${to}`, r: "1" }).toString()}`;
+  const othersText = t("live.others", { from, to });
   const beyond = run.arrCanc ? t("live.arrCancNote", { to }) : dest && dest !== to ? t("live.beyond", { dest, to }) : null;
   return (
     <section className="livenow" aria-label={t("live.now.title")} data-state={run.state}>
@@ -187,7 +190,7 @@ export function LiveNow({
           <span className="ln-lab">{t("live.dep")}</span> <b>{clockOf(run.pd)}</b> {from}
           {plat ? <span className="ln-plat"> · {plat}</span> : null}
         </p>
-        {origin && origin !== from && !run.abroad ? <p className="ln-beyond">{t("live.startsHere", { from })}</p> : null}
+        {origin && origin !== from && !run.abroad ? <p className="ln-beyond">{t("live.startsHere", { from, origin })}</p> : null}
         {run.platChanged && run.plat && !run.canc ? <p className="ln-platnew">{t("live.platChanged", { p: run.plat })}</p> : null}
         {run.borderUnknown ? (
           <p className="ln-status ln-unknown">{t("live.arrUnknown")}</p>
@@ -196,10 +199,11 @@ export function LiveNow({
             {s.text}
           </p>
         )}
-        {run.canc && !arr ? (
+        {run.canc ? <p className="ln-beyond">{t("live.cancBoth", { from, to })}</p> : null}
+        {run.canc ? (
           <p className="ln-after">
-            <Link href={`${route(lang, "home")}?${new URLSearchParams({ q: `${from} ${lang === "de" ? "nach" : "to"} ${to}`, r: "1" }).toString()}`} prefetch={false}>
-              {t("live.others", { from, to })}
+            <Link href={othersHref} prefetch={false}>
+              {othersText}
             </Link>
             <Link href={route(lang, "compensation")} prefetch={false}>
               {t("live.claim")}
@@ -220,6 +224,9 @@ export function LiveNow({
       ) : null}
       {run.arrCanc && !run.canc ? (
         <p className="ln-after">
+          <Link href={othersHref} prefetch={false}>
+            {othersText}
+          </Link>
           <Link href={route(lang, "compensation")} prefetch={false}>
             {t("live.claim")}
           </Link>

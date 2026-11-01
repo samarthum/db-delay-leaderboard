@@ -226,3 +226,19 @@
     margin: 0;
   }
 }
+
+.titleRow > :global(.savewords) {
+  width: auto;
+  height: auto;
+  margin: 2px 0 0;
+}
+.fineNote {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+@media (max-width: 380px) {
+  .titleRow {
+    flex-wrap: wrap;
+  }
+}

@@ -10,7 +10,7 @@ export const liveDe = {
   "live.plat": "Gleis {p}",
   "live.platNew": "Jetzt Gleis {p}",
   "live.empty": "In den nächsten zwei Stunden fährt kein Fernzug von {from} nach {to}.",
-  "live.unavailable": "Die Live-Daten sind gerade nicht verfügbar. Versuch es in einer Minute noch einmal.",
+  "live.unavailable": "Live-Daten sind gerade nicht verfügbar. Wir versuchen es jede Minute neu.",
   "live.updated": "Stand {time} Uhr, aktualisiert sich jede Minute.",
   "live.source": "Live-Daten: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0. Verspätungen können sich ändern: Schau vor der Fahrt im DB Navigator nach.",
   "footer.live": "Live-Status: Deutsche Bahn AG, [Timetables API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables), CC BY 4.0",

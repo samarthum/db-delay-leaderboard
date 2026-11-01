@@ -30,8 +30,20 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
   (`data/search/n-*.json`, from `scripts/compute.py`) has none. Add a `[month, runs, avg]` field for the last 1-3
   months per unit, recompute from Parquet, verify independently (RULES), then show the same "latest month" line the
   train page has. Card parity rule depends on it.
+- **Route lists include trains running the other way**: `data/routes.json` has 241 list rows on 97 routes whose
+  planned arrival is more than 12 h after departure (e.g. ICE 517 on Ulm Hbf → Düsseldorf Hbf, 15:15 → 11:20). The
+  site hides them (`runsThisWay` in `lib/routePage.ts`, `scripts/copy-search.mjs`); fix the stop-order check in
+  `scripts/routes.py`, re-verify against Parquet, then the filter can go. Check whether the per-train figures of the
+  hidden rows also fed any route-level figure.
 - **Station view by time**: the station list only has trains that start or end there, by delay. A time-sorted list of
   every train calling there needs per-station times in the typeahead data (they exist in `stops.json`).
+
+## Ideas left from the home redesign critique (owner to pick)
+- A starred route remembers the time it was starred with (`?t=`), so home shows "your 08:14" instead of the next train.
+- Same-slot rows on route pages ("06:53 ICE 2479 / 1925 / 2285, few trips") merged into one row.
+- "Save to home" in words on train and route pages too (the card has it).
+- One rounding for a train's average (big figure whole minutes, lists one decimal today).
+- German placeholder with a route example once the box is wider, or a shorter wording that fits 320 px.
 
 ## Smaller ideas and open decisions
 - Delete or redirect `/more/` (unlinked).

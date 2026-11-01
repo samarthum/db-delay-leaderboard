@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { LATE, liveColor } from "@/lib/colors";
-import type { Lang } from "@/lib/i18n";
+import Link from "next/link";
+import { route, type Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { Rich } from "./Rich";
 
@@ -135,7 +136,9 @@ export function LiveBoard({ from, to, lang }: { from: string; to: string; lang: 
                     {r.plat ? <span>{r.platChanged ? t("live.platNew", { p: r.plat }) : t("live.plat", { p: r.plat })}</span> : null}
                   </td>
                   <td className="tn">
-                    {r.cat} {r.n}
+                    <Link href={`${route(lang, "home")}?q=${encodeURIComponent(`${r.cat} ${r.n}`)}`} prefetch={false}>
+                      {r.cat} {r.n}
+                    </Link>
                   </td>
                   <td className="st">
                     <b style={{ ["--c" as string]: color }}>{status}</b>

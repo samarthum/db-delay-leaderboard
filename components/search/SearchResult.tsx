@@ -13,6 +13,7 @@ import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { Figure } from "../Figure";
 import { LiveNow } from "../LiveNow";
 import { SaveButton } from "../SaveButton";
+import { OwnStops } from "../OwnStops";
 import { remember } from "@/lib/recent";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
@@ -147,7 +148,7 @@ export function SearchResult({
         <h3 id="result-name" className={styles.name}>
           {name}
         </h3>
-        <SaveButton lang={lang} item={{ kind: "train", href: fullHref ?? ownHref, title: name, sub: routeText(unit), avg: unit.avg, live: unit.kind === 0 ? name : undefined }} />
+        <SaveButton lang={lang} item={{ kind: "train", href: fullHref ?? ownHref, title: name, sub: routeText(unit), avg: unit.avg, live: unit.kind === 0 ? name : undefined }} words />
       </div>
       <p className={styles.route}>{routeText(unit)}</p>
       {unit.kind === 2 && unit.line ? (
@@ -174,8 +175,9 @@ export function SearchResult({
       {unit.kind === 0 && foreignOrigin(name) ? (
         <p className={styles.lineNote}>{t("res.fromBorder", { origin: shortStation(foreignOrigin(name)!.origin), border: shortStation(foreignOrigin(name)!.border) })}</p>
       ) : null}
-      {abroadEnd ? <p className={styles.lineNote}>{t("res.toBorder", { dest: shortStation(unit.dest) })}</p> : null}
+      {abroadEnd ? <p className={styles.fineNote}>{t("res.toBorder", { dest: shortStation(unit.dest) })}</p> : null}
       {unit.kind === 0 ? <LiveNow train={name} lang={lang} quiet dest={abroadEnd ? shortStation(unit.dest) : undefined} origin={foreignOrigin(name) ? undefined : shortStation(unit.origin)} /> : null}
+      {unit.kind === 0 ? <OwnStops train={name} lang={lang} /> : null}
 
       <h4 className={styles.past}>{t("res.past", { span })}</h4>
       <div className={styles.leadWrap}>
@@ -202,8 +204,8 @@ export function SearchResult({
 
       <dl className={styles.tiles}>
         <div className={styles.tile}>
-          <dt>{t("res.cancelled")}</dt>
-          <dd>{fmtShare1(unit.cancelled, lang)}</dd>
+          <dt>{t("res.cancPast")}</dt>
+          <dd>{unit.cancelled === 0 ? t("res.cancNone") : fmtShare1(unit.cancelled, lang)}</dd>
           <dd className={styles.tileNote}>{t("res.cancelledNote", { n: fmtInt(unit.runs, lang) })}</dd>
         </div>
         <div className={styles.tile}>
