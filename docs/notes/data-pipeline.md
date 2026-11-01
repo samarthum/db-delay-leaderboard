@@ -53,11 +53,17 @@ GitHub Actions (`.github/workflows/last7.yml`); tests `tests/data/test_last7.py`
   p planned/reinstated), `clt` cancellation time, `ps="a"` additional stop, `ppth` planned path; `<ref><tl/></ref>` in
   fchg names the train a replacement replaces. fchg entries usually have no `tl`: they are matched to the plan by id.
   Times are Berlin wall clock.
-- Schedule (piebro `fetch_and_upload_data.yml`): 03:17, 09:17, 15:17, 21:17 UTC; each run fetches the plan for the
-  Berlin hours from 9 h back to 2 h ahead that are not on Hugging Face yet (repairs gaps), plus one fchg per station
-  (~5,400 stations, categories 1-7), then uploads. The upload is one Hugging Face commit.
+- Schedule (piebro `fetch_and_upload_data.yml`): cron 03:17, 09:17, 15:17, 21:17 UTC, but real runs land about 3 a
+  day, 4-11 h apart (late Oct 2026: ~00:30-02:00, ~09:00-11:00, ~15:00-21:00 UTC; GitHub skips or delays cron runs).
+  Each run fetches the plan for the Berlin hours from 10 h back to 2 h ahead that are not on Hugging Face yet (repairs
+  gaps, so plan hours are almost never missing), plus one fchg per station (~5,400 stations, categories 1-7), then
+  uploads (one Hugging Face commit). A week of raw files is ~1.5 GB (about 40 files of 3-66 MB).
 
 ### Rules (same as piebro's monthly stop table + compute.py)
+Decision (Nov 2026, owner delegated to the coordinator): a 7-day cell is measured EXACTLY like a day of the site's
+11-month history, which comes from piebro's monthly processed files built from these same raw answers. Consistency
+with the numbers already on the site beats a stricter rule nobody else applies. Proof: `tests/data/compare_monthly.py`
+(PR dry run, a September 2026 week against `data-2026-09.parquet`; result in `last7-log.md`).
 - Stop rows: latest plan snapshot per stop id, latest fchg snapshot per id among those that carry a change (piebro's
   filter), full outer join; changed time = fchg `ct`, else the planned time (a stop with no change record counts as no
   delay: say "no delay reported"); cancelled = `cs == "c"` if `cs` is set, else `clt` present (reinstated is not
@@ -73,13 +79,17 @@ GitHub Actions (`.github/workflows/last7.yml`); tests `tests/data/test_last7.py`
 - Window: the 7 newest COMPLETE service days. A day is complete once a change list exists from 10:00 Berlin the next
   day (piebro's 09:17 UTC fetch): the last trains arrive after midnight, overnight ICEs about 07:00-08:00, and fchg
   keeps an event only ~6 h. The newest complete day is yesterday at best.
-- Missing data is never shown as a delay. A run is "?" when (a) one of its stops has a change record but no plan
-  record (its plan hour was never fetched), or (b) an hour between its start and 2 h after its last planned time is
-  missing: a plan hour no file name covers, or a stretch between two fetch runs more than 7 h apart (fchg's ~6 h reach
-  then loses the final delays: in the fixture ICE 100 then reads the stale 4-min forecast instead of its real 9). The
-  per-day missing hours are in `gaps`.
-- Unknown until the first real run (check its log): how far fchg really reaches back (assumed 6 h; the 7 h gap rule
-  depends on it) and the real file sizes (the job logs GB and per-file MB).
+- "?" only for true holes, where the plan answer itself is missing at an END of the run: (a) a stop with a change
+  record but no plan record (not an extra stop; matched by ride id, such entries rarely name their train) numbered
+  before the run's first departure or after its last arrival, or the run has no such end at all; or (b) a plan hour no
+  raw file holds within 2 h before the first or after the last planned stop (the real end may sit in that hour). A
+  hole between the ends does not matter: the ends are still measured, as in the monthly build. The per-day missing
+  plan hours are in `gaps`. A day with no run in the data is null, as the monthly build would also have nothing.
+- Known bias, the same as in the 11-month history (disclosed on "How we measure"): fchg holds an event only ~6 h, and
+  fetch runs are often 8-11 h apart. A delay announced and over inside such a stretch is never seen; the stop keeps its
+  last forecast, or its planned time if no change list ever held it (fixture: ICE 100 on 27 Oct reads the 4-min
+  forecast, really 9; ICE 300 departs "0", really 6). Until Nov 2026 such runs were "?" (a 7 h fetch-gap rule), which
+  on real data left 1 of 7 days with 300+ measured runs (Actions run 41328492652); the rule was dropped, not tuned.
 
 ### Output and size
 `{"asOf", "dataTo", "days": [7 ISO dates], "gaps": {date: [Berlin hours]}, "stations": [names], "trains": {"ICE 123":
@@ -97,6 +107,8 @@ says it is for the whole run and names both stops.
 ### Verify
 `tests/data/verify_last7.py` re-derives the window, the missing hours and every cell for a sample (all train pages,
 every train with a cancellation or "?", a spread of the rest) with regular expressions and plain dicts (no lxml, no
-DuckDB), and the workflow refuses to commit on any difference. `scripts/last7.py --check` gates the commit: 7
+DuckDB), and the workflow refuses to commit on any difference. `tests/data/compare_monthly.py` (pull requests only, a
+separate job) checks the rule itself against piebro's monthly file; on the fixture, piebro's own
+`parse_monthly_xml.py` + `create_monthly_data_release.py` agree with last7.py on 79 of 79 ride ends. `scripts/last7.py --check` gates the commit: 7
 consecutive days, asOf at most 4 days old and never older than the committed one, 600+ trains, 5+ days with 300+
 measured runs, under 400 kB.

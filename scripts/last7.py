@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Last 7 days per long-distance train, from piebro/deutsche-bahn-data's RAW files (updated every 6 hours).
+"""Last 7 days per long-distance train, from piebro/deutsche-bahn-data's RAW files (fetched a few times a day).
 
 Writes data/last7.json: for every long-distance train number seen in the last 7 complete service days, per day the
 departure delay at its first German stop and the arrival delay at its last German stop (or cancelled, or no run in the
 data, or data incomplete). Shape and rules: docs/notes/data-pipeline.md ("Last 7 days").
 
-The raw files hold Deutsche Bahn Timetables API answers (XML), not stop rows: every 6 hours piebro's job saves the
-planned timetable (`plan`, per station and hour) and the full change list (`fchg`, per station). This script turns them
-into stop rows the same way piebro's monthly job does (scripts/parse_monthly_xml.py + create_monthly_data_release.py
-in github.com/piebro/deutsche-bahn-data: latest snapshot per stop id, plan and change merged, a stop without a change
-record counts as its planned time) and then applies compute.py's scope rules (same train types, no replacement trains,
-a run belongs to the day of its scheduled start, delays outside -10..600 min are not measured).
+The raw files hold Deutsche Bahn Timetables API answers (XML), not stop rows: on each fetch run (scheduled every 6
+hours, in practice about 3 a day, 4-11 hours apart) piebro's job saves the planned timetable (`plan`, per station and
+hour) and the full change list (`fchg`, per station). This script turns them into stop rows the same way piebro's
+monthly job does (scripts/parse_monthly_xml.py + create_monthly_data_release.py in github.com/piebro/deutsche-bahn-data:
+latest snapshot per stop id, plan and change merged, a stop without a change record counts as its planned time), so a
+day here is measured exactly like a day of the site's 11-month history (tests/data/compare_monthly.py proves it on a
+September week), and then applies compute.py's scope rules (same train types, no replacement trains, a run belongs to
+the day of its scheduled start, delays outside -10..600 min are not measured). Known bias, the same as in the monthly
+history: a delay announced and over between two fetch runs further apart than the change list's reach (~6 h) is never
+seen, and the stop counts as its last forecast or planned time.
 
   python scripts/last7.py                       # list + download the needed raw files from Hugging Face
   python scripts/last7.py --data-dir DIR        # read a local raw_data tree (year=Y/month=M/day=D/*.parquet)
@@ -46,15 +50,13 @@ BERLIN = ZoneInfo("Europe/Berlin")
 LONG_DISTANCE = ["ICE", "IC", "EC", "ECE", "RJ", "RJX", "FLX", "TGV", "WB"]
 CLAMP_MIN, CLAMP_MAX = -10, 600  # compute.py clampMinMinutes / clampMaxMinutes
 DAYS = 7
-# A service day is complete once a change snapshot exists from the next morning: piebro's 09:17 UTC fetch is the first
-# one after the last overnight arrivals (about 07:00-08:00 Berlin). See docs/notes/data-pipeline.md.
+# A service day is complete once a change snapshot exists from 10:00 Berlin the next morning, after the last overnight
+# arrivals (about 07:00-08:00 Berlin): from then on its stops are as final as the monthly build will ever see them.
+# See docs/notes/data-pipeline.md.
 COMPLETE_AFTER = timedelta(days=1, hours=10)
-# Change snapshots reach back about 6 hours (piebro's README: "reaching back longer than 6 hours"). Two fetch runs
-# further apart than this leave a stretch whose final delays may be lost: runs in it are flagged, never shown as fine.
-MAX_SNAPSHOT_GAP = timedelta(hours=7)
-RETENTION = timedelta(hours=6)
-# A run is flagged when a missing hour falls between its start and this long after its last planned time.
-GAP_TAIL = timedelta(hours=2)
+# A run is "?" when a plan hour no raw file holds lies this close before its first or after its last stop: its real
+# first or last stop may be in that hour (long-distance trains stop at least every ~2 hours).
+END_REACH = timedelta(hours=2)
 # Station index of a day's end when that day's run has no such stop (see build()); copy-search.mjs maps it to null.
 NO_STOP = -1
 
@@ -188,12 +190,14 @@ FCHG_COLS = ["id", "eva", "station_name", "snap", "train_type", "train_number", 
              "ref_type", "ref_number", "ref_label_type", "ref_owner", "ref_flags"]
 
 
+def as_naive(ts):
+    return datetime.fromisoformat(ts) if isinstance(ts, str) else ts
+
+
 def to_berlin(ts, snapshot_tz):
     if ts is None:
         return None
-    if isinstance(ts, str):
-        ts = datetime.fromisoformat(ts)
-    return ts.replace(tzinfo=snapshot_tz).astimezone(BERLIN).replace(tzinfo=None)
+    return as_naive(ts).replace(tzinfo=snapshot_tz).astimezone(BERLIN).replace(tzinfo=None)
 
 
 def extract(files, names, snapshot_tz):
@@ -206,7 +210,7 @@ def extract(files, names, snapshot_tz):
                 continue
             root = etree.fromstring(xml.encode())
             xml_name = root.get("station")
-            snap = to_berlin(ts, snapshot_tz)
+            snap = as_naive(ts)  # order key, as piebro's snapshot_timestamp (Berlin wall clock repeats an hour in Oct)
             for s in root.findall("s"):
                 tl = s.find("tl")
                 if tl is None or tl.get("c") not in LONG_DISTANCE:
@@ -225,8 +229,8 @@ def extract(files, names, snapshot_tz):
     t0 = time.time()
     for path in files:
         for eva, ts, xml in responses(path, "timetables/v1/fchg"):
-            snap = to_berlin(ts, snapshot_tz)
-            snaps.add(snap)
+            snap = as_naive(ts)
+            snaps.add(to_berlin(ts, snapshot_tz))
             # Stations without a planned long-distance stop only matter for additional stops that name their train.
             if eva not in ld_evas and not LD_TEXT.search(xml):
                 continue
@@ -273,13 +277,14 @@ def fetch_runs(snaps):
     return [r[0] for r in runs]
 
 
-def hour_floor(t):
-    return t.replace(minute=0, second=0, microsecond=0)
+def missing_hours(files, first_day, last_day):
+    """Berlin plan hours from 2 h before the first day to the morning after the last day that no raw file holds.
 
-
-def missing_hours(files, snaps, first_day, last_day):
-    """Berlin hour buckets from the first day 00:00 to the morning after the last day that lack plan or change data."""
-    start = datetime.combine(first_day, datetime.min.time())
+    Only the PLAN can be missing in a way piebro's monthly build would not paper over: without it the stop does not
+    exist in the data. A long stretch between change lists is not a hole here (the monthly history has the same
+    stretches and counts such stops at their last known time); see the module docstring.
+    """
+    start = datetime.combine(first_day, datetime.min.time()) - END_REACH
     end = datetime.combine(last_day, datetime.min.time()) + COMPLETE_AFTER
     covered = set().union(*[plan_hours_of(f) for f in files]) if files else set()
     missing, h = set(), start
@@ -287,19 +292,6 @@ def missing_hours(files, snaps, first_day, last_day):
         if h not in covered:
             missing.add(h)
         h += timedelta(hours=1)
-    runs = fetch_runs(snaps)
-    for a, b in zip(runs, runs[1:]):
-        if b - a > MAX_SNAPSHOT_GAP:
-            h = hour_floor(a)
-            while h < b:
-                if start <= h < end:
-                    missing.add(h)
-                h += timedelta(hours=1)
-    if runs and runs[0] - RETENTION > start:  # the first change list does not reach back to the window start
-        h = start
-        while h < min(runs[0], end):
-            missing.add(h)
-            h += timedelta(hours=1)
     return missing
 
 
@@ -332,7 +324,7 @@ def compute_runs(plan, fchg, days, missing):
         or ref_flags is not null
       order by id, snap desc)
     select coalesce(p.id, f.id) id,
-      coalesce(p.station_name, f.station_name) station,
+      coalesce(p.station_name, f.station_name) station, coalesce(p.eva, f.eva) eva,
       coalesce(p.train_type, f.train_type) tt, coalesce(p.train_number, f.train_number) num,
       coalesce(p.arr_pt, f.arr_pt) arr_plan, coalesce(p.dep_pt, f.dep_pt) dep_plan,
       coalesce(f.arr_ct, p.arr_pt, f.arr_pt) arr_change, coalesce(f.dep_ct, p.dep_pt, f.dep_pt) dep_change,
@@ -346,38 +338,47 @@ def compute_runs(plan, fchg, days, missing):
     from p full outer join f on p.id = f.id
     """)
     in_scope = f"tt in ({', '.join(repr(t) for t in LONG_DISTANCE)}) and not replacement and ride <> ''"
-    # Rows with no time at all (a stop only in the change data, without planned times) drop out of piebro's monthly
-    # files; here they also mark the run: its plan is missing, so its first or last stop may be missing too.
+    # Rows with no time at all (a stop only in the change data, without planned times: its plan answer is missing)
+    # drop out of piebro's monthly files, and here too. They only mark the run when they lie OUTSIDE its measured ends
+    # (stop number before the first departure or after the last arrival, or no such end at all): then the real first or
+    # last stop is the one whose plan is missing, and the monthly build would measure at the wrong station. Such rows
+    # usually carry no train type (change entries rarely have a <tl>), so they are matched by ride, not by scope.
+    con.execute(f"""
+    create table holes as
+    select ride, min(seq) noplan_first, max(seq) noplan_last from stops
+    where not has_plan and not additional and not replacement and ride <> '' group by ride
+    """)
     con.execute(f"""
     create table runs as
     select ride, any_value(tt) tt, any_value(num) num,
       min(coalesce(dep_plan, arr_plan)) filter (where has_time) start_plan,
       max(coalesce(arr_plan, dep_plan)) filter (where has_time) end_plan,
       bool_and(arr_canc or dep_canc) filter (where has_time) all_canc,
-      bool_or(not has_plan and not additional) plan_missing,
-      arg_min({{'station': station, 'delay': date_diff('minute', dep_plan, dep_change), 'canc': dep_canc}}, seq)
+      arg_min({{'station': station, 'eva': eva, 'delay': date_diff('minute', dep_plan, dep_change), 'canc': dep_canc, 'seq': seq}}, seq)
         filter (where has_time and dep_plan is not null) dep,
-      arg_max({{'station': station, 'delay': date_diff('minute', arr_plan, arr_change), 'canc': arr_canc}}, seq)
+      arg_max({{'station': station, 'eva': eva, 'delay': date_diff('minute', arr_plan, arr_change), 'canc': arr_canc, 'seq': seq}}, seq)
         filter (where has_time and arr_plan is not null) arr
     from (select *, coalesce(dep_change, arr_change) is not null has_time from stops where {in_scope})
     group by ride
     having start_plan >= ? and start_plan < ?
     """, [lo, hi])
     out = []
-    for r in con.execute("""select tt, num, start_plan, end_plan, all_canc, plan_missing, dep, arr from runs
-                            order by tt, num, start_plan, ride""").fetchall():
-        tt, num, start, end, all_canc, plan_missing, dep, arr = r
-        out.append({"unit": f"{tt} {num}", "day": start.date(), "start": start, "end": end, "all_canc": bool(all_canc),
-                    "gap": bool(plan_missing) or overlaps(missing, start, end), "dep": dep, "arr": arr})
+    for r in con.execute("""select ride, tt, num, start_plan, end_plan, all_canc, noplan_first, noplan_last, dep, arr
+                            from runs left join holes using (ride) order by tt, num, start_plan, ride""").fetchall():
+        ride, tt, num, start, end, all_canc, nf, nl, dep, arr = r
+        lost_end = nf is not None and (dep is None or arr is None or nf < dep["seq"] or nl > arr["seq"])
+        out.append({"ride": ride, "unit": f"{tt} {num}", "day": start.date(), "start": start, "end": end,
+                    "all_canc": bool(all_canc), "gap": lost_end or near_missing(missing, start, end),
+                    "dep": dep, "arr": arr})
     return out
 
 
-def overlaps(missing, start, end):
-    h, stop = hour_floor(start), (end or start) + GAP_TAIL
-    while h <= stop:
-        if h in missing:
+def near_missing(missing, start, end):
+    """A missing plan hour overlaps the END_REACH before the first or after the last planned stop of a run."""
+    end = end or start
+    for h in missing:
+        if (h < start and h + timedelta(hours=1) > start - END_REACH) or (h + timedelta(hours=1) > end and h <= end + END_REACH):
             return True
-        h += timedelta(hours=1)
     return False
 
 
@@ -538,9 +539,9 @@ def main():
     days = complete_days(snaps, DAYS)
     if not days:
         sys.exit("no change snapshots in the raw files")
-    missing = missing_hours(files, snaps, days[0], days[-1])
+    missing = missing_hours(files, days[0], days[-1])
     log(f"days {days[0]}..{days[-1]} (newest snapshot {max(snaps):%Y-%m-%d %H:%M} Berlin); "
-        f"{len(missing)} hours with missing plan or change data; fetch runs at "
+        f"{len(missing)} plan hours missing; fetch runs at "
         + ", ".join(f"{r:%d %H:%M}" for r in fetch_runs(snaps)))
     runs = compute_runs(plan, fchg, days, missing)
     doc = build(runs, days, missing, max(snaps))

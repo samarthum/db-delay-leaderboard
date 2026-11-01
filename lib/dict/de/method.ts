@@ -32,5 +32,5 @@ export const methodDe: Record<keyof typeof method, string> = {
   "method.q.map": "Was zeigt die Karte?",
   "method.a.map": "Jeder Punkt ist ein Bahnhof mit mindestens {min} gemessenen Ankünften von Fern- und Regionalzügen, insgesamt {n} Bahnhöfe. Die Farbe zeigt die durchschnittliche Verspätung bei der Ankunft, {span}. Die Liste unter der Karte zeigt große Bahnhöfe mit mindestens {big} Ankünften.",
   "method.q.cant": "Was zeigen die Zahlen nicht?",
-  "method.a.cant": "Warum ein Zug zu spät ist. Die Verspätungen sind so, wie die DB sie meldet, und Lücken in den Daten der DB sind auch hier Lücken. Halte außerhalb Deutschlands sind größtenteils nicht erfasst. Ein Zug oder eine Linie kann an verschiedenen Tagen verschiedene Strecken fahren; wir zeigen die häufigste.",
+  "method.a.cant": "Warum ein Zug zu spät ist. Die Verspätungen sind so, wie die DB sie meldet, und Lücken in den Daten der DB sind auch hier Lücken. Die Daten werden ein paar Mal am Tag abgerufen. Meldet die DB eine Verspätung erst nach einem Abruf und ist der Zug lange vor dem nächsten schon gefahren, sehen wir sie womöglich nicht. Für diesen Halt gilt dann die Uhrzeit, die die DB zuletzt gemeldet hat. Halte außerhalb Deutschlands sind größtenteils nicht erfasst. Ein Zug oder eine Linie kann an verschiedenen Tagen verschiedene Strecken fahren; wir zeigen die häufigste.",
 };

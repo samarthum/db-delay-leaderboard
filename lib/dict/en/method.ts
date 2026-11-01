@@ -30,5 +30,5 @@ export const method = {
   "method.q.map": "What does the map show?",
   "method.a.map": "Each dot is a station with at least {min} measured arrivals of long-distance and regional trains, {n} stations in all. The colour is the average delay on arrival, {span}. The list under the map shows big stations, with at least {big} arrivals.",
   "method.q.cant": "What can't it tell you?",
-  "method.a.cant": "Why a train is late. Delays are as DB reports them, and gaps in DB's data are gaps here. Stops outside Germany are mostly not covered. A train or line can take different routes on different days, and we show its most common one.",
+  "method.a.cant": "Why a train is late. Delays are as DB reports them, and gaps in DB's data are gaps here. The data is fetched a few times a day. If DB reports a delay after one fetch and the train has left long before the next, we can miss it. That stop then keeps the last time DB reported for it. Stops outside Germany are mostly not covered. A train or line can take different routes on different days, and we show its most common one.",
 } as const;

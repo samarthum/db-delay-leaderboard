@@ -53,18 +53,38 @@ def test_regional_and_replacement_trains_are_left_out():
     assert "RE 5" not in DOC["trains"] and "ICE 9500" not in DOC["trains"]
 
 
-def test_missing_hours_are_listed():
-    assert DOC["gaps"] == {"2026-10-27": list(range(10, 23)), "2026-10-29": [3]}
+def test_only_missing_plan_hours_are_listed():
+    # The missed fetch run (12 h between change lists on 27 Oct) is not a hole: the monthly history measures through
+    # such stretches too. Only the plan hour no file holds is.
+    assert DOC["gaps"] == {"2026-10-29": [4]}
 
 
-def test_the_gap_rule_is_what_keeps_lost_delays_from_reading_as_none():
-    # Without the missing-hours rule, ICE 100 on 27 Oct would read 4 min at München: the forecast from the last change
-    # list before it arrived. Its real 9 min were never in a list that survived the missed fetch run.
+def _runs(missing):
     files = sorted(last7.local_files(RAW), key=lambda p: (last7.folder_day(p), p.name))
     plan, fchg, snaps = last7.extract(files, json.loads(NAMES.read_text()), last7.timezone.utc)
-    runs = last7.compute_runs(plan, fchg, fx.DAYS, set())
-    ice100 = [x for x in runs if x["unit"] == "ICE 100" and x["day"] == date(2026, 10, 27)][0]
+    return last7.compute_runs(plan, fchg, fx.DAYS, missing)
+
+
+def test_a_change_list_gap_is_measured_like_the_monthly_history():
+    # The known bias, written down on purpose: ICE 100 on 27 Oct reads 4 min at München, the forecast in the last
+    # change list before it arrived (really 9), exactly what piebro's monthly build would record.
+    ice100 = [x for x in _runs(set()) if x["unit"] == "ICE 100" and x["day"] == date(2026, 10, 27)][0]
     assert ice100["arr"]["delay"] == 4 and not ice100["gap"]
+
+
+def test_a_last_stop_without_plan_is_a_hole_even_without_the_hour_rule():
+    # ICE 400 of 28 Oct: München's plan hour never arrived; its change record (no plan) has a higher stop number than
+    # the last measured arrival (Frankfurt), so the run is "?" from the stop numbers alone.
+    ice400 = [x for x in _runs(set()) if x["unit"] == "ICE 400" and x["day"] == date(2026, 10, 28)][0]
+    assert ice400["gap"] and ice400["arr"]["station"] == "Frankfurt (Main) Hbf"
+
+
+def test_a_missing_plan_hour_next_to_a_run_end_is_a_hole():
+    t = last7.datetime(2026, 10, 28, 10, 0)
+    assert last7.near_missing({last7.datetime(2026, 10, 28, 8)}, t, t + last7.timedelta(hours=3))  # 2 h before
+    assert last7.near_missing({last7.datetime(2026, 10, 28, 14)}, t, t + last7.timedelta(hours=3, minutes=30))
+    assert not last7.near_missing({last7.datetime(2026, 10, 28, 11)}, t, t + last7.timedelta(hours=3))  # in between
+    assert not last7.near_missing({last7.datetime(2026, 10, 28, 7)}, t, t + last7.timedelta(hours=3))
 
 
 def test_verifier_agrees_and_catches_a_one_minute_change():

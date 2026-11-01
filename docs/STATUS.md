@@ -79,6 +79,7 @@ wholesale (see RULES).
 | `data/verify_bins.py`, `data/verify_train_avg.py` | Independent recompute from raw Parquet (different query shape) | `GP_PARQUET` |
 | `data/test_last7.py` | `scripts/last7.py` + `verify_last7.py` against a simulated raw-data tree (`data/last7_fixture.py`: 6-hourly fetches, DST change, a missed fetch, a lost plan hour, cancellations, replacement train) | Python deps only |
 | `data/verify_last7.py` | Independent recompute of `data/last7.json` from the raw files (regex + dicts; the daily job runs it) | raw files (`--raw`) |
+| `data/compare_monthly.py` | `last7.py`'s per-run logic on a September 2026 week of raw files vs piebro's monthly file (the 11-month history's source): per-ride first/last-stop delays must agree 98%+ exactly (PR-only job in `last7.yml`) | Hugging Face (Actions), or `--raw` + `--monthly` |
 | `e2e/last7.mjs` | "The last 7 days" (57 checks) on card + train page in every data state against MOCKED `/last7/` (`tests/fixtures/last7.mjs`) | test server |
 | `tools/last7-shots.mjs` | Screenshots of that block (390 / 320 DE / 1280, full / gaps / cancel ...) for reviews (`OUT=dir`) | test server |
 | `tools/secretscan.py` | Every blob in history for secrets; `--known .env.local` checks exact values | - |
@@ -97,7 +98,7 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   writes `data/last7.json`, `tests/data/verify_last7.py` re-checks a sample, `last7.py --check` gates coverage/size/date,
   and only if `data/last7.json` is the only change it commits and pushes to `main` (Vercel deploys). Why that hour:
   `docs/notes/data-pipeline.md` ("Last 7 days"). On pull requests touching the job it runs as a dry run (artifact, no
-  commit). If it fails, the site keeps the last good file and the block says "Not updated since ..." after 3 days.
+  commit) plus a PR-only job proving the 7-day numbers are measured like the monthly history (`compare_monthly.py`). If it fails, the site keeps the last good file and the block says "Not updated since ..." after 3 days.
 - Monthly stats refresh (`.github/workflows/refresh.yml`, Mondays 05:17 UTC) checks for a new monthly Parquet file.
 - Vercel builds on push (~2-10 min; ~10 min when all share cards redraw).
 

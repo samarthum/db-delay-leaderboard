@@ -51,11 +51,12 @@ def snapshot_berlin(t):
 
 
 def rows_of(path, api):
-    """(eva, Berlin snapshot time, xml) per successful answer; streamed, real raw files are large."""
+    """(eva, fetch time as stored (UTC), xml) per successful answer; streamed, real raw files are large."""
     for batch in pq.ParquetFile(path).iter_batches(batch_size=200, columns=["timestamp", "url", "api_name", "response_data", "status_code"]):
         for r in batch.to_pylist():
             if r["api_name"] == api and r["status_code"] == "200" and r["response_data"]:
-                yield r["url"].rstrip("/").split(f"{api}/")[1].split("/")[0], snapshot_berlin(r["timestamp"]), r["response_data"]
+                t = r["timestamp"]
+                yield r["url"].rstrip("/").split(f"{api}/")[1].split("/")[0], datetime.fromisoformat(t) if isinstance(t, str) else t, r["response_data"]
 
 
 def ride_of(sid):
@@ -122,7 +123,7 @@ def main():
     chg, snaps = {}, set()
     for f in files:
         for eva, snap, xml in rows_of(f, "timetables/v1/fchg"):
-            snaps.add(snap)
+            snaps.add(snapshot_berlin(snap))
             # Only stations where a sampled train calls, or answers naming a sampled number (extra stops, replacements).
             if eva not in evas and not named.search(xml):
                 continue
@@ -160,29 +161,18 @@ def main():
     if [d.isoformat() for d in days] != doc["days"]:
         problems.append(f"days: {doc['days']} vs {days}")
 
-    # Missing hours: plan hours named by no file, and stretches between fetch runs more than 7 h apart.
+    # Missing hours: plan hours named by no file, from 2 h before the first day. Long stretches between change lists are
+    # NOT holes (piebro's monthly build, i.e. the site's history, measures through them the same way).
     covered = set()
     for f in files:
         m = re.search(r"date_(\d{4}-\d{2}-\d{2})_hour_([\d_]+)\.parquet$", f.name)
         if m:
             base = datetime.fromisoformat(m.group(1))
             covered |= {base + timedelta(hours=int(h)) for h in m.group(2).split("_")}
-    start = datetime.fromisoformat(days[0].isoformat())
+    start = datetime.fromisoformat(days[0].isoformat()) - timedelta(hours=2)
     end = datetime.fromisoformat(days[-1].isoformat()) + timedelta(days=1, hours=10)
     hours = [start + timedelta(hours=i) for i in range(int((end - start).total_seconds() // 3600))]
     missing = {h for h in hours if h not in covered}
-    starts = []
-    for s in sorted(snaps):
-        if not starts or s - starts[-1][-1] > timedelta(minutes=90):
-            starts.append([s])
-        else:
-            starts[-1].append(s)
-    run_starts = [r[0] for r in starts]
-    for x, y in zip(run_starts, run_starts[1:]):
-        if y - x > timedelta(hours=7):
-            missing |= {h for h in hours if x.replace(minute=0, second=0, microsecond=0) <= h < y}
-    if run_starts and run_starts[0] - timedelta(hours=6) > start:
-        missing |= {h for h in hours if h < run_starts[0]}
     gaps = {}
     for h in sorted(missing):
         if days[0] <= h.date() <= days[-1]:
@@ -215,12 +205,19 @@ def main():
                 "unit": f"{tt} {num}"}
         by_ride.setdefault(ride_of(sid), []).append(stop)
 
+    # Stops with a change record but no plan answer, by ride: change entries rarely name their train, so they are
+    # matched by id prefix (not by type and number like the rows above).
+    holes_by_ride = {}
+    for sid, c in chg.items():
+        if sid in plan or "a" in (c["psa"], c["psd"]) or c["tl_t"] == "e" or (c["ref"] is not None and (c["ref"].get("c") is not None or c["ref"].get("n") is not None)):
+            continue
+        holes_by_ride.setdefault(ride_of(sid), []).append(int(sid.rsplit("-", 1)[1]))
+
     mine = {}
     for ride, ss in by_ride.items():
         ss = [s for s in ss if not s["repl"]]
         if not ss:
             continue
-        flagged = any(not s["plan"] and not s["extra"] for s in ss)
         timed = [s for s in ss if (s["cd"] or s["ca"]) is not None]
         if not timed:
             continue
@@ -228,12 +225,16 @@ def main():
         t1 = max(s["pa"] or s["pd"] for s in timed)
         if not days[0] <= t0.date() <= days[-1]:
             continue
-        h = t0.replace(minute=0)
-        while h <= t1 + timedelta(hours=2):
-            flagged |= h in missing
-            h += timedelta(hours=1)
         deps = sorted((s for s in timed if s["pd"]), key=lambda s: s["seq"])
         arrs = sorted((s for s in timed if s["pa"]), key=lambda s: s["seq"])
+        # "?" only for a real hole at an END: a stop with no plan answer (not an extra stop) numbered before the first
+        # departure or after the last arrival, or a plan hour no file holds within 2 h before t0 or after t1.
+        holes = holes_by_ride.get(ride, [])
+        flagged = bool(holes) and (not deps or not arrs or min(holes) < deps[0]["seq"] or max(holes) > arrs[-1]["seq"])
+        for h in missing:
+            before = t0 - timedelta(hours=2) < h + timedelta(hours=1) and h < t0
+            after = t1 < h + timedelta(hours=1) and h <= t1 + timedelta(hours=2)
+            flagged |= before or after
 
         def end(s, kind):
             if s is None:

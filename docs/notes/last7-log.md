@@ -62,3 +62,25 @@ Seen in the same log, not fixed here: real fetch runs are often 8-10 h apart (ab
 Berlin), so 143 of ~178 window hours count as missing under the 7 h rule; the PR dry run's `--check` step (5+ days
 with 300+ measured runs) will tell whether that leaves enough. The rule rests on fchg reaching back ~6 h, still
 unmeasured.
+
+## Second real dry run: coverage gate failed (1 Nov 2026, Actions run 41328492652, head 61a9311)
+Compute ok, verifier ok (0 differences in 1,883 cells, the EC 1216 fix works), then `--check` failed:
+`measured runs per day [446, 0, 47, 3, 3, 8, 7]`, "only 1 days with 300+ measured runs". Cause: piebro's fetch runs
+really land ~3 times a day, 4-11 h apart (e.g. 28 Oct 01:31, 10:37, 21:15 UTC), not every 6 h, so the 7 h fetch-gap
+rule marked 143 of ~178 window hours missing and nearly every run "?". The gate did its job; the rule was wrong for
+the data as it arrives. Plan hours themselves were complete (every hour named by a file).
+
+Decision (coordinator, owner delegated): measure the 7 days exactly as piebro's monthly build measures the site's
+11-month history. Done: the fetch-gap and first-list rules are gone; "?" is left only for a missing plan at a run's END
+(a no-plan stop numbered before the first departure / after the last arrival, matched by ride id because such change
+entries carry no train type; or a plan hour no file holds within 2 h of either end). Plan dedup now orders by the raw
+UTC fetch time, as piebro does (Berlin wall clock repeats an hour on the October clock change). The verifier was
+changed the same way, separately (regex + dicts). Bias disclosed in `data-pipeline.md` and on "How we measure"
+(`method.a.cant`, EN + DE; German reviewed by an independent reviewer, its fixes applied: "Für diesen Halt gilt dann
+die Uhrzeit ..." instead of the calque "zählt mit der Zeit", and the mechanism stated as "reported after one fetch,
+train gone long before the next" instead of "came and went"). Gate thresholds unchanged (600 trains, 5 days with 300+
+measured runs): the old run already had ~970 runs a day before the "?" rule removed them.
+
+Consistency proof: piebro's own `parse_monthly_xml.py` + `create_monthly_data_release.py` run on the fixture agree with
+`last7.py` on 79 of 79 ride ends, including the missed-fetch day. On real data, `tests/data/compare_monthly.py` (new
+PR-only job) compares a September 2026 week with `monthly_processed_data/data-2026-09.parquet`; result below.

@@ -1,12 +1,11 @@
 name: Last 7 days
 
 # Daily: per long-distance train, the last 7 complete service days (scripts/last7.py -> data/last7.json).
-# piebro/deutsche-bahn-data fetches DB's Timetables API at 03:17, 09:17, 15:17 and 21:17 UTC and uploads the raw
-# answers to Hugging Face after each fetch (about 30-45 min). A service day is complete only with the 09:17 UTC
-# change list of the NEXT day: the last trains of a day arrive after midnight, overnight ones around 07:00-08:00, and a
-# change list keeps an event for about 6 hours. A late-evening run (after the 21:17 UTC upload) would publish exactly
-# the same 7 days as this run, only 12 hours later. So: 10:41 UTC, after the 09:17 upload; 16:23 UTC catches up when
-# that upload was late (it commits nothing if the data did not change).
+# piebro/deutsche-bahn-data schedules DB Timetables API fetches at 03:17, 09:17, 15:17 and 21:17 UTC and uploads the
+# raw answers to Hugging Face after each; in practice runs land about 3 times a day (late Oct 2026: ~00:30-02:00,
+# ~09:00-11:00 and ~15:00-21:00 UTC). A service day is complete only with a change list from 10:00 Berlin the NEXT
+# day: the last trains of a day arrive after midnight, overnight ones around 07:00-08:00. So: 10:41 UTC, after the
+# morning upload when it is on time; 16:23 UTC catches up when it was late (it commits nothing if nothing changed).
 on:
   schedule:
     - cron: "41 10 * * *"
@@ -17,6 +16,7 @@ on:
     paths:
       - scripts/last7.py
       - tests/data/verify_last7.py
+      - tests/data/compare_monthly.py
       - .github/workflows/last7.yml
 
 permissions:
@@ -80,3 +80,26 @@ jobs:
             sleep $((i * 10))
           done
           exit 1
+
+  # Pull requests only (the scheduled run never downloads this): last7.py's per-run logic on a September 2026 week of
+  # raw files against piebro's monthly processed file for September, which the site's 11-month history comes from.
+  # Fails below 98% exact agreement per ride end (reasoning in tests/data/compare_monthly.py).
+  monthly-agreement:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - run: pip install -r scripts/requirements.txt
+
+      - name: Same week, two ways (last7.py on raw files vs monthly_processed_data/data-2026-09.parquet)
+        run: python tests/data/compare_monthly.py --first 2026-09-08 --days 7 --cache "$RUNNER_TEMP/sep" --min-exact 0.98

@@ -18,8 +18,9 @@ make of them, are in EXPECTED (built from the timetable below, not from the scri
            the change data and München Hbf is 15 min early (not measured): the day has NO first stop, which the file
            must say (-1), not leave as "the usual first stop" (the first real dry run's one difference)
   RE 5     regional: left out; ICE 9500 replacement train (t="e", ref ICE 100): left out
-  A missed fetch run (27 Oct 15:17 UTC): the change list jumps 12 hours, runs in that stretch are "?"
-  A plan hour that never arrives (29 Oct 03:00 Berlin): ICE 400 of 28 Oct is "?"
+  A missed fetch run (27 Oct 15:17 UTC): the change list jumps 12 hours; runs in that stretch are measured the way
+  piebro's monthly build (the site's history) measures them, from the last change list that still holds them
+  A plan hour that never arrives (29 Oct 04:00 Berlin): the last stop of ICE 400 of 28 Oct has no plan, so "?"
 
   python tests/data/last7_fixture.py OUT_DIR      # writes OUT_DIR/raw_data/... and OUT_DIR/names.json
 """
@@ -98,25 +99,27 @@ REINSTATED = {("ICE 600", 5): [2]}
 ABSENT = {("EC 1216", 1): [0]}
 DIVERSION = {("ICE 100", 6): ("Hamburg Hbf", 150)}  # extra stop, minutes after start, seq between 1 and 2
 MISSED_RUN = datetime(2026, 10, 27, 15, 17)  # UTC
-LOST_PLAN_HOUR = datetime(2026, 10, 29, 3)  # Berlin
+LOST_PLAN_HOUR = datetime(2026, 10, 29, 4)  # Berlin
 
 # What scripts/last7.py must output for each train: per day [dep, arr], "x" fully cancelled, "?" incomplete data,
 # None no run. Worked out by hand from the timetable above and the rules in docs/notes/data-pipeline.md:
-# - The missed 15:17 UTC run on 27 Oct (day 3) leaves 12 h between change lists (10:17 and 22:17 Berlin, CET). Events
-#   between 10:17 and 15:47 are lost (they would read as "no delay"), so every run touching 10:00-22:00 Berlin that
-#   day is "?": ICE 100 (08:00-12:30), IC 200, ICE 300 (14:00-18:20), ICE 600 (16:00-20:00, its events happen to be
-#   kept, the rule is conservative). ICE 400 of 26 and 27 Oct (23:30 to 04:10) is outside it: measured.
-# - The plan hour 29 Oct 03:00 never arrives: ICE 400 of 28 Oct (day 4, 23:30 to 04:10) is "?"; of 29 Oct it is not.
+# - The missed 15:17 UTC run on 27 Oct (day 3) leaves 12 h between change lists (10:20 and 22:20 Berlin, CET). As in
+#   piebro's monthly build, each stop takes its latest change record, else its planned time (the known bias, measured
+#   the same way as the site's history): ICE 100 departs 1 late and its München arrival keeps the 10:20 forecast, 4
+#   (really 9); IC 200 departs 1, Berlin keeps the forecast 1 (really 2); ICE 300 departs 14:06, a change seen by no
+#   list, so 0 (really 6), and arrives 44 (still in the 22:20 list); ICE 600 departs 0 and arrives 7 (both kept);
+#   EC 1216 has no change record at all: 0 and 0.
+# - The plan hour 29 Oct 04:00 never arrives: ICE 400 of 28 Oct (day 4, 23:30 to 04:10) has its München stop only in
+#   the change data (no plan): its last stop is a hole, so "?". Of 29 Oct it is not.
 # - ICE 600 day 1: 700 min at Hamburg is outside -10..600, so the arrival is not measured (None).
 EXPECTED = {
-    "ICE 100": [[2, 8], [0, 0], [4, 22], "?", [0, -3], [7, 31], [0, 4]],
-    "IC 200": [[3, 17], [0, 6], "x", "?", [9, "x"], ["x", 11], [2, 15]],
-    "ICE 300": [[0, 2], [5, 19], [0, 0], "?", [2, 5], None, None],
+    "ICE 100": [[2, 8], [0, 0], [4, 22], [1, 4], [0, -3], [7, 31], [0, 4]],
+    "IC 200": [[3, 17], [0, 6], "x", [1, 1], [9, "x"], ["x", 11], [2, 15]],
+    "ICE 300": [[0, 2], [5, 19], [0, 0], [0, 44], [2, 5], None, None],
     "ICE 400": [[0, 6], [12, 18], [0, 2], [3, 3], "?", [1, 61], [0, 0]],
-    "ICE 600": [[3, 16], [0, None], [1, 1], "?", [0, 0], [2, 12], [0, 0]],
+    "ICE 600": [[3, 16], [0, None], [1, 1], [0, 7], [0, 0], [2, 12], [0, 0]],
     # Day 1: no first stop that day (-1), arrival 15 min early (not measured), at the usual last stop (null).
-    # Day 3 (12:00-12:12 on 27 Oct) is in the missed fetch run's stretch: "?".
-    "EC 1216": [[1, 3], [None, None, -1, None], [0, 0], "?", [0, 0], [0, 0], [0, 0]],
+    "EC 1216": [[1, 3], [None, None, -1, None], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
 }
 EXPECTED_ENDS = {"ICE 100": ("Köln Hbf", "München Hbf"), "IC 200": ("Hamburg Hbf", "Berlin Hauptbahnhof"),
                  "ICE 300": ("Köln Hbf", "Berlin Hauptbahnhof"), "ICE 400": ("Berlin Hauptbahnhof", "München Hbf"),
