@@ -46,3 +46,12 @@ dry run or real refresh: window, verifier and gate result, what changed.
 - The failed check was the gate's own threshold: "70% of trains have figures for the last month"; really 1,203 of
   1,732 (69%) in a normal month, the rest did not run in September. Lowered to 50% (it is there to catch a missing
   or empty month). The route-fix comparison now runs before the gate so it always reports.
+
+## Dry run 3 (1 Nov 2026, Actions run 41349833081, head 263c325): green
+- Verifier 236,119 values, 0 differences; verify_bins 13 pairs, 0; all 55 gate checks passed (same window).
+- Route fix on the committed window (`compare_routes.py`): rows running the other way **241 on 97 routes -> 0**;
+  route pages 685 -> 687. But 654 of 685 routes change a route-level figure: runs on 635 (largest Frankfurt
+  Flughafen -> Köln Messe/Deutz 8,713 -> 8,366), trips 621, 15+ share 349 (largest Köln Messe/Deutz -> Frankfurt
+  Flughafen 21.8 -> 24.0%), 6+ share 314, average 292 (largest Stendal -> Berlin Hbf 13.8 -> 15.0 min), cancelled 191,
+  planned minutes 18. Far more than the 97 routes with visible backward rows: `tests/data/probe_direction.py` (next run)
+  counts runs whose stop numbers disagree with planned times and shows sample runs for those pairs.

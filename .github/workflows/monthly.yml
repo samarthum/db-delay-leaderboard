@@ -25,6 +25,7 @@ on:
       - tests/data/verify_monthly.py
       - tests/data/verify_bins.py
       - tests/data/compare_routes.py
+      - tests/data/probe_direction.py
       - tests/data/monthly_fixture.py
       - tests/data/test_monthly.py
       - .github/workflows/monthly.yml
@@ -86,6 +87,11 @@ jobs:
         run: |
           python scripts/routes.py --data-dir "$PQ" --stats "$OLD/stats.json" --out "$RUNNER_TEMP/routes-same-window.json"
           python tests/data/compare_routes.py --old "$OLD/routes.json" --new "$RUNNER_TEMP/routes-same-window.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Why the route figures move (stop numbers vs planned times; diagnostic)
+        if: github.event_name == 'pull_request' && !cancelled()
+        continue-on-error: true
+        run: python tests/data/probe_direction.py --parquet "$PQ" --stats "$OLD/stats.json"
 
       - name: Sanity gate (window, row counts, families, fields, sizes) and what changes
         if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
