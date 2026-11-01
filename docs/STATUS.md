@@ -21,7 +21,7 @@ History from open data (11 months), live status from DB's own API, cross-border 
 | Home | Built around "my train today" (redesign 1 Nov 2026, `docs/notes/home-redesign-log.md`): headline, one-line lead, the search box, then "Your trains" (starred) and "Looked up lately" with today's live departure and arrival (named stops), a starred route's next train, the usual delay read from current data; then the network average and the most delayed routes | `components/pages/HomePage.tsx`, `YourTrains.tsx` |
 | Search | Full-screen sheet on phones (starred trains and recent pages first); trains (number), routes ("8:14 Köln to Berlin" offers the train closest to that time first, then the route), stations (with "Where are you going from X?"); lands on the page when one exists; suggestion figures labelled "average delay" | `components/search/*`, `lib/routeSearch.ts`, `lib/searchCore.ts` |
 | Route pages (685) | Average delay, % 15+ and DB's 6-min rule, trains on the route with each train's average, live "next trains" board, share picture; opened with a time (`?t=08:14`) the closest trains come first with the nearest marked and its live state | `components/pages/RoutePage.tsx`, `scripts/routes.py` |
-| Train pages (50) + search result card (every other train) | Live box first: departure at the first and arrival at the last station with live times (delay, platform change, cancellation; "no delay reported" in grey, never "on time"), departure abroad for trains from abroad, where live times stop for trains ending abroad, "next run" outside the window; card says when a train has no live times or the feed is down. Then "How late it has run" (11 months), "Sundays, like today" (card), "latest month" (train page). "Getting on or off at another stop?": the train's own stops, pick on/off, lands on that route at the train's time. "The last 7 days" under it on both (every long-distance train, not only the 50): one mark per day at departure (first German stop) and arrival (last German stop), cancelled as ×, no run / incomplete days hollow, one sentence (arrival average, days 15+ late, cancellations), the as-of day; refreshed daily (below). Save star on both ("Save to home" in words on the card) | `UnitPage.tsx`, `search/SearchResult.tsx`, `LiveNow.tsx`, `LastWeek.tsx`, `scripts/last7.py` |
+| Train pages (50) + search result card (every other train) | Live box first: departure at the first and arrival at the last station with live times (delay, platform change, cancellation; "no delay reported" in grey, never "on time"), departure abroad for trains from abroad, where live times stop for trains ending abroad, "next run" outside the window; card says when a train has no live times or the feed is down. Then "How late it has run" (11 months, 12 after the October refresh), "Sundays, like today" (card), "latest month" (train page; card once the monthly refresh has written search field 17). "Getting on or off at another stop?": the train's own stops, pick on/off, lands on that route at the train's time. "The last 7 days" under it on both (every long-distance train, not only the 50): one mark per day at departure (first German stop) and arrival (last German stop), cancelled as ×, no run / incomplete days hollow, one sentence (arrival average, days 15+ late, cancellations), the as-of day; refreshed daily (below). Save star on both ("Save to home" in words on the card) | `UnitPage.tsx`, `search/SearchResult.tsx`, `LiveNow.tsx`, `LastWeek.tsx`, `scripts/last7.py` |
 | Change trains | Pick arriving train, station, next train: how often that change worked; live: minutes to change by DB's forecast and history for days the arriving train was similarly late | `ChangeTrains.tsx`, `lib/changeTrains.ts`, `lib/liveChange.ts`, `scripts/connections.py` |
 | Rankings / Network / Recap / Method | Route and train rankings (avg delay or most often late), network map + month chart, yearly recap, method + credits | `components/pages/*` |
 | Compensation | Plain-language page: 3-zone ruler, calculator, claim in 3 steps, what counts, 20/60/100-min ladder, can DB say no, 1-in-17 dot grid, legal fine print in folds | `CompensationPage.tsx`, `CompCalc.tsx`, `Compensation.module.css` |
@@ -69,7 +69,7 @@ wholesale (see RULES).
 | File | What | Needs |
 | --- | --- | --- |
 | `e2e/pages.mjs` | Phone + desktop checks of every page type, search sheet, sticky title, rankings, compensation calculator, DE | test server |
-| `e2e/home-today.mjs` | Home, search card, route-with-time and every live state against MOCKED `/api/live/` answers (`tests/fixtures/live.mjs`, same shape as `api/live.js`); no keys needed | test server |
+| `e2e/home-today.mjs` | Home, search card (incl. the latest-month line, shard rewritten in the test), route-with-time and every live state against MOCKED `/api/live/` answers (`tests/fixtures/live.mjs`, same shape as `api/live.js`; time-of-day checks on a fixed clock); no keys needed | test server |
 | `tools/home-shots.mjs` | Screenshots of home/search/card/route/train states at 390/320/1280 with mocked live, for design reviews (`OUT=dir`) | test server |
 | `e2e/next-run.mjs`, `e2e/abroad.mjs` | Next-run line; trains from abroad (cards, route search) | test server with live keys (`node --env-file=.env.local tests/tools/serve.mjs`) |
 | `e2e/live-now.mjs` | Live box + save/Your trains. Set `SOON=` and `IDLE=` train slugs for the current Berlin time | live keys |
@@ -79,6 +79,9 @@ wholesale (see RULES).
 | `data/verify_bins.py`, `data/verify_train_avg.py` | Independent recompute from raw Parquet (different query shape) | `GP_PARQUET` |
 | `data/test_last7.py` | `scripts/last7.py` + `verify_last7.py` against a simulated raw-data tree (`data/last7_fixture.py`: 6-hourly fetches, DST change, a missed fetch, a lost plan hour, cancellations, replacement train) | Python deps only |
 | `data/verify_last7.py` | Independent recompute of `data/last7.json` from the raw files (regex + dicts; the daily job runs it) | raw files (`--raw`) |
+| `data/test_monthly.py` | The monthly refresh end to end on synthetic months (`data/monthly_fixture.py`): plan, pipeline, gate, verifiers, planted errors caught (25 checks, ~2 min) | Python deps only |
+| `data/verify_monthly.py` | Independent recompute of every history file family from the Parquet (the monthly job runs it) | `--parquet DIR` |
+| `data/compare_routes.py` | Route fix on one window: committed routes.json vs a re-run (PR-only step) | two routes.json |
 | `data/compare_monthly.py` | `last7.py`'s per-run logic on a September 2026 week of raw files vs piebro's monthly file (the 11-month history's source): per-ride first/last-stop delays must agree 98%+ exactly (PR-only job in `last7.yml`) | Hugging Face (Actions), or `--raw` + `--monthly` |
 | `e2e/skew.mjs` | Version skew: a tab on build A taps links, search suggestions, tabs, menu, recent list after `out/` is swapped for build B; a hung soft navigation ends as a full load. Builds twice (~2-3 min), leaves `out/` as a test build | none (own server on :4612) |
 | `e2e/last7.mjs` | "The last 7 days" (57 checks) on card + train page in every data state against MOCKED `/last7/` (`tests/fixtures/last7.mjs`) | test server |
@@ -100,7 +103,14 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   and only if `data/last7.json` is the only change it commits and pushes to `main` (Vercel deploys). Why that hour:
   `docs/notes/data-pipeline.md` ("Last 7 days"). On pull requests touching the job it runs as a dry run (artifact, no
   commit) plus a PR-only job proving the 7-day numbers are measured like the monthly history (`compare_monthly.py`). If it fails, the site keeps the last good file and the block says "Not updated since ..." after 3 days.
-- Monthly stats refresh (`.github/workflows/refresh.yml`, Mondays 05:17 UTC) checks for a new monthly Parquet file.
+- Monthly history refresh (GitHub Actions, `.github/workflows/monthly.yml`, daily 07:37 UTC on the 2nd-10th, also
+  `workflow_dispatch`; no keys): `scripts/monthly.py plan` acts only when the last finished month's Parquet is
+  published and `data/stats.json` does not cover it; then it downloads the window (~4.5 GB), runs compute -> stops ->
+  routes -> connections -> compensation, re-checks every file family against the Parquet (`tests/data/verify_monthly.py`,
+  `verify_bins.py`, `check_headline.py`), runs the sanity gate (`monthly.py gate`: window +1 month, row counts, no family
+  shrinking, no field vanishing, sizes) and commits only the history data files to `main` as github-actions[bot]. On
+  pull requests touching the pipeline: dry run with a summary and artifact. Replaced `refresh.yml` (Nov 2026). Rules:
+  `docs/notes/data-pipeline.md` ("Monthly refresh"); log: `docs/notes/monthly-log.md`.
 - Vercel builds on push (~2-10 min; ~10 min when all share cards redraw).
 
 ## Known gaps and caveats
@@ -114,7 +124,9 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   of the live box were tested with a mock, rarely seen with real data.
 - The Free-plan terms of the DB API Marketplace for a public site were never read in full.
 - Transitous may only be used while the site is open source and non-commercial (see RULES).
-- Route lists hide 241 rows that run the other way (data bug in `scripts/routes.py`, ROADMAP).
+- Route lists hide 241 rows that run the other way (data bug, fixed in `scripts/routes.py` in Nov 2026: direction by
+  planned time). The committed `data/routes.json` still has them until the first monthly refresh lands; the
+  `runsThisWay` filter goes after that (ROADMAP).
 - "The last 7 days" was built and verified against a simulated raw-data tree only: Hugging Face is blocked from the
   build sandbox. The first real numbers come from the workflow (PR dry run, then the daily job). Not yet known from
   real data: how far DB's change lists reach back (assumed ~6 h) and the raw file sizes. Per-month history per train

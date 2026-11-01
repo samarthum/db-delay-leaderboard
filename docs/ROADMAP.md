@@ -14,6 +14,8 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 9. New brand mark: flustered little train in the header, favicon and home-screen icon (live on main since 1 Nov 2026). Share cards and Android home-screen icons (web manifest) carry it too.
 10. Last 7 days per train on every train page and card, from piebro's raw files, refreshed daily by GitHub Actions
    (Nov 2026, PR; owner's yes pending): `docs/notes/data-pipeline.md` ("Last 7 days"), log `docs/notes/last7-log.md`.
+11. Monthly history refresh in GitHub Actions with independent verification and a sanity gate; route-direction fix;
+   latest month on the search card; deterministic next-run test (Nov 2026, PR #5): `docs/notes/monthly-log.md`.
 
 ## Next (owner picks the order)
 1. **Monthly report card.** A shareable monthly summary ("October: long-distance trains averaged 17 min late, worst
@@ -28,15 +30,12 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 - ~~Last 7 days per train~~: done (item 9), from piebro's raw files (updated every 6 h), not the stopped collector.
   Left open: per-stop 7-day data for riders getting on/off mid-route (~10x the file; the block says "whole run");
   check the first real runs' logs for the fchg reach-back and file sizes (data-pipeline notes).
-- **Latest month on the search result card**: only the 50 train pages carry per-month averages; the search index
-  (`data/search/n-*.json`, from `scripts/compute.py`) has none. Add a `[month, runs, avg]` field for the last 1-3
-  months per unit, recompute from Parquet, verify independently (RULES), then show the same "latest month" line the
-  train page has. Card parity rule depends on it.
-- **Route lists include trains running the other way**: `data/routes.json` has 241 list rows on 97 routes whose
-  planned arrival is more than 12 h after departure (e.g. ICE 517 on Ulm Hbf → Düsseldorf Hbf, 15:15 → 11:20). The
-  site hides them (`runsThisWay` in `lib/routePage.ts`, `scripts/copy-search.mjs`); fix the stop-order check in
-  `scripts/routes.py`, re-verify against Parquet, then the filter can go. Check whether the per-train figures of the
-  hidden rows also fed any route-level figure.
+- ~~Latest month on the search result card~~: code done (Nov 2026, PR #5): search record field 17 (`s-*.json`),
+  verified by `verify_monthly.py`, card line = the train page's. Shows once the monthly refresh writes the field.
+- ~~Route lists include trains running the other way~~: fixed in `scripts/routes.py` (direction by planned time; the
+  hidden rows also fed route runs/trips/shares/cancelled/train count, see `monthly-log.md`). **Left:** remove
+  `runsThisWay` (`lib/routePage.ts`, `components/pages/RoutePage.tsx`, `scripts/copy-search.mjs`) once refreshed
+  data with 0 backward rows is live.
 - **Station view by time**: the station list only has trains that start or end there, by delay. A time-sorted list of
   every train calling there needs per-station times in the typeahead data (they exist in `stops.json`).
 
@@ -53,8 +52,8 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 - Station pages with a live departures board (route pages have one; stations do not).
 - Live: compare today's delay with the usual ("+12 now; usually +7 at this point").
 - Fill the remaining trains from abroad faster (run `scripts/foreign_origins.mjs` on a weekday and a weekend day).
-- Refresh history data monthly (new Parquet month -> compute.py, stops.py, routes.py, connections.py, compensation.py),
-  merging per field and re-verifying (see `docs/notes/data-pipeline.md`).
+- ~~Refresh history data monthly~~: done (`.github/workflows/monthly.yml`, Nov 2026). Open: also refresh
+  `live_trains.py` (live lookups read the last two months; matters at the December timetable change).
 - Check the Free-plan terms of the DB API Marketplace for public use.
 - Rebuild the older test suites that were lost (live-unit with a DB mock, share-image size, voice) into `tests/`.
 - Custom domain (`NEXT_PUBLIC_SITE_URL`, see README).

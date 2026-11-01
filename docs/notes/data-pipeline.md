@@ -1,7 +1,47 @@
 <!-- Working notes carried over from the agent's project notes; paths point into this repo. -->
 # Data pipeline: Parquet -> stats, stops, routes
 
-Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0), window set by `data/stats.json`. DuckDB venv: `python (with duckdb)`. Order: `compute.py` -> `stops.py` (~30 s) -> `routes.py --data-dir DIR` (~35 s) -> `npm run build` (prebuild runs og.mjs ~50 s and copy-search.mjs).
+Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0), window set by `data/stats.json`. DuckDB venv: `python (with duckdb)`. Order: `compute.py` -> `stops.py` (~30 s) -> `routes.py --data-dir DIR` (~35 s) -> `connections.py` -> `compensation.py` (needs routes.json) -> `npm run build` (prebuild runs og.mjs ~50 s and copy-search.mjs). `scripts/monthly.py run --data-dir DIR` runs the five in this order; the monthly job does it for you (below).
+
+## Monthly refresh (.github/workflows/monthly.yml, since Nov 2026)
+- When: daily 07:37 UTC on the 2nd-10th, plus `workflow_dispatch`. `scripts/monthly.py plan` says act=true only when the
+  last finished month's `monthly_processed_data/data-YYYY-MM.parquet` is on Hugging Face AND `data/stats.json` ends
+  before it; otherwise every later step is skipped (no-op, idempotent). It replaced `refresh.yml`, which re-ran
+  `compute.py` alone (new stats beside old routes, stops, connections).
+- Window: compute.py keeps the latest 12 published months with full station coverage (`PUBLISHED_MONTHS`, 1,000+
+  stations); `--until <plan month>` keeps a later (partial) file out. Oct 2026 makes it Nov 2025 - Oct 2026 (12 months;
+  Oct 2025 was partial); from then on it rolls (start and end move one month).
+- Merge per field: every history file is rewritten for the new window by the current scripts (all their fields come
+  from them: checked by the gate, which fails if any key path or record position of a committed file vanished). The
+  RULES' "never overwrite wholesale" is about a local window that differs from the committed one; here it is the whole
+  published window by construction.
+- Verify (fails the job on any difference): `tests/data/verify_monthly.py` recomputes from the Parquet, with no shared
+  code, stats/monthly (both categories), every train and line page, every search record of every kind (incl. the
+  latest months), stations, a sample of stops.json trains, every route and every route row (and that none runs the
+  other way), the change-time ladder of the two busiest stations, compensation; `tests/data/verify_bins.py`
+  (connection pairs, 5 trains, kept cases or the busiest); `scripts/check_headline.py`.
+- Gate (`monthly.py gate --old <copy of data/>`): window contiguous and end +1 month (start same or +1, 12 at most);
+  every file names the same window; months both windows hold and whose source file has the same size are unchanged;
+  the new month's runs within 0.75-1.33x the median month, 80%+ measured; route pages, train/line pages, search units
+  per kind, stops.json trains, connection stations and arriving trains, stations: at most 10-60% gone (per family)
+  and not shrunk; no route row backwards; median route trips new/old 0.8-1.3; sizes 0.7-1.5x and under caps. It prints
+  what changes (headline, route pages gone/new, biggest route moves, train pages gone/new) into the job summary.
+- Commit: only `data/{stats,monthly,stations,stops,routes,connections,connection-pairs,connections-daypart,compensation}.json`
+  and `data/{trains,lines,search}/*.json`, as github-actions[bot], `git pull --rebase` then push to main (4 tries),
+  only from main. Pull requests touching the pipeline get a dry run (summary, artifact `monthly-data`) and the route
+  fix re-run on the committed window (`tests/data/compare_routes.py`).
+- Tests without network: `tests/data/test_monthly.py` (synthetic months from `tests/data/monthly_fixture.py`, incl. a
+  train whose stop numbers run backwards on Wednesdays; also the job's first step). Log: `docs/notes/monthly-log.md`.
+- Not in the job: `live_trains.py` / `border_stations.py` (read the last two months; live lookups) and share images
+  (drawn by the Vercel build).
+
+## Search records: latest months (field 17, Nov 2026)
+`data/search/s-*.json` records (not the `n-*.json` number lists the ROADMAP item named) end with
+`[[month, measured runs, avg], ...]`: the last 3 window months for long-distance trains, the last 1 for regional lines
+and train numbers (3 for all 34k records would add a third to every shard, measured ~+34% gzip; 1 adds ~10%). Same
+numbers as a train page's monthly series. The card shows "<month>, the latest month we have: ..." (strings `res.lately`,
+already reviewed for the train page) only for the window's last month with 8+ runs (`LATEST_MONTH_MIN_RUNS`,
+`lib/searchCore.ts`, also used by the train page); old data without the field shows no line.
 
 ## stops.py (per-stop delay, drives route search)
 - Train numbers are reused for unrelated services and the source starts the same train at different stops. Keep a stop only when its planned time of day is stable (>=80% of runs within 30 min of the median) and it is served in >=30% of the busiest stop's runs. Order stops by median planned minute, not by position from the first recorded stop. Dropped numbers still work by number search.
@@ -10,6 +50,11 @@ Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0),
 - The source records only stops inside Germany. Foreign places exist only as `final_destination_station`. A train whose runs mostly (60%) end at one label that is not a German station gets that label as a 4th field (`foreign` list in stops.json); its delay is measured at the last stop in Germany and the page must say so. German labels that look foreign go in `NOT_ABROAD`. Trips that START abroad are not covered.
 
 ## routes.py (one page per ordered city pair)
+- Direction by PLANNED TIME (Nov 2026): a run counts for A -> B when its last row at B is planned after its earliest
+  departure at A. Stop numbers (`train_line_station_num`) run against the direction of travel in a few runs per train;
+  the old `seq(A) < seq(B)` rule put 241 rows of trains running B -> A on 97 A -> B pages (ICE 517 on Ulm -> Düsseldorf,
+  15:15 -> 11:20) and counted those runs in the pages' runs/trips/shares/cancelled/train count while the right
+  direction missed them. compensation.py mirrors the rule; the curve (stops between A and B) uses times too.
 - Built straight from the raw runs, NOT from stops.json: stops.json drops trains whose number is reused for different services, so a stops.json-driven version missed pairs entirely (Hamburg to Berlin: the source has 242 trains on the pair, stops.json kept 51 with both stations) and undercounted others. A run counts for A -> B only if it stops at A (with a departure) and later at B; delay = arrival delay at B. Pooling each train's arrivals at B counts runs that never stopped at A (Koeln->Berlin: 8,208 vs 6,163).
 - Page rule: both stations have >=2000 runs ("major"), >=4000 measured arrivals, recent (last 3 months) planned time >=35 min (drops hops and pairs no train serves any more), >=2 listed trains with their own figure (>=20 measured runs); league (rank) needs >=10000. Coverage is a threshold choice, not a data limit: lower numbers add many pages that rest on few trips; page count drives build time and image count.
 - The share on the page counts ALL measured runs of the pair; the train list shows only trains that still run regularly (>=3 runs in the last 3 months, planned departure within 30 min of the usual in >=80% of them). `unlisted` = measured trips on other trains; the method line must say so, otherwise the list looks like it disagrees with the headline.
