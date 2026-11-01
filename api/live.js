@@ -187,6 +187,13 @@ async function board(from, to) {
 // (scripts/live_trains.py: the usual run in the last two months). The run is looked up in the origin's timetable for the
 // hour it leaves, then the changes at both ends give the delay DB reports now.
 const TRAINS = require("../data/live-trains.json");
+// Trains that start abroad: [Transitous stop id of the real origin, minutes from leaving it to the first German stop]
+// (scripts/abroad_trips.mjs) and the origin's name (scripts/foreign_origins.mjs).
+const ABROAD = require("../data/abroad-trips.json");
+const ORIGINS = require("../data/foreign-origins.json");
+const TRANSITOUS = "https://api.transitous.org/api";
+const TRANSITOUS_PER_MINUTE = 20;
+let tCalls = [];
 const BEFORE_MIN = 180; // show a run this long before it leaves
 const AFTER_MIN = 90; // and until this long after its planned arrival
 
@@ -197,8 +204,8 @@ function stampAt(min) {
   return `${String(d.getUTCFullYear()).slice(2)}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}`;
 }
 
-/** Which run of this train (today's or yesterday's start) is on now, if any. */
-function runNow(entry, nowMin) {
+/** Which run of this train (today's or yesterday's start) is on now, if any. `lead`: minutes it runs abroad first. */
+function runNow(entry, nowMin, lead = 0) {
   const [, , dep, , , , days, mins] = entry;
   const [h, m] = dep.split(":").map(Number);
   const today = Math.floor(nowMin / 1440) * 1440;
@@ -206,13 +213,13 @@ function runNow(entry, nowMin) {
     const start = day + h * 60 + m;
     const wd = (new Date(day * 60000).getUTCDay() + 6) % 7; // Monday = 0
     if (!((days >> wd) & 1)) continue;
-    if (nowMin >= start - BEFORE_MIN && nowMin <= start + mins + AFTER_MIN) return { start, end: start + mins };
+    if (nowMin >= start - lead - BEFORE_MIN && nowMin <= start + mins + AFTER_MIN) return { start, end: start + mins };
   }
   return null;
 }
 
 /** The next planned start of this train after now (from the usual timetable; no call to DB), within a week. */
-function nextStart(entry, nowMin) {
+function nextStart(entry, nowMin, lead = 0) {
   const [, , dep, , , , days] = entry;
   const [h, m] = dep.split(":").map(Number);
   const today = Math.floor(nowMin / 1440) * 1440;
@@ -220,21 +227,78 @@ function nextStart(entry, nowMin) {
     const day = today + k * 1440;
     const start = day + h * 60 + m;
     const wd = (new Date(day * 60000).getUTCDay() + 6) % 7;
-    if ((days >> wd) & 1 && start > nowMin) return { pd: stampAt(start), liveFrom: stampAt(start - BEFORE_MIN) };
+    if ((days >> wd) & 1 && start - lead > nowMin) return { pd: stampAt(start - lead), liveFrom: stampAt(start - lead - BEFORE_MIN) };
   }
   return null;
+}
+
+/** Berlin wall-clock stamp (yyMMddHHmm) of an ISO time. */
+const stampIso = (iso) => stampOf(Date.parse(iso));
+
+/**
+ * Today's departure abroad of a train from abroad, from Transitous (open data of each country's railway): planned and
+ * live departure at its real origin. null when Transitous does not list it, the call budget is used up, or it fails.
+ */
+async function abroadNow(name, borderStart) {
+  const a = ABROAD[name];
+  if (!a) return null;
+  const [stopId, gap] = a;
+  const want = borderStart - gap; // planned departure abroad, minutes (Berlin wall clock, as minutesOf)
+  const d = new Date((want - 20) * 60000); // stamps are Berlin wall clock read as UTC: convert to a real instant
+  const wall = `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}T${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:00`;
+  const offset = (() => {
+    const probe = new Date(`${wall}Z`);
+    const s = stampOf(probe.getTime());
+    return minutesOf(s) - probe.getTime() / 60000; // Berlin minus UTC, minutes
+  })();
+  const iso = new Date(Date.parse(`${wall}Z`) - offset * 60000).toISOString();
+  const num = name.split(" ")[1];
+  const list = await cached(`t:${stopId}:${iso.slice(0, 15)}`, 45000, async () => {
+    const now = Date.now();
+    tCalls = tCalls.filter((x) => now - x < 60000);
+    if (tCalls.length >= TRANSITOUS_PER_MINUTE) throw new Error("busy");
+    tCalls.push(now);
+    const r = await fetch(`${TRANSITOUS}/v6/stoptimes?stopId=${encodeURIComponent(stopId)}&time=${iso}&window=3600&n=60&mode=HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL`, {
+      headers: { "User-Agent": "german-punctuality/1.0 (+https://german-punctuality.vercel.app)", Accept: "application/json" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) throw new Error(`transitous ${r.status}`);
+    return (await r.json()).stopTimes || [];
+  }).catch(() => null);
+  if (!list) return null;
+  const re = new RegExp(`(^|\\D)${num}$`);
+  const hits = list.filter((s) => (re.test(String(s.tripShortName || "")) || re.test(String(s.displayName || ""))) && s.place && s.place.scheduledDeparture);
+  if (!hits.length) return null;
+  hits.sort((x, y) => Number(y.realTime) - Number(x.realTime) || Math.abs(minutesOf(stampIso(x.place.scheduledDeparture)) - want) - Math.abs(minutesOf(stampIso(y.place.scheduledDeparture)) - want));
+  const s = hits[0];
+  const pd = stampIso(s.place.scheduledDeparture);
+  if (Math.abs(minutesOf(pd) - want) > 45) return null; // a different run
+  const canc = Boolean(s.cancelled || s.tripCancelled);
+  const live = Boolean(s.realTime) && !canc;
+  return {
+    from: ORIGINS[name] ? ORIGINS[name][0] : null,
+    pd,
+    late: live && s.place.departure ? Math.max(0, diff(pd, stampIso(s.place.departure)) ?? 0) : null,
+    live,
+    canc,
+  };
 }
 
 async function trainNow(name) {
   const e = TRAINS[name];
   const nowMin = minutesOf(stampOf(Date.now()));
-  const run = runNow(e, nowMin);
-  if (!run) return { run: null, next: nextStart(e, nowMin) };
+  const lead = ABROAD[name] ? ABROAD[name][1] : 0;
+  const run = runNow(e, nowMin, lead);
+  if (!run) return { run: null, next: nextStart(e, nowMin, lead), nextFrom: lead && ORIGINS[name] ? ORIGINS[name][0] : null };
+  const abroadP = lead ? abroadNow(name, run.start) : Promise.resolve(null);
   const [tt, num] = name.split(" ");
   const depStamp = stampAt(run.start);
   const [oPlan, oChg] = await Promise.all([plan(e[0], depStamp), changes(e[0])]);
   const s = oPlan.find((x) => x.tl && x.tl.c === tt && x.tl.n === num && x.dp && x.dp.pt);
-  if (!s) return { run: { found: false, pd: depStamp } };
+  if (!s) {
+    const ab = await abroadP;
+    return ab ? { run: { found: true, state: "soon", pd: depStamp, late: null, canc: false, plat: null, platChanged: false, pa: null, lateArr: null, arrCanc: false, asOf: stampOf(Date.now()), abroad: ab, borderUnknown: true } } : { run: { found: false, pd: depStamp } };
+  }
   const key = tripKey(s.id);
   const cf = oChg.find((x) => tripKey(x.id) === key);
   const pd = s.dp.pt;
@@ -271,6 +335,7 @@ async function trainNow(name) {
       lateArr,
       arrCanc: arrCanc && !canc,
       asOf: nowStamp,
+      abroad: await abroadP,
     },
   };
 }
@@ -369,7 +434,9 @@ module.exports = async function handler(req, res) {
     if (!TRAINS[train]) return send(res, 200, { ok: false, error: "unknown" }, "public, s-maxage=86400");
     try {
       const out = await trainNow(train);
-      return send(res, 200, { ok: true, train, from: TRAINS[train][1], to: TRAINS[train][4], ...out }, "public, s-maxage=45");
+      const from = out.nextFrom || TRAINS[train][1];
+      delete out.nextFrom;
+      return send(res, 200, { ok: true, train, from, border: TRAINS[train][1], to: TRAINS[train][4], ...out }, "public, s-maxage=45");
     } catch (e) {
       return send(res, 200, { ok: false, error: e && e.message === "busy" ? "busy" : "upstream" }, "public, s-maxage=15");
     }

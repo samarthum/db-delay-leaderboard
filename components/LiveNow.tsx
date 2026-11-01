@@ -18,6 +18,10 @@ export interface LiveRun {
   lateArr?: number | null;
   arrCanc?: boolean;
   asOf?: string;
+  /** Trains from abroad: today's departure at the real origin, from Transitous. */
+  abroad?: { from: string | null; pd: string; late: number | null; live: boolean; canc: boolean } | null;
+  /** The run was found abroad but not yet in DB's timetable at the first German stop. */
+  borderUnknown?: boolean;
 }
 /** When the train is not on now: its next planned start and when live times begin (stamps). */
 export interface NextRun {
@@ -113,6 +117,16 @@ export function LiveNow({ train, lang }: { train: string; lang: Lang }) {
   if (!a) return null;
   const { run, from, to } = a;
   const s = statusOf(run, t);
+  const ab = run.abroad && run.abroad.from ? run.abroad : null;
+  const abText = ab
+    ? ab.canc
+      ? t("live.abroad.canc", { from: ab.from as string, time: clockOf(ab.pd) })
+      : !ab.live
+        ? t("live.abroad.none", { from: ab.from as string, time: clockOf(ab.pd) })
+        : (ab.late ?? 0) > 0
+          ? t("live.abroad.late", { from: ab.from as string, time: clockOf(ab.pd), n: ab.late ?? 0 })
+          : t("live.abroad.on", { from: ab.from as string, time: clockOf(ab.pd) })
+    : null;
   const arrival = run.canc
     ? null
     : run.arrCanc
@@ -124,16 +138,22 @@ export function LiveNow({ train, lang }: { train: string; lang: Lang }) {
           : t("live.now.arrOn", { to });
   return (
     <section className="livenow" aria-label={t("live.now.title")} data-state={run.state}>
+      {abText ? <p className="ln-abroad">{abText}</p> : null}
       <p className="ln-head">
         <span className="ln-dot" aria-hidden="true" />
         {t("live.now.title")} · {t("live.now.leaves", { time: clockOf(run.pd), from })}
         {run.plat ? ` · ${run.platChanged ? t("live.platNew", { p: run.plat }) : t("live.plat", { p: run.plat })}` : ""}
       </p>
-      <p className="ln-status" style={{ ["--c" as string]: s.color }}>
-        {s.text}
-      </p>
+      {run.borderUnknown ? null : (
+        <p className="ln-status" style={{ ["--c" as string]: s.color }}>
+          {s.text}
+        </p>
+      )}
       {arrival ? <p className="ln-arr">{arrival}</p> : null}
-      <p className="ln-src">{t("live.now.src", { time: run.asOf ? clockOf(run.asOf) : "" })}</p>
+      <p className="ln-src">
+        {t("live.now.src", { time: run.asOf ? clockOf(run.asOf) : "" })}
+        {ab ? ` ${t("live.abroad.src")}` : ""}
+      </p>
     </section>
   );
 }

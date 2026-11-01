@@ -1305,3 +1305,13 @@ ul.plain li {
   font-weight: 400;
   color: var(--muted);
 }
+
+/* Trains from abroad: today's departure at the real origin, above the German status */
+.ln-abroad {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--rule);
+}
