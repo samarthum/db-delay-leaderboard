@@ -36,14 +36,32 @@ export function faviconIco(small) {
   return Buffer.concat([header, dir, ...frames.map((f) => f.data)]);
 }
 
-/** apple-icon.png: the line mark in ink, centred on a 180 px paper square (iOS rounds the corners). */
-export function appleIcon(mark) {
+/** The line mark in ink on a paper square of `size` px, `width` px wide, centred and `dy` px lower (its feet sit below the body). */
+function paperIcon(mark, size, width, dy) {
   const [, , vw, vh] = mark.match(/viewBox="([^"]+)"/)[1].split(/\s+/).map(Number);
-  const S = 180;
-  const w = 124;
+  const S = size;
+  const w = width;
   const h = (w * vh) / vw;
   const inner = mark.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
   const attrs = mark.match(/^<svg([^>]*)>/)[1].replace(/xmlns="[^"]*"/, "");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}"><rect width="${S}" height="${S}" fill="${PAPER}"/><svg x="${(S - w) / 2}" y="${(S - h) / 2 + 2}" width="${w}" height="${h}" ${attrs}>${inner}</svg></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}"><rect width="${S}" height="${S}" fill="${PAPER}"/><svg x="${(S - w) / 2}" y="${(S - h) / 2 + dy}" width="${w}" height="${h}" ${attrs}>${inner}</svg></svg>`;
   return png(svg, S);
+}
+
+/** apple-icon.png: the line mark in ink, centred on a 180 px paper square (iOS rounds the corners). */
+export function appleIcon(mark) {
+  return paperIcon(mark, 180, 124, 2);
+}
+
+/** Android and install icons for the web manifest, same proportions as the Apple icon: 192 and 512 px. */
+export function manifestIcon(mark, size) {
+  return paperIcon(mark, size, (size * 124) / 180, (size * 2) / 180);
+}
+
+/**
+ * Maskable 512 px icon: Android crops it to a circle, squircle or rounded square, so the whole mark (drops included)
+ * stays inside the middle circle of radius 40% that every mask keeps, with a little room to spare.
+ */
+export function maskableIcon(mark) {
+  return paperIcon(mark, 512, 288, 4);
 }

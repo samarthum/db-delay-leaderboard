@@ -128,15 +128,16 @@ function arrow(size, color = C.ink, bothWays = false) {
   );
 }
 
+// The brand mark, read from its one source so the cards follow any change to it (and the card cache key with it).
+const MARK_SVG = await fs.readFile(path.join(ROOT, "scripts", "brand", "mark.svg"), "utf8");
+const MARK_SRC = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString("base64")}`;
+const MARK_RATIO = 27.2 / 25.4; // the mark's viewBox, width over height
+
 function watermark(size = 34) {
+  const mh = Math.round(size * 1.3);
   return d(
     { alignItems: "center", fontFamily: COND, fontWeight: 800, fontSize: size, color: C.ink },
-    h(
-      "svg",
-      { width: Math.round(size * 0.62), height: Math.round(size * 0.62), viewBox: "0 0 20 20", style: { marginRight: 12 } },
-      h("circle", { cx: 10, cy: 10, r: 4.2, fill: C.ink }),
-      h("circle", { cx: 10, cy: 10, r: 8.4, fill: "none", stroke: C.ink, strokeWidth: 1.8 }),
-    ),
+    h("img", { src: MARK_SRC, width: Math.round(mh * MARK_RATIO), height: mh, style: { marginRight: 12 } }),
     "German Punctuality",
   );
 }

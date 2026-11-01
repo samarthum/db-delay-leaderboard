@@ -11,7 +11,7 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 6. Trains from abroad: real origin, route search from abroad, border stations live, departure abroad via Transitous.
 7. Weekly refresh job for the abroad data. Repo made public under MIT.
 8. Home redesign around "my train today" (1 Nov 2026; branch, owner's yes pending): log in `docs/notes/home-redesign-log.md`.
-9. New brand mark: flustered little train in the header, favicon and home-screen icon (live on main since 1 Nov 2026).
+9. New brand mark: flustered little train in the header, favicon and home-screen icon (live on main since 1 Nov 2026). Share cards and Android home-screen icons (web manifest) carry it too.
 
 ## Next (owner picks the order)
 1. **Monthly report card.** A shareable monthly summary ("October: long-distance trains averaged 17 min late, worst

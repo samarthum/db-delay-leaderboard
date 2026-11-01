@@ -29,7 +29,7 @@ History from open data (11 months), live status from DB's own API, cross-border 
 
 Phone navigation: four tabs (Search, Change trains, Rankings, Network); top bar on every page has the Deutsch/English switch and a "Menu" dropdown (Compensation, Recap, Method; `PagesMenu.tsx`), also in the footer link row (not on Change trains). Desktop header lists all.
 
-Brand: the header mark is a flustered little train (ink only); the same train, hand-drawn at 16 px, is the favicon. Sources and how to redraw the icons: `docs/notes/product-and-ui.md` (Brand mark).
+Brand: the header mark is a flustered little train (ink only); the same train, hand-drawn at 16 px, is the favicon; the line train is also on every share card and the Android home-screen icon (web manifest per language). Sources and how to redraw the icons: `docs/notes/product-and-ui.md` (Brand mark).
 
 Switched OFF but built: voice search (ElevenLabs Scribe; `VOICE_ENABLED=1` turns it on; owner found it buggy).
 The live-feed collector service (`docs/notes/live-and-international.md`) is stopped.
