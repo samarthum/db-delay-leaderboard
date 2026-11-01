@@ -36,10 +36,10 @@ try {
       ok(/The last 7 days/.test(wk), `${where} full: block shown`);
       ok(await p.locator('.wk .wk-day').count() === 7, `${where} full: 7 day columns`);
       ok(await p.locator('.wk .wk-cell').count() === 14, `${where} full: departure and arrival mark per day`);
-      ok(/11 min late on average, 15 min or more late on 2 of 7 days/.test(wk), `${where} full: sentence ` + wk);
+      ok(/11 min late on average, 15\+ min late on 2 of 7 days/.test(wk), `${where} full: sentence ` + wk);
       ok(!/on time/i.test(wk), `${where} full: never "on time"`);
       ok(/the latest day with complete data/.test(wk), `${where} full: as-of date said`);
-      ok(/whole run/.test(wk), `${where} full: says it is for the whole run`);
+      ok(/Measured only at .* and /.test(wk), `${where} full: names the two stations it is measured at`);
       // The block sits under today's live box, above the long history.
       const order = await p.evaluate(() => { const a = document.querySelector('.livenow'), w = document.querySelector('.wk'), h = [...document.querySelectorAll('h2, h4')].find((x) => /How late it has run/.test(x.textContent)); return !!(a && w && h && (a.compareDocumentPosition(w) & 4) && (w.compareDocumentPosition(h) & 4)); });
       ok(order, `${where} full: after the live box, before the history`);
@@ -50,7 +50,7 @@ try {
       ok(p.ov <= 0.5 && p.errs.length === 0, `${where} full: no overflow, clean console ` + p.errs.join('|')); await close(p); }
 
     { const p = await open(url, { week: 'gaps' }); const wk = flat(await text(p, '.wk'));
-      ok(/16 min late on average, 15 min or more late on 1 of 3 days/.test(wk), `${where} gaps: averages only measured days ` + wk);
+      ok(/16 min late on average, 15\+ min late on 1 of 3 days/.test(wk), `${where} gaps: averages only measured days ` + wk);
       ok(await p.locator('.wk-marks .wk-none').count() === 4, `${where} gaps: no-run days hollow at both ends`);
       ok(await p.locator('.wk-marks .wk-gap').count() === 2 && /\?/.test(wk), `${where} gaps: incomplete day shown as ?`);
       const hollow = await p.$$eval('.wk-none .wk-mark, .wk-gap .wk-mark', (els) => els.every((e) => getComputedStyle(e).backgroundColor === 'rgba(0, 0, 0, 0)'));
@@ -63,11 +63,11 @@ try {
       await close(p); }
   }
 
-  { const p = await open(CARD, { week: 'other' }); { const wk = flat(await text(p, '.wk')); ok(/Ended or started elsewhere: .*to Hannover Hbf/.test(wk) && /22\*/.test(wk), 'card other: a different end stop is named and starred ' + wk); ok(/9 min late on average, 15 min or more late on 1 of 6 days/.test(wk), 'card other: that day left out of the average ' + wk); } await close(p); }
+  { const p = await open(CARD, { week: 'other' }); { const wk = flat(await text(p, '.wk')); ok(/ended at Hannover Hbf, not Oberhausen Hbf\. Not counted/.test(wk) && /22\*/.test(wk), 'card other: a different end stop is named and starred ' + wk); ok(await p.locator('.wk-marks .wk-elsewhere').count() === 1, 'card other: that cell drawn as not counted'); ok(/9 min late on average, 15\+ min late on 1 of 6 days/.test(wk), 'card other: that day left out of the average ' + wk); } await close(p); }
   { const p = await open(CARD, { week: 'one' }); ok(/measured on one day only, 12 min late/.test(flat(await text(p, '.wk'))), 'card one: one measured day'); await close(p); }
-  { const p = await open(CARD, { week: 'absent' }); ok(/No runs of ICE 224 in Deutsche Bahn's data/.test(flat(await text(p, '.wk'))) && await p.locator('.wk-table').count() === 0, 'card absent: says no run'); ok(p.errs.length === 0, 'card absent: clean console'); await close(p); }
+  { const p = await open(CARD, { week: 'absent' }); ok(/No runs of ICE 224 found in Deutsche Bahn's data/.test(flat(await text(p, '.wk'))) && await p.locator('.wk-table').count() === 0, 'card absent: says no run'); ok(p.errs.length === 0, 'card absent: clean console'); await close(p); }
   { const p = await open(CARD, { week: 'empty' }); ok(await p.locator('.wk').count() === 0 && p.errs.length === 0, 'card empty index: no block, clean console'); await close(p); }
-  { const p = await open(PAGE, { week: 'stale' }); ok(/Not updated since/.test(await text(p, '.wk')), 'page stale: says so'); await close(p); }
+  { const p = await open(PAGE, { week: 'stale' }); ok(/Not updated for 6 days/.test(await text(p, '.wk')), 'page stale: says so'); await close(p); }
   { const p = await open(PAGE, { week: 'full' }); const d = days(); const last = Number(d[6].slice(8, 10));
     ok(new RegExp(`\\b${last}\\b`).test(await text(p, '.wk-asof')), 'page: as-of shows the latest day'); await close(p); }
 

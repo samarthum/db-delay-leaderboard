@@ -14,7 +14,7 @@ function dayHead(iso: string, t: T, lang: Lang) {
 }
 
 /** One end of one day: what the mark shows, the number under it and what a screen reader hears. */
-function endOf(day: Day, which: 0 | 1, t: T): { kind: "min" | "canc" | "none" | "gap" | "unmeasured"; n?: number; text: string; sr: string } {
+function endOf(day: Day, which: 0 | 1, t: T): { kind: "min" | "canc" | "none" | "gap" | "unmeasured" | "elsewhere"; n?: number; text: string; sr: string } {
   if (day === null) return { kind: "none", text: "–", sr: t("wk.sr.noRun") };
   if (day === "?") return { kind: "gap", text: "?", sr: t("wk.sr.gap") };
   // The red mark carries the ×; the number line under it stays empty.
@@ -25,7 +25,10 @@ function endOf(day: Day, which: 0 | 1, t: T): { kind: "min" | "canc" | "none" | 
   if (v === "x") return { kind: "canc", text: star || "\u00a0", sr: t("wk.sr.canc") };
   if (v === null) return { kind: "unmeasured", text: "–" + star, sr: t("wk.sr.unmeasured") };
   const n = Math.max(0, v);
-  return { kind: "min", n, text: String(n) + star, sr: n > 0 ? t("wk.sr.late", { n }) : t("live.onTime") };
+  const sr = n > 0 ? t("wk.sr.late", { n }) : t("live.onTime");
+  // Measured at another station than the row names: shown, but drawn as not counted (hollow, grey number).
+  if (star) return { kind: "elsewhere", n, text: String(n) + star, sr: `${sr}, ${(day as [End, End, string | null, string | null])[2 + which]}` };
+  return { kind: "min", n, text: String(n), sr };
 }
 
 function Row({ cells, which, label, days, t, lang }: { cells: Day[]; which: 0 | 1; label: string; days: string[]; t: T; lang: Lang }) {
@@ -73,7 +76,7 @@ function Row({ cells, which, label, days, t, lang }: { cells: Day[]; which: 0 | 
 export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
   const t = makeT(lang);
   const [data, setData] = useState<{ index: WeekIndex; week: TrainWeek | undefined } | null>(null);
-  const [stale, setStale] = useState(false);
+  const [age, setAge] = useState(0);
   useEffect(() => {
     let alive = true;
     setData(null);
@@ -81,7 +84,7 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
       (r) => {
         if (!alive || !r) return;
         setData(r);
-        setStale(daysSince(r.index.asOf) > 3);
+        setAge(daysSince(r.index.asOf));
       },
       () => undefined,
     );
@@ -90,6 +93,7 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
     };
   }, [train]);
   if (!data) return null;
+  const stale = age > 3;
   const { index, week } = data;
   const first = fmtDate(index.days[0], lang).replace(/\s\d{4}$/, "");
   const firstWd = `${t(`wds.${weekdayOf(index.days[0])}` as Key)}${lang === "de" ? "," : ""} ${first}`;
@@ -104,7 +108,7 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
     return (
       <section className="wk" aria-label={t("wk.title")}>
         {head}
-        <p className="wk-sum">{t("wk.noRun", { train, first, last })}</p>
+        <p className="wk-sum">{t("wk.noRun", { train, first: firstWd, last: asOf })}</p>
       </section>
     );
   }
@@ -125,19 +129,19 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
           : t(s.late15 === 0 ? "wk.sum0" : "wk.sum", { st: dest, avg, k: s.late15, n: s.arrDays });
   const canc = s.cancelled === 0 ? "" : s.cancelled === 1 ? t("wk.canc1") : t("wk.cancN", { n: s.cancelled });
   // Days that started or ended somewhere else than usual: said under the diagram, never hidden.
-  const other = week.c
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => Array.isArray(c) && c.length > 2)
-    .map(({ c, i }) => {
-      const x = c as [End, End, string | null, string | null];
-      const h = dayHead(index.days[i], t, lang);
-      return t("wk.otherDay", { day: `${h.wd} ${h.d}`, o: shortStation(x[2] ?? week.o ?? ""), d: shortStation(x[3] ?? week.d ?? "") });
-    });
+  const other: string[] = [];
+  week.c.forEach((c, i) => {
+    if (!Array.isArray(c) || c.length <= 2) return;
+    const x = c as [End, End, string | null, string | null];
+    const h = dayHead(index.days[i], t, lang);
+    const day = `${h.wd} ${h.d}`;
+    if (x[2]) other.push(t("wk.otherStart", { day, st: shortStation(x[2]), usual: origin }));
+    if (x[3]) other.push(t("wk.otherEnd", { day, st: shortStation(x[3]), usual: dest }));
+  });
   return (
     <section className="wk" aria-labelledby={`wk-${train.replace(/\s/g, "-")}`}>
       {head}
-      <p className={stale ? "wk-asof wk-stale" : "wk-asof"}>{t(stale ? "wk.asOfStale" : "wk.asOf", { first: firstWd, date: asOf })}</p>
-      <p className="wk-asof">{t("wk.note")}</p>
+      <p className={stale ? "wk-asof wk-stale" : "wk-asof"}>{t(stale ? "wk.asOfStale" : "wk.asOf", { first: firstWd, date: asOf, n: age })}</p>
       <p className="wk-sum">
         {sum}
         {canc ? ` ${canc}` : ""}
@@ -164,13 +168,14 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
       {other.length ? <p className="wk-fine">{t("wk.other", { list: other.join("; ") })}</p> : null}
       <p className="wk-key" aria-hidden="true">
         <span className="wk-k">
+          {t("wk.key.min")}
           {([[20, "15+"], [8, "6–14"], [3, "1–5"], [0, "0"]] as const).map(([v, l]) => (
-            <span key={l} className="wk-k">
+            <span key={l} className="wk-sw">
               <span className="wk-mark wk-km" style={{ ["--c" as string]: liveColor(v) }} />
               {l}
             </span>
-          ))}{" "}
-          {t("wk.key.min")}
+          ))}
+          <span>{t("wk.key.zero")}</span>
         </span>
         <span className="wk-k">
           <span className="wk-mark wk-km" style={{ ["--c" as string]: LATE }}>
@@ -180,10 +185,12 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
           </span>{" "}
           {t("wk.key.canc")}
         </span>
-        <span className="wk-k">
-          <span className="wk-mark wk-km wk-hollow" /> {t("wk.key.none")}
+        <span className="wk-k wk-kh">
+          <span className="wk-mark wk-km wk-hollow" />
+          <span>{t("wk.key.none")}</span>
         </span>
       </p>
+      <p className="wk-fine">{t("wk.note", { o: origin, d: dest, fold: t("own.toggle") })}</p>
     </section>
   );
 }
