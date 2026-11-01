@@ -3,8 +3,12 @@
  * suggest fixes for typos. The records are written by scripts/compute.py into data/search/.
  *
  * A record is a positional array (see search_units in compute.py):
- *   [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line, late6]
+ *   [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line, late6,
+ *    recent]
  */
+
+/** "<month>, the latest month we have: ..." needs this many measured runs in that month (train page and search card). */
+export const LATEST_MONTH_MIN_RUNS = 8;
 
 /** 0: a long-distance train number ("ICE 1541"), 1: a regional line ("RE 19"), 2: a regional train number ("RE 4930"). */
 export type Kind = 0 | 1 | 2;
@@ -40,6 +44,9 @@ export interface SearchUnit {
   lineHash: string | null;
   /** The line a regional train runs on, "RE 19". */
   line: string | null;
+  /** The latest window months with measured runs, oldest first: [month "2026-10", measured runs, mean delay]. Up to 3
+   *  for long-distance trains, 1 for regional ones; empty in data written before Nov 2026. */
+  recent: [string, number, number][];
   /** Stable id for the URL. */
   key: string;
 }
@@ -62,6 +69,7 @@ export type RawUnit = [
   (string | null)?,
   (string | null)?,
   (number | null)?,
+  ([string, number, number][] | null)?,
 ];
 
 const PREFIX: Record<Kind, string> = { 0: "", 1: "line-", 2: "rt-" };
@@ -95,6 +103,7 @@ export function decode(r: RawUnit): SearchUnit {
     hash,
     lineHash: r[14] ?? null,
     line: r[15] ?? null,
+    recent: r[17] ?? [],
     key: unitKey(kind, type, num, hash),
   };
 }
@@ -300,4 +309,10 @@ export function weekdayExtremes(weekday: (number | null)[]): { worst: number; be
   const best = days.reduce((a, b) => (b.v < a.v ? b : a));
   if (worst.v === best.v) return null;
   return { worst: worst.i, best: best.i };
+}
+
+/** The unit's latest month when it is the window's last month and has enough runs to mean something, else null. */
+export function latestMonth(u: Pick<SearchUnit, "recent">, lastMonth: string): { month: string; runs: number; avg: number } | null {
+  const m = u.recent[u.recent.length - 1];
+  return m && m[0] === lastMonth && m[1] >= LATEST_MONTH_MIN_RUNS && m[2] !== null ? { month: m[0], runs: m[1], avg: m[2] } : null;
 }

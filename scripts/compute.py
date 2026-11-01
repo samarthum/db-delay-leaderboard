@@ -51,6 +51,11 @@ PARAMS = {
     "searchMinRuns": 20,
     "searchFewRuns": 100,
     "searchMinWeekdayRuns": 8,
+    # Latest months per search record ([month, measured runs, avg]): 3 for long-distance trains (1.7k records), 1 for
+    # regional lines and train numbers (32k records; 3 would add a third to every search shard). The card shows the
+    # latest one, as the train page does (LATEST_MONTH_MIN_RUNS in lib/searchCore.ts).
+    "searchRecentMonths": 3,
+    "searchRecentMonthsRegional": 1,
     "lateMinutes": 15,
 }
 # Long-distance trains are known by their number, regional trains by their line.
@@ -147,10 +152,10 @@ def download(url, path, size=None):
     log(f"downloaded {path.name} ({path.stat().st_size / 1e6:.0f} MB) in {time.time() - t0:.0f}s")
 
 
-def fetch_remote(cache_dir):
-    """Download the latest published months and the stations file; return (listing, stations_csv)."""
+def fetch_remote(cache_dir, until=None):
+    """Download the latest published months (up to `until`, YYYY-MM) and the stations file; return (listing, stations_csv)."""
     cache_dir.mkdir(parents=True, exist_ok=True)
-    remote = list_remote()
+    remote = [r for r in list_remote() if until is None or r[0] <= until]
     for month, size, url in remote[-PUBLISHED_MONTHS:]:
         download(url, cache_dir / f"data-{month}.parquet", size)
     stations = cache_dir / "stations.csv"
@@ -573,12 +578,15 @@ SEARCH_KINDS = [(0, "cat = 'longDistance'", "unit"),
                 (2, "cat = 'regional'", "unit || '/' || num")]
 
 
-def search_units(con, p, page_slug):
+def search_units(con, p, page_slug, months):
     """Every train number, regional line and regional train number with enough measured runs, as records.
 
     page_slug maps a unit (or a train number merged into one) to the slug of its full page.
-    Record layout (positional, see lib/search.ts):
-      [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line, late6]
+    Record layout (positional, see lib/searchCore.ts):
+      [type, num, kind, runs, measured, avg, late, cancelled, weekday, origin, dest, worst, slug, hash, lineHash, line, late6,
+       recent]
+    recent: [[month, measured runs, avg delay], ...] for the last searchRecentMonths window months (searchRecentMonthsRegional
+    for kinds 1 and 2) in which the unit has measured runs, oldest first; same numbers as the train page's monthly series.
     """
     in_clamp = f"delay between {p['clampMinMinutes']} and {p['clampMaxMinutes']}"
     min_runs, min_wd, late = p["searchMinRuns"], p["searchMinWeekdayRuns"], p["lateMinutes"]
@@ -599,6 +607,12 @@ def search_units(con, p, page_slug):
             select {grp} grp, isodow(start_plan) - 1 wd, avg(delay) avg_min from r
             where valid and {cond} group by grp, wd having count(*) >= {min_wd}"""):
             weekday.setdefault(w["grp"], [None] * 7)[w["wd"]] = rnd(w["avg_min"])
+        last = months[-(p["searchRecentMonths"] if kind == 0 else p["searchRecentMonthsRegional"]):]
+        recent = {}
+        for m in rows(con, f"""
+            select {grp} grp, month, count(*) n, avg(delay) avg_min from r
+            where valid and {cond} and month in (select unnest({sql_list(last)})) group by grp, month order by grp, month"""):
+            recent.setdefault(m["grp"], []).append([m["month"], m["n"], rnd(m["avg_min"])])
         worst = {w["grp"]: w for w in rows(con, f"""
             select grp, delay, date, first_eva, last_eva, origin, dest from (
               select {grp} grp, delay, start_plan::date::varchar date, first_eva, last_eva, origin, dest,
@@ -646,7 +660,7 @@ def search_units(con, p, page_slug):
                 typ, num, h = s["line"].split(" ", 1)[0], s["num"], short_hash(s["line"], s["num"], o, d)
             kind_records.append({"kind": kind, "unit": s["unit"], "group": g, "type": typ, "num": num, "hash": h,
                                  "line": s["line"] if kind == 2 else None,
-                                 "late6": rnd(s["late6"]),
+                                 "late6": rnd(s["late6"]), "recent": recent.get(g, []),
                                  "rec": [typ, num, kind, s["runs"], s["measured"], rnd(s["avg_min"]), rnd(s["late"]),
                                          rnd(s["full_canc"]), weekday.get(g, [None] * 7), o, d, wr]})
         log(f"search kind {kind}: {len(kind_records)} of {len(stats)} units with >= {min_runs} measured runs in {time.time() - t0:.1f}s")
@@ -675,9 +689,10 @@ def search_units(con, p, page_slug):
     line_hash = {r_["unit"]: r_["hash"] for r_ in records if r_["kind"] == 1}
     for r_ in records:
         rec = r_["rec"]
-        # ... slug, hash, lineHash, line, late6 (Deutsche Bahn's 6-minute rule). The tail stays padded so late6 keeps its place.
+        # ... slug, hash, lineHash, line, late6 (Deutsche Bahn's 6-minute rule), recent. The tail stays padded so each
+        # field keeps its place.
         rec += [page_slug.get(r_["unit"]) if r_["kind"] != 2 else None, r_["hash"],
-                line_hash.get(r_["unit"]) if r_["kind"] == 2 else None, r_["line"], r_["late6"]]
+                line_hash.get(r_["unit"]) if r_["kind"] == 2 else None, r_["line"], r_["late6"], r_["recent"]]
     return records
 
 
@@ -699,7 +714,8 @@ def search_files(records, window, p):
     for r_ in records:
         nums.setdefault(r_["type"], set()).add(r_["num"])
     index = {"window": {k: window[k] for k in ("firstMonth", "lastMonth", "monthCount")},
-             "params": {k: p[k] for k in ("searchMinRuns", "searchFewRuns", "searchMinWeekdayRuns", "lateMinutes")},
+             "params": {k: p[k] for k in ("searchMinRuns", "searchFewRuns", "searchMinWeekdayRuns", "lateMinutes",
+                                         "searchRecentMonths", "searchRecentMonthsRegional")},
              "counts": {k: sum(1 for r_ in records if r_["kind"] == i) for i, k in enumerate(("train", "line", "regionalTrain"))},
              "shards": {k: len(v) for k, v in sorted(shards.items())}}
     index["types"] = {t: "longDistance" if any(r_["kind"] == 0 and r_["type"] == t for r_ in records) else "regional"
@@ -766,12 +782,13 @@ def compute(args):
     tmp = Path(tempfile.gettempdir()) / "db-delay-duckdb"
     tmp.mkdir(parents=True, exist_ok=True)
     if args.data_dir:
-        listing, stations_csv = list_local(args.data_dir), args.stations_csv or STATIONS_CSV
+        listing = [x for x in list_local(args.data_dir) if args.until is None or x[0] <= args.until]
+        stations_csv = args.stations_csv or STATIONS_CSV
         if re.match(r"https?://", stations_csv):
             download(stations_csv, tmp / "stations.csv")
             stations_csv = str(tmp / "stations.csv")
     else:
-        listing, stations_csv = fetch_remote(Path(args.cache_dir))
+        listing, stations_csv = fetch_remote(Path(args.cache_dir), args.until)
     if not listing:
         sys.exit("no data-YYYY-MM.parquet files found")
 
@@ -819,7 +836,7 @@ def compute(args):
         page_slug[u] = s["slug"]
         for alias in t["aliases"]:
             page_slug[alias] = s["slug"]
-    search = search_files(search_units(con, p, page_slug), window, p)
+    search = search_files(search_units(con, p, page_slug, months), window, p)
 
     overall, series = overall_and_monthly(con, months, pool_sizes)
     stats = {"window": window, "params": p, "headline": headline(con, months, p), "overall": overall,
@@ -870,6 +887,7 @@ def main():
                     help="drop runs whose final delay is below this many minutes (default %(default)s)")
     ap.add_argument("--clamp-max", type=int, default=PARAMS["clampMaxMinutes"],
                     help="drop runs whose final delay is above this many minutes (default %(default)s)")
+    ap.add_argument("--until", help="ignore published months after this one (YYYY-MM); the monthly job passes the month it adds")
     ap.add_argument("--check-window", action="store_true",
                     help="only compare the live Hugging Face listing with the existing stats.json")
     args = ap.parse_args()

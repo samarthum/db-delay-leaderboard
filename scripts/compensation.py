@@ -116,17 +116,18 @@ def main():
         if mm >= 500:
             types[tt] = {"measured": mm, "p60": pc(a60, mm), "p120": pc(a120, mm)}
 
-    # Routes: the same pairs and the same measured trips as data/routes.json (a run counts for A -> B when it stops at A with a
-    # departure and later at B; delay = arrival delay at B, the last row of B in the run).
+    # Routes: the same pairs and the same measured trips as data/routes.json (a run counts for A -> B when it departs from A and
+    # is planned at B later; delay = arrival delay at B, the last row of B in the run).
     slug_set = {r["slug"] for r in routes["routes"]}
     major = [x[0] for x in con.execute(f"select name from s group by name having count(distinct run) >= {routes['params']['majorRuns']}").fetchall()]
     allowed = [(a, b) for a in major for b in major if a != b and f"{rm.slugify(rm.short(a))}-{rm.slugify(rm.short(b))}" in slug_set]
     log(f"stations {len(major)}, allowed pairs {len(allowed)} for {len(slug_set)} route pages")
     con.execute("create table sel(a varchar, b varchar)")
     con.executemany("insert into sel values (?, ?)", allowed)
-    con.execute("""create table sa as select run, name, min(seq) seq from s where dep_plan is not null and name in (select name from sel) group by run, name""")
-    con.execute("""create table sb as select run, name, seq, d, canc, arr_plan from s where name in (select name from sel)
-                   qualify row_number() over (partition by run, name order by seq desc) = 1""")
+    # Order by planned time, as routes.py does (the stop numbers of a few runs run against the direction of travel).
+    con.execute("""create table sa as select run, name, min(dep_plan) dep_plan from s where dep_plan is not null and name in (select name from sel) group by run, name""")
+    con.execute("""create table sb as select run, name, d, canc, arr_plan, coalesce(arr_plan, dep_plan) t from s where name in (select name from sel)
+                   qualify row_number() over (partition by run, name order by coalesce(arr_plan, dep_plan) desc nulls last, seq desc) = 1""")
     meas_b = f"not sb.canc and sb.arr_plan is not null and sb.d between {lo} and {hi}"
     out_routes = {}
     check = {}
@@ -134,7 +135,7 @@ def main():
         select sa.name, sb.name, count(*), count(*) filter (where {meas_b}),
           count(*) filter (where {meas_b} and sb.d >= {p['lateMinutes']}),
           count(*) filter (where {meas_b} and sb.d >= 60), count(*) filter (where {meas_b} and sb.d >= 120)
-        from sa join sb on sa.run = sb.run and sa.seq < sb.seq and sa.name <> sb.name
+        from sa join sb on sa.run = sb.run and sb.t > sa.dep_plan and sa.name <> sb.name
         join sel on sel.a = sa.name and sel.b = sb.name
         group by 1, 2""").fetchall():
         slug = f"{rm.slugify(rm.short(a))}-{rm.slugify(rm.short(b))}"

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Category, HistBin, UnitDetail } from "@/lib/types";
 import { monthLong } from "@/lib/format";
+import { LATEST_MONTH_MIN_RUNS } from "@/lib/searchCore";
 import { getLatePct, hasConnectionsFrom, hasLiveTrain, isForeignStation, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
 import { lateShareColor, delayColor, LATE } from "@/lib/colors";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
@@ -59,7 +60,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const endsAbroad = isForeignStation(t.dest);
   // "How has it been lately": the latest month in the window, when it has enough runs to mean something.
   const lastM = t.monthly[t.monthly.length - 1];
-  const latest = lastM && lastM.avg !== null && lastM.runs >= 8 && lastM.month === w.lastMonth ? { month: lastM.month, avg: lastM.avg } : null;
+  const latest = lastM && lastM.avg !== null && lastM.runs >= LATEST_MONTH_MIN_RUNS && lastM.month === w.lastMonth ? { month: lastM.month, avg: lastM.avg } : null;
   const min = tr("unit.min");
 
   const canChange = !isLine && hasConnectionsFrom(t.name);

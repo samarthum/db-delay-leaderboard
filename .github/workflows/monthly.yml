@@ -1,0 +1,135 @@
+name: Monthly history refresh
+
+# The site's history (11-12 months) comes from piebro/deutsche-bahn-data's monthly processed files
+# (monthly_processed_data/data-YYYY-MM.parquet on Hugging Face), published a few days into the next month. Every day
+# from the 2nd to the 10th this checks whether the last finished month is published and not yet in data/stats.json
+# (scripts/monthly.py plan); only then does it download the window's months (~4.5 GB), run the whole pipeline
+# (compute.py -> stops.py -> routes.py -> connections.py -> compensation.py), re-check every file family against the
+# Parquet with independent queries, run the sanity gate, and commit the data files to main (Vercel deploys).
+# Otherwise it is a no-op. Replaces refresh.yml, which re-ran compute.py alone and so would have published new
+# stats beside old routes. Details and decisions: docs/notes/data-pipeline.md ("Monthly refresh"), docs/notes/monthly-log.md.
+on:
+  schedule:
+    - cron: "37 7 2-10 * *"
+  workflow_dispatch:
+  # A dry run on pull requests that change the pipeline: real data, same checks, artifact and summary, never committed.
+  pull_request:
+    paths:
+      - scripts/compute.py
+      - scripts/stops.py
+      - scripts/routes.py
+      - scripts/connections.py
+      - scripts/compensation.py
+      - scripts/monthly.py
+      - scripts/check_headline.py
+      - tests/data/verify_monthly.py
+      - tests/data/verify_bins.py
+      - tests/data/compare_routes.py
+      - tests/data/monthly_fixture.py
+      - tests/data/test_monthly.py
+      - .github/workflows/monthly.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monthly-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Work folders
+        run: |
+          echo "PQ=$RUNNER_TEMP/parquet" >> "$GITHUB_ENV"
+          echo "OLD=$RUNNER_TEMP/old-data" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - run: pip install -r scripts/requirements.txt
+
+      - name: Is there a finished month to add?
+        id: plan
+        run: python scripts/monthly.py plan
+
+      # Pull requests always run (a dry run of the committed window when no new month is out).
+      - name: Pipeline, gate and verifier on synthetic months (no network)
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: python tests/data/test_monthly.py
+
+      - name: Keep the committed data for the gate
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: cp -r data "$OLD"
+
+      - name: Download the window's months and run the pipeline
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: python scripts/monthly.py run --download --data-dir "$PQ" --until "${{ steps.plan.outputs.until }}"
+
+      - name: Independent re-check of every file family against the Parquet
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: |
+          python tests/data/verify_monthly.py --parquet "$PQ" --data data --sample 120
+          GP_PARQUET="$PQ" python tests/data/verify_bins.py
+          python scripts/check_headline.py --data-dir "$PQ"
+
+      - name: Sanity gate (window, row counts, families, fields, sizes) and what changes
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: python scripts/monthly.py gate --old "$OLD" --expect "${{ steps.plan.outputs.expect }}"
+
+      # Pull requests only: the route-direction fix on the COMMITTED window (same months, so only the fix differs).
+      - name: Route fix on the committed window (rows running the other way, figures they fed)
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/routes.py --data-dir "$PQ" --stats "$OLD/stats.json" --out "$RUNNER_TEMP/routes-same-window.json"
+          python tests/data/compare_routes.py --old "$OLD/routes.json" --new "$RUNNER_TEMP/routes-same-window.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Diff summary (dry run)
+        if: github.event_name == 'pull_request'
+        run: |
+          git status --porcelain --untracked-files=all | awk '{print $1}' | sort | uniq -c
+          git diff --stat -- data | tail -5
+
+      - if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: monthly-data
+          path: |
+            data/*.json
+            data/trains
+            data/lines
+            data/search
+            ${{ runner.temp }}/routes-same-window.json
+
+      - name: Commit the data files to main
+        if: steps.plan.outputs.act == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          changed="$(git status --porcelain --untracked-files=all)"
+          if [ -z "$changed" ]; then
+            echo "Data unchanged."
+            exit 0
+          fi
+          files='stats|monthly|stations|stops|routes|connections|connection-pairs|connections-daypart|compensation'
+          unexpected="$(echo "$changed" | grep -vE "^( M|\?\?| D) data/(($files)\.json|(trains|lines|search)/[^/]+\.json)$" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected changes, not committing:"
+            echo "$unexpected"
+            exit 1
+          fi
+          window=$(python -c "import json; w = json.load(open('data/stats.json'))['window']; print(w['firstMonth'] + '..' + w['lastMonth'])")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data
+          git commit -m "data: monthly refresh, window $window"
+          for i in 1 2 3 4; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i * 10))
+          done
+          exit 1

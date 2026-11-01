@@ -68,10 +68,13 @@ node scripts/screenshots.mjs shots            # optional: [trainSlug] [lineSlug]
 
 ## Refresh workflow
 
-`.github/workflows/refresh.yml` runs weekly and on demand. It asks Hugging Face which monthly files are
-published, and only when the window changed (or when run manually) downloads the files, recomputes the
-data and commits `data/` if the content changed. It needs no secrets. A push to `main` triggers a Vercel redeploy,
-which regenerates the OG images.
+`.github/workflows/monthly.yml` checks daily from the 2nd to the 10th of each month (and on demand) whether the last
+finished month is published on Hugging Face and not yet in `data/stats.json`. Only then it downloads the window's
+monthly files, runs the whole pipeline (`scripts/monthly.py run`: compute, stops, routes, connections, compensation),
+re-checks every file family against the Parquet with independent queries (`tests/data/verify_monthly.py`), runs a
+sanity gate and commits the data files to `main`. On pull requests that change the pipeline it is a dry run. It needs
+no secrets. A push to `main` triggers a Vercel redeploy, which regenerates the OG images. `.github/workflows/last7.yml`
+refreshes "the last 7 days" daily the same way. Details: `docs/notes/data-pipeline.md`.
 
 ## Deploy on Vercel
 

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SEARCH_INDEX, loadLine, loadStops } from "@/lib/searchClient";
-import { lineKey, unitName, weekdayExtremes, type SearchUnit } from "@/lib/searchCore";
-import { fmt1, fmtDate, fmtDuration, fmtInt, fmtShare1, spanLabel } from "@/lib/format";
+import { latestMonth, lineKey, unitName, weekdayExtremes, type SearchUnit } from "@/lib/searchCore";
+import { fmt1, fmtDate, fmtDuration, fmtInt, fmtShare1, monthLong, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
 import { makeT, type Key } from "@/lib/t";
 import { absoluteUrl, portraitPath, unitHref } from "@/lib/site";
@@ -140,6 +140,9 @@ export function SearchResult({
     span,
   });
 
+  // "How has it been lately": the same line as the train page (latest month of the window, enough runs).
+  const latest = latestMonth(unit, win.lastMonth);
+
   const fullHref = unit.slug ? unitHref({ category: unit.kind === 0 ? "longDistance" : "regional", slug: unit.slug }, lang) : null;
 
   return (
@@ -192,6 +195,11 @@ export function SearchResult({
           basis={t("home.networkBasis", { trips: fmtInt(unit.measured, lang), span })}
         />
       </div>
+      {latest ? (
+        <p className="lately">
+          {t("res.lately", { month: monthLong(latest.month, lang), late: t(latest.avg < 0 ? "res.early" : "res.late", { x: fmt1(Math.abs(latest.avg), lang) }) })}
+        </p>
+      ) : null}
 
       {today >= 0 && unit.weekday[today] !== null ? (
         <p className={styles.today}>

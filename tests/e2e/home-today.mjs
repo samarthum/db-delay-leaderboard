@@ -1,6 +1,7 @@
 // "My train today" home + live states, against MOCKED /api/live/ answers (tests/fixtures/live.mjs; no DB keys needed).
 //   node tests/tools/serve.mjs &   then   node tests/e2e/home-today.mjs
 import { chromium } from 'playwright';
+import fs from 'node:fs';
 import { mockLive } from '../fixtures/live.mjs';
 
 const BASE = process.env.BASE || 'http://127.0.0.1:4599';
@@ -9,10 +10,14 @@ const b = await chromium.launch({ ...LAUNCH, args: ['--font-render-hinting=none'
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } };
 
-async function open(url, { w = 390, h = 844, live = 'disabled', store = null } = {}) {
+// `now` (ms): a fixed clock for the browser and the mocked answers, for checks whose words depend on the time of day.
+// `prep(ctx)`: extra setup before the page loads (e.g. rewriting a search shard).
+async function open(url, { w = 390, h = 844, live = 'disabled', store = null, now = null, prep = null } = {}) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, isMobile: w < 900, hasTouch: w < 900, locale: 'en-GB' });
   if (store) await ctx.addInitScript((s) => localStorage.setItem('gp-saved-v1', JSON.stringify(s)), store);
-  await mockLive(ctx, live);
+  if (prep) await prep(ctx);
+  if (now !== null) await ctx.clock.setFixedTime(now);
+  await mockLive(ctx, live, { now });
   const p = await ctx.newPage();
   p.errs = [];
   p.on('pageerror', (e) => p.errs.push(e.message));
@@ -24,6 +29,27 @@ async function open(url, { w = 390, h = 844, live = 'disabled', store = null } =
   return p;
 }
 const close = (p) => p.context().close();
+// The window's last month, as the search index says (the card shows "<month>, the latest month we have" only for it).
+const LAST = JSON.parse(fs.readFileSync(new URL('../../data/search/index.json', import.meta.url))).window.lastMonth;
+const prevMonth = (m) => { const [y, mo] = m.split('-').map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; };
+/** Serve the search shards with field 17 (latest months) of `unit` set to `recent`, whatever the committed data holds. */
+const withRecent = (unit, recent) => async (ctx) => {
+  await ctx.route('**/search/s-*.json', async (r) => {
+    const res = await r.fetch();
+    const recs = await res.json();
+    for (const x of recs) if (x[2] === 0 && `${x[0]} ${x[1]}` === unit) { while (x.length < 17) x.push(null); x[17] = recent; }
+    await r.fulfill({ response: res, json: recs });
+  });
+};
+/** Today's date in Berlin at `hhmm` Berlin time, as ms (the offset is read for that instant, so it holds across DST). */
+function berlinAt(hhmm) {
+  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const parts = (ms) => Object.fromEntries(fmt.formatToParts(new Date(ms)).map((x) => [x.type, +x.value || x.value]));
+  const d = parts(Date.now());
+  const guess = Date.UTC(d.year, d.month - 1, d.day, Math.floor(hhmm / 100), hhmm % 100);
+  const g = parts(guess);
+  return guess - (Date.UTC(g.year, g.month - 1, g.day, g.hour, g.minute) - guess);
+}
 const text = (p, sel) => p.locator(sel).first().innerText().catch(() => '');
 
 try {
@@ -43,9 +69,33 @@ try {
   { const p = await open(card, { live: 'unknown' }); ok(/No live times for this train/.test(await text(p, 'main')), 'card unknown: says no live times'); await close(p); }
   { const p = await open(card, { live: 'busy' }); ok(/not available right now/.test(await text(p, 'main')), 'card busy: says unavailable'); await close(p); }
   { const p = await open(card, { live: 'disabled' }); ok(await p.locator('.livenow, .ln-next').count() === 0, 'card disabled: no live block'); await close(p); }
-  { const p = await open(card, { live: 'next' }); ok(/Next: today/.test(await text(p, '.ln-next')), 'card next: next run line'); await close(p); }
+  // The mocked next run starts 5 h after "now": at 10:00 Berlin that is today, at 21:00 it is tomorrow (fixed clocks, so
+  // the result does not depend on when the suite runs).
+  { const p = await open(card, { live: 'next', now: berlinAt(1000) }); ok(/Next: today/.test(await text(p, '.ln-next')), 'card next: next run line (10:00, today) ' + await text(p, '.ln-next')); await close(p); }
+  { const p = await open(card, { live: 'next', now: berlinAt(2100) }); ok(/Next: tomorrow/.test(await text(p, '.ln-next')), 'card next: next run line (21:00, tomorrow) ' + await text(p, '.ln-next')); await close(p); }
   { const p = await open(card, { live: 'platform' }); ok(/Platform changed: now 12/.test(await text(p, '.livenow')), 'card platform change line'); await close(p); }
   { const p = await open(card, { live: 'late' }); ok(/last stop in Germany/.test(await text(p, 'main')) && /goes on to Amsterdam/.test(await text(p, '.livenow')), 'card: train ending abroad explained'); await close(p); }
+
+  // Latest month on the card: the same line as the train page, from search record field 17 (scripts/compute.py), only for
+  // the window's last month with 8+ measured runs; "early" for a negative average; German at 320 px without overflow.
+  { const p = await open(card, { prep: withRecent('ICE 224', [[prevMonth(prevMonth(LAST)), 30, 5.1], [prevMonth(LAST), 28, 6.2], [LAST, 26, 7.4]]) });
+    const t = await text(p, 'main .lately');
+    ok(/, the latest month we have: 7\.4 min late on average\./.test(t), 'card: latest month line ' + t);
+    const box = await p.locator('main .lately').boundingBox(); const fig = await p.locator('main .fig').first().boundingBox().catch(() => null);
+    ok(box && fig && box.y > fig.y, 'card: latest month under the history figure');
+    ok(p.ov <= 0.5 && p.errs.length === 0, 'card latest month: no overflow, clean console ' + p.errs.join('|')); await close(p); }
+  { const p = await open(card, { prep: withRecent('ICE 224', [[LAST, 26, -1.2]]) });
+    ok(/1\.2 min early on average/.test(await text(p, 'main .lately')), 'card: latest month early'); await close(p); }
+  { const p = await open(card, { prep: withRecent('ICE 224', [[LAST, 7, 7.4]]) });
+    ok(await p.locator('main .lately').count() === 0, 'card: no latest month line under 8 runs'); await close(p); }
+  { const p = await open(card, { prep: withRecent('ICE 224', [[prevMonth(LAST), 26, 7.4]]) });
+    ok(await p.locator('main .lately').count() === 0, 'card: no latest month line when the train did not run in the last month'); await close(p); }
+  { const p = await open(card, { prep: withRecent('ICE 224', []) });
+    ok(await p.locator('main .lately').count() === 0 && p.errs.length === 0, 'card: no line and no error without the field'); await close(p); }
+  { const p = await open('/de/?q=ICE%20224', { w: 320, h: 640, prep: withRecent('ICE 224', [[LAST, 26, 7.4]]) });
+    const t = await text(p, 'main .lately');
+    ok(/, der jüngste Monat in unseren Daten: im Schnitt 7,4 Min\. zu spät\./.test(t), 'card DE: latest month line ' + t);
+    ok(p.ov <= 0.5 && p.errs.length === 0, 'card DE 320: no overflow, clean console ' + p.errs.join('|')); await close(p); }
 
   // Route lists never show a train running the other way (arrival more than 12 h after departure).
   { const p = await open('/route/ulm-hbf-duesseldorf-hbf/?t=15:33');

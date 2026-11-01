@@ -9,16 +9,24 @@ DATA = os.environ.get("GP_PARQUET") or sys.exit("set GP_PARQUET to the folder wi
 import json, sys
 import duckdb
 
-R = ROOT + "/"
-# Pairs file to check: the committed one, or a fresh run of scripts/connections.py (PAIRS=...).
-P = json.load(open(os.environ.get("PAIRS") or os.path.join(ROOT, "data", "connection-pairs.json")))
-months = json.load(open(R + "data/stats.json"))["window"]["months"]
+# Data folder (GP_DATA, default data/) and pairs file to check: its connection-pairs.json, or a fresh run (PAIRS=...).
+D = os.environ.get("GP_DATA") or os.path.join(ROOT, "data")
+P = json.load(open(os.environ.get("PAIRS") or os.path.join(D, "connection-pairs.json")))
+months = json.load(open(os.path.join(D, "stats.json")))["window"]["months"]
 months_l = months
 files = [os.path.join(DATA, f"data-{m}.parquet") for m in months]
 BINS = [5, 10, 15, 20, 30, 60]
 con = duckdb.connect()
 con.execute("set memory_limit='1200MB'; set preserve_insertion_order=false")
 cases = [("ICE 1541", "Berlin Hauptbahnhof"), ("ICE 1541", "Hannover Hbf"), ("ICE 545", None), ("ICE 695", None), ("ICE 842", "Bielefeld Hbf")]
+# Trains come and go with the window: keep the known cases that are still there, then fill up with the busiest arriving
+# trains (most days at their busiest station), so a refresh is always checked on 5 trains.
+cases = [c for c in cases if c[0] in P]
+for a in sorted(P, key=lambda a: (-max(x["a"][0] for x in P[a]["s"].values()), a)):
+    if len(cases) >= 5:
+        break
+    if all(c[0] != a for c in cases):
+        cases.append((a, None))
 bad = 0; checked = 0
 for a, st in cases:
     t = P[a]["s"]
@@ -46,6 +54,9 @@ for a, st in cases:
           from A join B on B.dp = A.ap + to_minutes(?::bigint) and A.r <> B.r
           where B.nxt is distinct from A.prv and B.nxt is distinct from A.nxt and not (B.nxt is null and B.dc)
         """, [at, an, bt, bn, at, an, st, x["t"], bt, bn, st, gap]).fetchall()
+        # The pair's own figures: days, cancelled, worked with 0/2/4/6/8 minutes to change (b[2], b[3], b[6:11]).
+        counts = [len(rows), sum(1 for _, _, dc in rows if dc)] + [sum(1 for _, ch, dc in rows if not dc and ch >= m) for m in (0, 2, 4, 6, 8)]
+        want = [b[2], b[3]] + b[6:11]
         mine = [0] * 21
         for late, ch, dc in rows:
             i = next((k for k, u in enumerate(BINS) if late <= u), 6)
@@ -53,8 +64,8 @@ for a, st in cases:
             mine[3 * i + 1] += int((not dc) and ch >= 2)
             mine[3 * i + 2] += int((not dc) and ch >= 6)
         checked += 1
-        okk = mine == bins
+        okk = mine == bins and counts == want
         bad += not okk
-        print("OK " if okk else "DIFF", a, st, btr, gap, "n", sum(bins[0::3]), "mine", sum(mine[0::3]), "" if okk else f"\n   file {bins}\n   mine {mine}")
+        print("OK " if okk else "DIFF", a, st, btr, gap, "n", sum(bins[0::3]), "mine", sum(mine[0::3]), "" if okk else f"\n   file {want} {bins}\n   mine {counts} {mine}")
 print(f"checked {checked}, differences {bad}")
 sys.exit(1 if bad else 0)

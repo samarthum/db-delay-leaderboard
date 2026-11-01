@@ -3,12 +3,15 @@
 // page.route(). Nothing here ships: tests/ is not part of the build.
 //
 // Stamps are DB local wall-clock time (Europe/Berlin), yyMMddHHmm, built relative to "now" so day words read "today".
+// "now" is the real clock unless mockLive() is given a fixed one ({ now }), for checks whose words depend on the time of
+// day ("Next: today" 5 h ahead turns into "tomorrow" in the evening); pin the browser clock to the same instant.
 
 const FMT = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+let NOW = null; // fixed "now" in ms while a mocked answer is built, else null (the real clock)
 /** Berlin stamp `min` minutes from now, rounded to the minute. */
 export function stamp(min = 0) {
   const p = {};
-  for (const x of FMT.formatToParts(new Date(Date.now() + min * 60000))) p[x.type] = x.value;
+  for (const x of FMT.formatToParts(new Date((NOW ?? Date.now()) + min * 60000))) p[x.type] = x.value;
   return `${p.year}${p.month}${p.day}${p.hour}${p.minute}`;
 }
 
@@ -57,18 +60,24 @@ export function board(from = 'Köln Hbf', to = 'Berlin Hbf') {
 
 /**
  * Install on a Playwright page or context: `scenario` is a TRAIN key applied to every ?train= call, or a map
- * { 'ICE 1541': 'late', ... } with '*' as the fallback. Route boards always get board().
+ * { 'ICE 1541': 'late', ... } with '*' as the fallback. Route boards always get board(). `now` (ms): build the stamps
+ * from this instant instead of the real clock (pair it with the page's clock.setFixedTime(now)).
  */
-export async function mockLive(target, scenario = 'late') {
+export async function mockLive(target, scenario = 'late', { now = null } = {}) {
   await target.route('**/api/live/**', (r) => {
     const u = new URL(r.request().url());
     const train = u.searchParams.get('train');
     let body;
-    if (train !== null) {
-      const key = typeof scenario === 'string' ? scenario : (scenario[train] ?? scenario['*'] ?? 'unknown');
-      body = TRAIN[key](train);
-    } else if (u.searchParams.get('from')) body = board(u.searchParams.get('from'), u.searchParams.get('to'));
-    else body = { ok: false, error: 'disabled' };
+    NOW = now;
+    try {
+      if (train !== null) {
+        const key = typeof scenario === 'string' ? scenario : (scenario[train] ?? scenario['*'] ?? 'unknown');
+        body = TRAIN[key](train);
+      } else if (u.searchParams.get('from')) body = board(u.searchParams.get('from'), u.searchParams.get('to'));
+      else body = { ok: false, error: 'disabled' };
+    } finally {
+      NOW = null;
+    }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 }

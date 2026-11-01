@@ -4,8 +4,11 @@
   python scripts/routes.py --data-dir DIR       # DIR holds data-YYYY-MM.parquet; needs data/stats.json only
 
 A route is an ordered pair of German stations (Köln to Berlin and Berlin to Köln are two routes). Everything comes
-straight from the Parquet runs, RUN BY RUN: a run counts for A -> B when it stops at A and later at B, and its delay is
-the arrival delay at B, the stop where you get off. Nothing here depends on data/stops.json: that file drops trains whose
+straight from the Parquet runs, RUN BY RUN: a run counts for A -> B when it departs from A and is planned to reach B
+LATER (by planned time, not by stop number), and its delay is the arrival delay at B, the stop where you get off.
+Stop numbers alone are not enough: in a few runs per train the source numbers the stops against the direction of
+travel, and until Nov 2026 those runs put trains running B -> A on the A -> B page (241 list rows on 97 routes, e.g.
+ICE 517 on Ulm -> Düsseldorf, 15:15 -> 11:20). Nothing here depends on data/stops.json: that file drops trains whose
 number is reused for different services, and for Hamburg to Berlin it keeps 51 of the 242 trains that run the pair.
 
 Definitions are the same as compute.py and stops.py: the window and clamp come from data/stats.json, a delay is kept
@@ -127,14 +130,17 @@ def main():
 
     con.execute(f"create table major as select name from s group by name having count(distinct run) >= {MAJOR_RUNS}")
     log(f"stations with >= {MAJOR_RUNS} runs: {con.execute('select count(*) from major').fetchone()[0]}")
-    # Per run and station: the first stop where you can get on (it has a departure), the last where you can get off.
-    # Stations are merged by name ("Berlin Hauptbahnhof" has a tief and an oben station id), so a run can list a name twice.
-    con.execute("""create table sa as select run, tt, num, name, min(seq) seq, arg_min(dep_plan, seq) dep_plan, any_value(start) start
+    # Per run and station: the first stop where you can get on (its earliest planned departure), the last where you can
+    # get off. Stations are merged by name ("Berlin Hauptbahnhof" has a tief and an oben station id), so a run can list
+    # a name twice. Order is by planned time: the stop numbers of a few runs run against the direction of travel.
+    con.execute("""create table sa as select run, tt, num, name, min(dep_plan) dep_plan, any_value(start) start
                    from s where dep_plan is not null and name in (select name from major) group by run, tt, num, name""")
-    # The LAST row of the station in the run, whole: arg_max() skips NULL values, so three arg_max() columns can come
-    # from different rows when a station is listed twice in a run (Berlin tief and oben), and that mixed row looked punctual.
-    con.execute("""create table sb as select run, name, seq, d, canc, arr_plan from s where name in (select name from major)
-                   qualify row_number() over (partition by run, name order by seq desc) = 1""")
+    # The LAST row of the station in the run (by planned time, then stop number), whole: arg_max() skips NULL values, so
+    # three arg_max() columns can come from different rows when a station is listed twice in a run (Berlin tief and
+    # oben), and that mixed row looked punctual. `t`: when the train is planned there (arrival, else departure).
+    con.execute("""create table sb as select run, name, seq, d, canc, arr_plan, coalesce(arr_plan, dep_plan) t from s
+                   where name in (select name from major)
+                   qualify row_number() over (partition by run, name order by coalesce(arr_plan, dep_plan) desc nulls last, seq desc) = 1""")
 
     meas = f"not sb.canc and sb.arr_plan is not null and sb.d between {lo} and {hi}"
     pairs = con.execute(f"""
@@ -145,7 +151,7 @@ def main():
       coalesce(sum(sb.d) filter (where {meas}), 0) sumd,
       count(*) filter (where sb.canc) ncanc,
       median(date_diff('minute', sa.dep_plan, sb.arr_plan)) filter (where sa.start >= timestamp {sql_str(recent)} and sb.arr_plan is not null) mins
-    from sa join sb on sa.run = sb.run and sa.seq < sb.seq and sa.name <> sb.name
+    from sa join sb on sa.run = sb.run and sb.t > sa.dep_plan and sa.name <> sb.name
     group by 1, 2
     having count(*) filter (where {meas}) >= {MIN_TRIPS}
     """).fetchall()
@@ -157,8 +163,8 @@ def main():
     # One row per (selected pair, run); narrow columns, a few million rows.
     con.execute("""
     create table pt as
-    select sa.name a, sb.name b, sa.tt, sa.num, sa.run, sa.start, sa.dep_plan, sb.arr_plan, sb.d, sb.canc, sa.seq sas, sb.seq sbs
-    from sa join sb on sa.run = sb.run and sa.seq < sb.seq and sa.name <> sb.name
+    select sa.name a, sb.name b, sa.tt, sa.num, sa.run, sa.start, sa.dep_plan, sb.arr_plan, sb.d, sb.canc, sb.t b_t
+    from sa join sb on sa.run = sb.run and sb.t > sa.dep_plan and sa.name <> sb.name
     join sel on sel.a = sa.name and sel.b = sb.name
     """)
     log(f"pair runs: {con.execute('select count(*) from pt').fetchone()[0]} in {time.time() - t0:.1f}s")
@@ -201,7 +207,8 @@ def main():
           count(*) filter (where not s.canc and s.arr_plan is not null and s.d between {lo} and {hi} and s.d >= {late}) nl,
           count(*) cnt,
           median(date_diff('minute', p.dep_plan, s.arr_plan)) off
-        from pt p join bt using (a, b, tt, num) join s on s.run = p.run and s.seq > p.sas and s.seq <= p.sbs
+        from pt p join bt using (a, b, tt, num) join s on s.run = p.run
+          and coalesce(s.arr_plan, s.dep_plan) > p.dep_plan and coalesce(s.arr_plan, s.dep_plan) <= p.b_t
         group by p.a, p.b, s.name""").fetchall():
         curve[(a, b)].append((name, n, nl, cnt, off))
 
