@@ -66,3 +66,9 @@
   font-size: 20px;
   text-decoration: none;
 }
+
+.mark {
+  flex-shrink: 0;
+  width: 30px;
+  height: 28px;
+}

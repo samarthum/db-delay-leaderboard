@@ -34,15 +34,10 @@
   white-space: normal;
 }
 
-.dot {
+.mark {
   flex-shrink: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ink);
-  box-shadow:
-    0 0 0 3px var(--paper),
-    0 0 0 4.5px var(--ink);
+  width: 30px;
+  height: 28px;
 }
 
 .langLink {
