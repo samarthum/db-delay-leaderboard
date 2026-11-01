@@ -55,6 +55,8 @@ MAX_SNAPSHOT_GAP = timedelta(hours=7)
 RETENTION = timedelta(hours=6)
 # A run is flagged when a missing hour falls between its start and this long after its last planned time.
 GAP_TAIL = timedelta(hours=2)
+# Station index of a day's end when that day's run has no such stop (see build()); copy-search.mjs maps it to null.
+NO_STOP = -1
 
 DATED_FILE_RE = re.compile(r"(?:^|/)date_(\d{4}-\d{2}-\d{2})_hour_((?:\d{2})(?:_\d{2})*)\.parquet$")
 LEGACY_FILE_RE = re.compile(r"(?:^|/)year=(\d{4})/month=(\d{1,2})/day=(\d{1,2})/hour_((?:\d{2})(?:_\d{2})*)\.parquet$")
@@ -424,8 +426,13 @@ def build(runs, days, missing, as_of_snapshot):
                 cell = [measured(r["dep"]), measured(r["arr"])]
                 ro = r["dep"]["station"] if r["dep"] else None
                 rd = r["arr"]["station"] if r["arr"] else None
-                if (ro and ro != o) or (rd and rd != d):
-                    cell += [sidx(ro) if ro else None, sidx(rd) if rd else None]
+                # Per-day end: null = the usual stop, an index = another stop, NO_STOP = no such stop in that day's
+                # data (e.g. no stop with a planned departure). Without NO_STOP a run with no first stop read as
+                # departing from the usual one (EC 1216 on 25 Oct 2026, first real dry run).
+                eo = None if ro == o else sidx(ro) if ro else NO_STOP
+                ed = None if rd == d else sidx(rd) if rd else NO_STOP
+                if eo is not None or ed is not None:
+                    cell += [eo, ed]
                 cells[i] = cell
         trains[unit] = [sidx(o) if o else None, sidx(d) if d else None, cells]
     if doubles:

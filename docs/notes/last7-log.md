@@ -45,4 +45,20 @@ Must-fix per round: 3, 2 (1 + the round-1 follow-up), 2, 3. Story verdicts: roun
 1-3 met with one exception; round 3 1 and 3 met, 2 failed on two edge cases; round 4 1 and 3 met, 2 partly, 4 not
 met (block height: ~470 px at 390 with key and note), all round-4 must-fixes then fixed. The height is a judgement
 for the owner: shorter would mean dropping the key or the two-row (departure + arrival) design asked for.
-Tests: `tests/e2e/last7.mjs` (57 checks), `tests/data/test_last7.py` (9).
+Tests: `tests/e2e/last7.mjs` (57 checks), `tests/data/test_last7.py` (10).
+
+## First real dry run (1 Nov 2026, Actions run 41312632863)
+Computed on real raw files (days 25-31 Oct, 1171 trains, 6787 runs, 61 kB); the verifier found one difference:
+`EC 1216 2026-10-25: file [None, None] München Ost -> München Hbf, recompute [None, None] None -> München Hbf`.
+Cause: that day's run had no stop with a planned departure in the data (so no first stop) and an arrival outside
+-10..600 min. `last7.py` wrote a day's own end station only when it was a DIFFERENT station, so "no stop" was left
+out, and a left-out end means "the usual stop" (München Ost). The verifier's recompute was right; the clock change
+was not involved (that day's 01:00-09:00 was already "missing" and the run was later). Fix: the file says -1 for an end
+with no stop that day (`NO_STOP`; `copy-search.mjs` maps it to null, the site still shows "–" in the usual row); the
+verifier still compares the station exactly (null = usual, -1 = none). Fixture: EC 1216 München Ost -> München Hbf,
+München Ost absent from all data on 25 Oct and München Hbf 15 min early; the old script gives the identical DIFF line.
+Tests: the old encoding and a wrong -1 are both caught; the 1-minute change is still caught.
+Seen in the same log, not fixed here: real fetch runs are often 8-10 h apart (about 01:00, 10:00, 15:00-21:00
+Berlin), so 143 of ~178 window hours count as missing under the 7 h rule; the PR dry run's `--check` step (5+ days
+with 300+ measured runs) will tell whether that leaves enough. The rule rests on fchg reaching back ~6 h, still
+unmeasured.

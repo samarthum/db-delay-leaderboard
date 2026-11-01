@@ -114,6 +114,10 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   build sandbox. The first real numbers come from the workflow (PR dry run, then the daily job). Not yet known from
   real data: how far DB's change lists reach back (assumed ~6 h) and the raw file sizes. Per-month history per train
   exists only for the 50 train pages; the card has 11-month, per-weekday and last-7-days figures (ROADMAP).
+- First real dry run (PR #3, 1 Nov 2026, Actions run 41312632863): piebro's fetch runs land about 01:00, 10:00 and
+  15:00-21:00 Berlin, often more than 7 h apart, so 143 of the window's ~178 hours counted as missing (most runs
+  "?"). Its one verifier difference (a day with no first stop written as "the usual first stop") is fixed; whether
+  the 7 h gap rule is too strict for the real cadence is open (`docs/notes/last7-log.md`).
 - Live states on the redesigned home/card were built and tested against mocked feed answers only (no keys in the build
   environment); check them on a real phone after deploy.
 - `/more/` and `/de/mehr/` still exist but are unlinked (owner to decide: delete or redirect).

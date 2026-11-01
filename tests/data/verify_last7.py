@@ -267,8 +267,15 @@ def main():
                 ro, rd = want[2], want[3]
                 cmp = want[:2]
                 if isinstance(got, list):
-                    go = st[got[2]] if len(got) > 2 and got[2] is not None else (st[o] if o is not None else None)
-                    gd = st[got[3]] if len(got) > 3 and got[3] is not None else (st[d] if d is not None else None)
+                    # A day's end in the file: absent or null = the train's usual stop, -1 = no such stop that day,
+                    # else a station index. Compared exactly: "no stop" must not pass as the usual stop.
+                    def station(k, usual):
+                        v = got[k] if len(got) > k else None
+                        if v is None:
+                            return st[usual] if usual is not None else None
+                        return None if v == -1 else st[v]
+
+                    go, gd = station(2, o), station(3, d)
                     if got[:2] != cmp or go != ro or gd != rd:
                         problems.append(f"{unit} {day}: file {got[:2]} {go} -> {gd}, recompute {cmp} {ro} -> {rd}")
                 else:

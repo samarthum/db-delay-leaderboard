@@ -84,7 +84,9 @@ GitHub Actions (`.github/workflows/last7.yml`); tests `tests/data/test_last7.py`
 ### Output and size
 `{"asOf", "dataTo", "days": [7 ISO dates], "gaps": {date: [Berlin hours]}, "stations": [names], "trains": {"ICE 123":
 [usual first stop idx, usual last stop idx, [7 cells]]}}`; a cell is null (no run in the data), "x", "?", or
-[dep, arr] (minutes, "x" or null), with [dep, arr, first idx, last idx] when that day's ends differ from the usual.
+[dep, arr] (minutes, "x" or null), with [dep, arr, first idx, last idx] when that day's ends differ from the usual
+(an index of null = the usual stop, -1 = that day's run had no such stop, e.g. no stop with a planned departure;
+`copy-search.mjs` turns -1 into null, so the site shows "–" in the usual row).
 Every long-distance number seen in the week is in it, so every card (not only the 50 train pages) has it. Measured
 with a synthetic week at full scale (1,732 trains, the real station list): 124 kB, 40 kB gzip. `copy-search.mjs` splits
 it into `public/last7/<first two digits>.json` (~1-2 kB each, like the search shards) plus `index.json`; a missing file

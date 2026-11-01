@@ -14,6 +14,9 @@ make of them, are in EXPECTED (built from the timetable below, not from the scri
   ICE 400  Berlin 23:30 -> München 04:10 next day: belongs to its start day
   ICE 600  Frankfurt -> Hamburg; day 1 700 min late at the end (not measured), day 5 last stop cancelled, then
            reinstated (cs="p"): not cancelled
+  EC 1216  München Ost -> München Hbf; on 25 Oct (day 1, the clock change) München Ost is in neither the plan nor
+           the change data and München Hbf is 15 min early (not measured): the day has NO first stop, which the file
+           must say (-1), not leave as "the usual first stop" (the first real dry run's one difference)
   RE 5     regional: left out; ICE 9500 replacement train (t="e", ref ICE 100): left out
   A missed fetch run (27 Oct 15:17 UTC): the change list jumps 12 hours, runs in that stretch are "?"
   A plan hour that never arrives (29 Oct 03:00 Berlin): ICE 400 of 28 Oct is "?"
@@ -37,7 +40,7 @@ LOOKAHEAD = timedelta(hours=3)  # fchg lists forecasts for events up to this far
 API = "https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1"
 
 STATIONS = {"08000001": "Köln Hbf", "08000002": "Frankfurt (Main) Hbf", "08000003": "München Hbf",
-            "08000004": "Hamburg Hbf", "08000005": "Berlin Hauptbahnhof", "08000006": "Kleinstadt"}
+            "08000004": "Hamburg Hbf", "08000005": "Berlin Hauptbahnhof", "08000006": "Kleinstadt", "08000007": "München Ost"}
 # One station is missing from the name file: its XML name is used ("Berlin Hbf" in the XML would be wrong here, so
 # the XML carries the full name too).
 NAMES = {k: v for k, v in STATIONS.items() if k != "08000004"}
@@ -50,6 +53,7 @@ TRAINS = [
     ("ICE", "300", "-7303", [("Köln Hbf", None, 0), ("Frankfurt (Main) Hbf", 60, 62), ("Berlin Hauptbahnhof", 260, None)], "14:00", range(5)),
     ("ICE", "400", "7404", [("Berlin Hauptbahnhof", None, 0), ("Frankfurt (Main) Hbf", 200, 202), ("München Hbf", 280, None)], "23:30", range(7)),
     ("ICE", "600", "-7606", [("Frankfurt (Main) Hbf", None, 0), ("Köln Hbf", 65, 67), ("Hamburg Hbf", 240, None)], "16:00", range(7)),
+    ("EC", "1216", "-7216", [("München Ost", None, 0), ("München Hbf", 12, None)], "12:00", range(7)),
     ("RE", "5", "7505", [("Kleinstadt", None, 0), ("Köln Hbf", 40, None)], "07:00", range(7)),
 ]
 # Delay per (train, day, stop index): (arrival delay, departure delay); default 0. Cancellations separately.
@@ -84,10 +88,14 @@ DELAYS = {
     ("ICE 600", 3): [(None, 0), (4, 4), (7, None)],
     ("ICE 600", 5): [(None, 2), (2, 2), (12, None)],
     ("ICE 600", 6): [(None, 0), (0, 0), (0, None)],
+    ("EC 1216", 0): [(None, 1), (3, None)],
+    ("EC 1216", 1): [(None, 0), (-15, None)],
 }
 # (train, day) -> stop indices cancelled ("all" = every stop); "reinstated": cancelled then back (cs="p").
 CANCELLED = {("IC 200", 2): "all", ("IC 200", 4): [1], ("IC 200", 5): [0]}
 REINSTATED = {("ICE 600", 5): [2]}
+# (train, day) -> stop indices that are in no plan and no change list at all (that run's data simply lacks them).
+ABSENT = {("EC 1216", 1): [0]}
 DIVERSION = {("ICE 100", 6): ("Hamburg Hbf", 150)}  # extra stop, minutes after start, seq between 1 and 2
 MISSED_RUN = datetime(2026, 10, 27, 15, 17)  # UTC
 LOST_PLAN_HOUR = datetime(2026, 10, 29, 3)  # Berlin
@@ -106,10 +114,14 @@ EXPECTED = {
     "ICE 300": [[0, 2], [5, 19], [0, 0], "?", [2, 5], None, None],
     "ICE 400": [[0, 6], [12, 18], [0, 2], [3, 3], "?", [1, 61], [0, 0]],
     "ICE 600": [[3, 16], [0, None], [1, 1], "?", [0, 0], [2, 12], [0, 0]],
+    # Day 1: no first stop that day (-1), arrival 15 min early (not measured), at the usual last stop (null).
+    # Day 3 (12:00-12:12 on 27 Oct) is in the missed fetch run's stretch: "?".
+    "EC 1216": [[1, 3], [None, None, -1, None], [0, 0], "?", [0, 0], [0, 0], [0, 0]],
 }
 EXPECTED_ENDS = {"ICE 100": ("Köln Hbf", "München Hbf"), "IC 200": ("Hamburg Hbf", "Berlin Hauptbahnhof"),
                  "ICE 300": ("Köln Hbf", "Berlin Hauptbahnhof"), "ICE 400": ("Berlin Hauptbahnhof", "München Hbf"),
-                 "ICE 600": ("Frankfurt (Main) Hbf", "Hamburg Hbf")}
+                 "ICE 600": ("Frankfurt (Main) Hbf", "Hamburg Hbf"),
+                 "EC 1216": ("München Ost", "München Hbf")}
 
 
 def berlin(d, hhmm, plus=0):
@@ -140,6 +152,8 @@ def stops():
             delays = DELAYS.get((unit, di), [(None if a is None else 0, None if p is None else 0) for _, a, p in route])
             canc = CANCELLED.get((unit, di), [])
             for seq, ((name, a, p), (da, dd)) in enumerate(zip(route, delays)):
+                if seq in ABSENT.get((unit, di), []):
+                    continue
                 out.append({"id": f"{trip}-{st(t0)}-{seq + 1 if seq < 2 else seq + 2}", "eva": EVA[name], "tt": tt, "num": num,
                             "arr": None if a is None else berlin(d, start, a), "dep": None if p is None else berlin(d, start, p),
                             "da": da, "dd": dd, "canc": canc == "all" or seq in canc,

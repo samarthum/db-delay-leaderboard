@@ -77,6 +77,26 @@ def test_verifier_agrees_and_catches_a_one_minute_change():
     assert no.returncode == 1 and "ICE 600 2026-10-29" in no.stdout, no.stdout
 
 
+def verify(doc, name):
+    (TMP / name).write_text(json.dumps(doc), encoding="utf-8")
+    return run("tests/data/verify_last7.py", "--raw", str(RAW), "--json", str(TMP / name), "--names", str(NAMES), "--all")
+
+
+def test_a_day_without_a_first_stop_is_not_the_usual_first_stop():
+    # The first real dry run's one difference (EC 1216, 25 Oct 2026): that day's run had no stop with a planned
+    # departure, and the file left the first stop out, which reads as "the usual one" (München Ost).
+    assert DOC["trains"]["EC 1216"][2][1] == [None, None, last7.NO_STOP, None]
+    old = json.loads(OUT.read_text(encoding="utf-8"))
+    old["trains"]["EC 1216"][2][1] = [None, None]  # the old encoding
+    no = verify(old, "old.json")
+    assert no.returncode == 1 and "EC 1216 2026-10-25" in no.stdout, no.stdout
+    # And the other way: "no stop" on a day that had its usual first stop is caught too.
+    wrong = json.loads(OUT.read_text(encoding="utf-8"))
+    wrong["trains"]["EC 1216"][2][2] = [0, 0, last7.NO_STOP, None]
+    no = verify(wrong, "wrong.json")
+    assert no.returncode == 1 and "EC 1216 2026-10-26" in no.stdout, no.stdout
+
+
 def test_sanity_check_gate():
     # The fixture is tiny, so the production thresholds reject it; relaxed thresholds accept it.
     assert last7.check(OUT) == 1

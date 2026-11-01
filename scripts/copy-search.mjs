@@ -132,7 +132,8 @@ console.log(`typeahead: ${trains.length} trains and lines, ${stations.length} st
   try {
     const week = JSON.parse(await fs.readFile(path.join(ROOT, "data", "last7.json"), "utf8"));
     const st = week.stations;
-    const name = (i) => (i === null || i === undefined ? null : st[i]);
+    // -1 = that day's run had no such stop (scripts/last7.py NO_STOP): nothing measured there, shown like the usual row.
+    const name = (i) => (i === null || i === undefined || i < 0 ? null : st[i]);
     const shards = {};
     for (const [unit, [o, d, cells]] of Object.entries(week.trains)) {
       const num = unit.split(" ")[1] ?? "";
