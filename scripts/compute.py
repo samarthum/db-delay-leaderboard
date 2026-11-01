@@ -215,7 +215,9 @@ def build_runs(con, sources, p):
     t0 = time.time()
     con.execute(f"""
     create table runs as
-    select run, cat, any_value(tt) tt, any_value(num) num, any_value(line) line,
+    -- min(), not any_value(): a regional train can change its line or number on the way (RB 15 -> RB 1), and
+    -- any_value() picked either at random, so lines differed by a few rides between two runs on the same data.
+    select run, cat, min(tt) tt, min(num) num, min(line) line,
       arg_min(station_name, seq) origin, arg_max(dest, seq) dest,
       min(coalesce(dep_plan, arr_plan)) start_plan, min(dep_plan) first_dep,
       bool_and(canc) all_canc, bool_or(canc) any_canc,

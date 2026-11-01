@@ -18,7 +18,8 @@ What it holds, so every scope rule of the pipeline is exercised:
 - Cancelled stops, whole cancelled runs, delays outside -10..600 (not measured), a replacement train (excluded), a train
   ending abroad (Amsterdam Centraal label), runs starting late on the last day of a month (belong to that month).
 - ~110 regional lines (RE 1-110) over 1,100 stations so every month has >= 1,000 stations (compute.py's full-month rule);
-  RE 1-3 run often enough for a line page.
+  RE 1-3 run often enough for a line page; RE 4's first run each day turns into RE 50 with another number half way
+  (a ride's line and number must be picked the same way every time).
 """
 import random
 import sys
@@ -57,7 +58,7 @@ def delay(rng):
 
 
 def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_seq=False, replacement=False,
-         cancel_all=False, cancel_at=None):
+         cancel_all=False, cancel_at=None, line2=None, num2=None):
     """Append the stop rows of one ride starting at `start` (datetime)."""
     times, t = [], start
     for i in range(len(names)):
@@ -76,7 +77,8 @@ def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_
         arr = t if i > 0 else None
         dep = t + timedelta(minutes=2) if i < n - 1 else None
         rows.append({
-            "id": f"{trip}-{stamp}-{seq}", "train_type": tt, "train_number": num, "line_number": line,
+            "id": f"{trip}-{stamp}-{seq}", "train_type": tt,
+            "train_number": num2 if num2 and i >= n // 2 else num, "line_number": line2 if line2 and i >= n // 2 else line,
             "train_line_station_num": seq, "eva": str(EVA[name]), "station_name": name,
             "final_destination_station": dest or names[-1],
             "arrival_planned_time": arr, "arrival_change_time": arr + timedelta(minutes=late) if arr else None,
@@ -132,8 +134,10 @@ def month_rows(month, rng):
             for k in range(per_day):
                 trip += 1
                 start = day + timedelta(hours=6 + k, minutes=ln % 60)
+                # RE 4's first run of the day becomes RE 50 (another number) half way: line and number change en route.
+                change = ln == 3 and k == 0
                 ride(rows, rng, trip, "RE", str(10000 + ln * 100 + k), f"RE{ln + 1}", stations if k % 2 == 0 else stations[::-1],
-                     [6] * 9, start)
+                     [6] * 9, start, line2="RE50" if change else None, num2="99999" if change else None)
         day += timedelta(days=1)
     return rows
 

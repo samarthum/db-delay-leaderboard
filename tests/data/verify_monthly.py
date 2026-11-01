@@ -140,7 +140,7 @@ def main():
     # ------------------------------------------------------------ regional rides, lines as components
     con.execute(f"""
     create table rg_ride as
-    select ride, any_value(line) line, any_value(num) num, arg_min(eva, seq) first_eva, list(distinct eva) evas,
+    select ride, min(line) line, min(num) num, arg_min(eva, seq) first_eva, list(distinct eva) evas,
       min(coalesce(dp, ap)) start, bool_and(canc) all_canc,
       arg_max(ad, seq) filter (where not canc and ap is not null and ad is not null) delay
     from (
