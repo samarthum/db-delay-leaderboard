@@ -1,5 +1,7 @@
 # German Punctuality
 
+> Picking this up? Read [docs/STATUS.md](docs/STATUS.md) (live features, build, tests, env), [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/RULES.md](docs/RULES.md).
+
 A mobile-first static site that shows how late Deutsche Bahn trains are and ranks the most delayed
 long-distance trains and regional lines over the last ~12 months.
 

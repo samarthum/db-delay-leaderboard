@@ -2,11 +2,12 @@
 
 Writes data/live-stations.json: { "<site station name>": { "eva": "8000207", "name": "<API name>" } }.
 The API name is what the API itself prints in a train's path ("ppth"), so the live board can tell which trains
-continue to the destination. Needs the key in ~/.hermes/integrations/german-punctuality/db-timetables.env
+continue to the destination. Needs DB_CLIENT_ID / DB_API_KEY in the environment, or in the file named by DB_ENV_FILE (default .env.local)
 (DB_CLIENT_ID, DB_API_KEY). Calls are spaced to stay far under the Free plan's 60 per minute.
 
 Run:  python3 scripts/live_stations.py          (about 5 minutes; writes only if every station resolves)
 """
+import os
 import datetime
 import json
 import re
@@ -19,7 +20,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ENV = Path.home() / ".hermes/integrations/german-punctuality/db-timetables.env"
+ENV = Path(os.environ.get("DB_ENV_FILE") or Path(__file__).resolve().parent.parent / ".env.local")
 BASE = "https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1"
 LONG = {"ICE", "IC", "EC", "ECE", "RJ", "RJX", "TGV", "FLX"}
 

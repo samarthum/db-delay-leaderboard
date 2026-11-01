@@ -2,7 +2,7 @@
 // Emmerich. DB's Timetables API lists, for each arrival, the planned path before it ("ppth"): its first entry is the
 // real origin (Amsterdam Centraal).
 //
-//   node scripts/foreign_origins.mjs            # needs DB_CLIENT_ID / DB_API_KEY (env or the integrations file)
+//   node scripts/foreign_origins.mjs            # needs DB_CLIENT_ID / DB_API_KEY (env, DB_ENV_FILE or .env.local)
 //
 // Reads data/stops.json (trains whose first recorded stop has an arrival = they come from somewhere) and the raw EVA
 // of that stop (data/border-stations.json, written by scripts/border_stations.py). Writes data/foreign-origins.json:
@@ -13,7 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const envFile = "/home/hermes/.hermes/integrations/german-punctuality/db-timetables.env";
+// Keys: DB_CLIENT_ID / DB_API_KEY from the environment, else from the file named by DB_ENV_FILE, else .env.local.
+const envFile = process.env.DB_ENV_FILE || path.join(ROOT, ".env.local");
 if (!process.env.DB_API_KEY && fs.existsSync(envFile))
   for (const l of fs.readFileSync(envFile, "utf8").split("\n")) {
     const i = l.indexOf("=");

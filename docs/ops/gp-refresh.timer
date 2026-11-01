@@ -1,0 +1,8 @@
+[Unit]
+Description=Weekly German Punctuality refresh (Tuesday 04:30 UTC)
+[Timer]
+OnCalendar=Tue *-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=600
+[Install]
+WantedBy=timers.target

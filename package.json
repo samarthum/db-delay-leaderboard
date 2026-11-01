@@ -9,7 +9,11 @@
     "prebuild": "node scripts/og.mjs && node scripts/copy-search.mjs",
     "build": "next build",
     "typecheck": "tsc --noEmit",
-    "data": "python scripts/compute.py"
+    "data": "python scripts/compute.py",
+    "check": "tsc --noEmit && node scripts/check-dict.mjs",
+    "serve": "node tests/tools/serve.mjs",
+    "test": "node tests/e2e/pages.mjs",
+    "crawl": "node tests/tools/crawl-overflow.mjs"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",

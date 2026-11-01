@@ -1,0 +1,35 @@
+<!-- Working notes carried over from the agent's project notes; paths point into this repo. -->
+# Change trains ("Will my connection work?", /change, /de/umsteigen)
+
+## What it is
+- `/change` asks for the ARRIVING TRAIN (typeahead on number; "IC 543" falls back to the digits when the letters look like a train type), the STATION (chips in route order), then the NEXT TRAIN (table of departures), and answers from what really happened between that pair on the days the arriving train ran. Code: `components/ChangeTrains.tsx`, `lib/changeTrains.ts`; data `data/connection-pairs.json` shipped to `/search/connection-pairs.json` (~0.55 MB gzipped). The address keeps the choices (`?t=ICE 1541&at=Berlin Hauptbahnhof&n=ICE 240`; `s=` is reserved for the station guide).
+- The answer opens as a detail row (`tr.det`) directly under the tapped departure: big %, "made it on N of M days", three-part bar Made it / Missed / Next train cancelled (missed = days - cancelled - ok) with counts, the other walking time (2 vs 6 min), a "History, not live" line. Steps 1 and 2 collapse to one-line `.sum` rows with "Change"; the walking-time toggle sits ABOVE the list; destination chips only on lists over 8 rows (median list has 3).
+- The station-level ladder survives as a closed "typical change" section (`TypicalGuide`, `#typical`, opens for `?s=` or `#typical`), labelled a rough guide, with a time-of-day row (Any time / Morning / Midday / Evening / Night by the NEXT train's departure; `connections-daypart.json`, localStorage `gp-conn-part`). At the same planned change the odds differ by ~13 points (median) between best and worst time of day. Train pages and route pages link into the flow instead of embedding it.
+- Deliberately NOT built (owner's call after the expert review): verdict words/advice, "if you miss it" next train, ask both trains first and infer the station (~93% of pairs unambiguous), per-day buffer file per arriving train (~2 kB gz median) for a dot plot / walking-time slider.
+
+## Data rules (`scripts/connections.py`, ~8 min, ~1.4 GB; run in the background, `--memory-limit 1400MB`)
+- Only count pairs somebody changes between: drop B that goes back to A's previous stop (turnaround) or on to A's next stop (stay on board), and B = A. Without that a planned 3-minute change at Hannover read 68%; real 46%.
+- A change works at m minutes when actual departure of B minus actual arrival of A >= m; a cancelled B is a miss; a cancelled A is not counted (so figures are slightly optimistic; the page says so). DB holding a train is already in the real times.
+- Ghost pairs (next train cancelled on all 20+ days, e.g. a train "to" the same station) are dropped at pair level (`ghosts` table); ladder moved < 0.5 points.
+- One train has several planned arrival times (timetable variants, works). Pairs are keyed by A's planned arrival `t` (main timetable per list), so a row's departure = t + planned gap and rows sort by departure. A median departure across variants produced rows like 05:51, 05:42, 05:52. Check `departure == t + gap` for every row after any change.
+- The (station, A, B, gap) group-by spills to disk and can exceed a 3 GB temp cap if quantiles are computed per group: keep quantiles out of that query. `No space left on device` in the log = temp spill; free disk and rerun. Stale completion notices from superseded runs: ignore.
+- Verify against an independent recompute from raw parquet (different query shape, same turnaround/stay-on-board and month-window rules): 0 differences on a sample.
+
+## Live part (Change trains, built after live-first)
+- Under step 3 a `.cx-live` line shows A's live state at the station ("Today ICE 700 is 21 min late, expected at 22:59 · Platform 2"); the opened answer gets a `.cx-today` block ABOVE the history %: spare minutes by DB's forecast (separate string when spare <= 0: "B leaves before A arrives", never "Only -3 min"; "Only n min" when spare < chosen walk), both trains' live states, then "On past days when A was X–Y min late here, this change worked ok of n times". The closing history line switches to `cx.res.histLive` when live data shows. Only when A's planned arrival is 1 h ago..4 h ahead and the station is live-capable (`liveStation()` in `lib/liveChange.ts`).
+- Data: each pair row gets index 12 = flat `[days, ok@2, ok@6]` per `LATE_BINS` bin ([5,10,15,20,30,60] + open) of A's arrival delay (`gl` table in connections.py). Merge it field-only into committed connection-pairs.json (keyed by A, station, B, gap). Sanity check: per row the bins must sum to n, ok@2 (index 7) and ok@6 (index 9). File grew to ~3.1 MB raw / ~886 kB gzipped.
+- Pitfall: unpack DuckDB rows from an explicit column list, never `select *` from a table built with GROUP BY (its column order is not the order you wrote in your loop); the first run silently produced empty bins and the sum check caught it.
+- Independent check `tests/data/verify_bins.py` (different query shape, ~5 min): it must mirror ALL pairing rules (long-distance types from stats.json `params.longDistanceTypes`, month window by run start, A.run <> B.run, turnaround/stay-on-board, cancelled B without next stop dropped); without them 6 of 13 pairs "differed". With them: 13/13 exact.
+- Test: `tests/e2e/cx-live.mjs` against serve-live.cjs (:4602): picks changes due 10–120 min ahead at live stations, opens `/change/?t=&at=&n=`, expects the banner + Today block, no negative/NaN text, no overflow, and a far-off change with no live parts. Many arriving trains have no DB record an hour ahead (no banner): the script skips those.
+
+## Tests
+- `change-flow.mjs` (old suite, lost; rebuild in tests/) (48 checks incl. row time = t + gap, counts add up, 12 random pairs equal the data file), `conn2.mjs` (old suite, lost; rebuild in tests/) (guide, 30 checks; the guide is closed by default, tap `#typical summary` first), `comp-flow.mjs` (old suite, lost; rebuild in tests/) for the compensation page. `unset BASE` before local runs: a leftover `export BASE=https://...` points every test at production.
+- Production markers: `/search/connection-pairs.json` byte size (v3: 1,968,419; v2 2,114,279), `/search/connections-daypart.json` = 200.
+
+## Live (dd7835a, 31 Oct 2026)
+- `/api/live/?at=STATION&a=TRAIN&ta=MIN[&b=TRAIN&tb=MIN]` (only within -60..+240 min of A's planned arrival) feeds a `.cx-live` banner under "due at" and a 'Today, live' block in the answer: minutes to change by DB's forecast (spare <= 0 has its own string), both delays, and history for days A was similarly late.
+- connection-pairs rows gained index 12 = late bins (A's delay <=5/10/15/20/30/60/more; flat [days, ok@2, ok@6] per bin; sums equal n/ok2/ok6). `daysLike()` in lib/liveChange.ts widens to at most 3 bins, needs 8 days. File 886 kB gzipped.
+- Verify: `tests/data/verify_bins.py` (same type list from stats.json, month window by run start, turnaround/stay-on-board rules, else counts differ; 13/13 exact). Browser: `cx-live.mjs` (picks changes due in 10-120 min; many have no DB record, that is expected).
+
+## German
+- Strings in `lib/dict/*/conn.ts` (keys `cx.*`, `conn.part.*`). Terms and fixes live in `german-copy.md`.
