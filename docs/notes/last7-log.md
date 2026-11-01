@@ -84,3 +84,13 @@ measured runs): the old run already had ~970 runs a day before the "?" rule remo
 Consistency proof: piebro's own `parse_monthly_xml.py` + `create_monthly_data_release.py` run on the fixture agree with
 `last7.py` on 79 of 79 ride ends, including the missed-fetch day. On real data, `tests/data/compare_monthly.py` (new
 PR-only job) compares a September 2026 week with `monthly_processed_data/data-2026-09.parquet`; result below.
+
+## Third real dry run: all green (1 Nov 2026, Actions run 41330817179, head d726c3b)
+- September agreement (job `monthly-agreement`, 8-14 Sep 2026, 44 raw files, 0 plan hours missing, 35 fetch runs
+  4-9 h apart, against `data-2026-09.parquet`, 359 MB): 7,080 rides on both sides, 0 on one side only; 13,784 ride ends
+  compared, 13,784 exact (100.00%), 0 mismatches, same end station 13,784 of 13,784. 4 rides would show "?". Measured
+  runs per day ('?' left out) 1,034 / 1,016 / 1,009 / 1,014 / 981 / 972 / 1,050. So the 7-day cells are the monthly
+  history's own numbers; the 98% threshold was not needed but stays as a guard against a future rule drift.
+- Real week (job `last7`, 25-31 Oct): 1,171 trains, 6,787 runs, 87 kB; verifier 0 differences in 1,925 cells (275
+  trains); gate passed with measured runs per day [927, 986, 969, 964, 974, 1001, 903] (was [446, 0, 47, 3, 3, 8, 7]).
+  Gate thresholds left as they were: the real minimum (903) is 3x the 300 floor.
