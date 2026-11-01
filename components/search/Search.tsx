@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { SEARCH_INDEX, loadRouteTable, loadStops, loadTypeahead, pickByKey, runSearch, type RouteTable, type SearchOutcome } from "@/lib/searchClient";
 import { routeSlug, shortStation } from "@/lib/routeSlug";
 import { pageFor, timeParam } from "@/lib/routePage";
-import { clock, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
+import { clock, clockGap, destinations, diagnoseRoute, findTrains, parseRoute, splitRoute, type RouteHit, type RouteQuery, type StopsIndex } from "@/lib/routeSearch";
 import { splitLive, unitName, type SearchUnit } from "@/lib/searchCore";
 import { didYouMean, findStation, flatten, suggest, type Suggestion, type TaIndex, type TaStationEntry, type TaTrainEntry } from "@/lib/typeahead";
 import { fmt1, fmtShare, fmtShare1, spanLabel } from "@/lib/format";
@@ -62,6 +62,13 @@ interface RouteItem {
   count: number;
   /** Share of the route's trips 15+ min late, when the pair has a route page (picking it opens that page). */
   late: number | null;
+  /** Average minutes late on that route page. */
+  avg: number | null;
+}
+/** "8:14 Köln to Berlin": the train that leaves nearest that time, offered above the route itself. */
+interface AtItem {
+  kind: "at";
+  hit: RouteHit;
 }
 /** "Köln to" suggests a destination; picking it completes the route. */
 interface DestItem {
@@ -71,7 +78,7 @@ interface DestItem {
   /** The full text to search once picked: "Köln to Berlin Hauptbahnhof". */
   text: string;
 }
-type Item = Suggestion | RouteItem | DestItem;
+type Item = Suggestion | AtItem | RouteItem | DestItem;
 
 function readUrl(): Applied {
   const p = new URLSearchParams(window.location.search);
@@ -95,6 +102,8 @@ export function Search({
   figure,
   title,
   variant = "home",
+  initial,
+  shortcuts,
 }: {
   lang: Lang;
   /** Blocks under the box while nothing is searched (the change tool, the top routes). */
@@ -104,6 +113,10 @@ export function Search({
   title?: string;
   /** "inline" is a compact box that answers on the home page; "sheet" is the same inside the header's search sheet. */
   variant?: "home" | "inline" | "sheet";
+  /** Text to start with instead of the address's query (the sheet opened as "Hannover Hbf to "). */
+  initial?: string;
+  /** The sheet's own shortcuts (your trains, recent pages), shown above "You can type" while the box is empty. */
+  shortcuts?: React.ReactNode;
 }) {
   const t = makeT(lang);
   const uid = useId();
@@ -187,12 +200,18 @@ export function Search({
       setOpen(false);
     };
     sync();
+    if (initial) {
+      setText(initial);
+      setOpen(true);
+      if (variant === "sheet") setApplied({ q: "", u: null, s: null, r: false });
+    }
     window.addEventListener("popstate", sync);
     if (variant === "home") window.addEventListener("gp:url", sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("gp:url", sync);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 
   // Fetch the typeahead index on first focus, or right away when the address names a query.
@@ -232,9 +251,24 @@ export function Search({
     const query = parseRoute(stops, text);
     if (!query) return null;
     const slug = table ? pageFor(stops, query, table) : null;
-    if (slug && table) return { kind: "route", query, count: table[slug].t.length, late: table[slug].l };
-    return { kind: "route", query, count: findTrains(stops, query).length, late: null };
+    if (slug && table) return { kind: "route", query, count: table[slug].t.length, late: table[slug].l, avg: table[slug].a ?? null };
+    return { kind: "route", query, count: findTrains(stops, query).length, late: null, avg: null };
   }, [stops, table, text]);
+  const atItem = useMemo<AtItem | null>(() => {
+    if (!stops || !routeItem || routeItem.query.time === null) return null;
+    const time = routeItem.query.time;
+    // A pair with a route page: the same train that page marks (its list holds the trains that ran lately), so the
+    // suggestion and the page never disagree. Otherwise the nearest train from the per-stop data.
+    const slug = table ? pageFor(stops, routeItem.query, table) : null;
+    const rows = slug && table ? table[slug].t.filter((e) => typeof e[5] === "number") : [];
+    if (rows.length) {
+      const e = [...rows].sort((a, b) => clockGap(a[5] as number, time) - clockGap(b[5] as number, time) || (a[5] as number) - (b[5] as number))[0];
+      const [from, to] = routeHeading(stops, routeItem.query);
+      return { kind: "at", hit: { type: e[0], num: e[1], dep: e[5] as number, arr: e[6] ?? null, fromName: from, toName: to, late: e[2], avg: e[4] ?? null } as RouteHit };
+    }
+    const hit = findTrains(stops, routeItem.query)[0];
+    return hit ? { kind: "at", hit } : null;
+  }, [stops, routeItem, table]);
   // An address like /?q=Köln+to+Berlin&r=1 (an old link, a bookmark) goes to the route page when the pair has one.
   const pageTarget = useMemo(() => {
     if (!applied.r || !stops || !table) return null;
@@ -253,10 +287,16 @@ export function Search({
     const lead = d.time !== null ? `${clock(d.time)} ` : "";
     return d.options.map((o) => ({ kind: "dest", name: o.name, trains: o.trains, text: `${lead}${d.fromText} ${sep} ${o.name}` }));
   }, [stops, text, lang]);
+  // The route row already names its destination: list only the other stations under "Other destinations".
+  const destsShown = useMemo(() => {
+    if (!routeItem || !stops) return dests;
+    const to = shortStation(routeHeading(stops, routeItem.query)[1]);
+    return dests.filter((d) => shortStation(d.name) !== to);
+  }, [dests, routeItem, stops]);
   // With a separator typed the question is a route: offer destinations, not train and station matches.
   const flat = useMemo<Item[]>(
-    () => [...(routeItem ? [routeItem] : []), ...dests, ...(suggestions && dests.length === 0 && !routeItem ? flatten(suggestions) : [])],
-    [routeItem, dests, suggestions],
+    () => [...(atItem ? [atItem] : []), ...(routeItem ? [routeItem] : []), ...destsShown, ...(suggestions && dests.length === 0 && !routeItem ? flatten(suggestions) : [])],
+    [atItem, routeItem, dests, destsShown, suggestions],
   );
   const showList = open && text.trim().length > 0 && applied.q !== text.trim();
 
@@ -297,7 +337,11 @@ export function Search({
     window.clearTimeout(timer.current);
     setOpen(false);
     input.current?.blur();
-    if (s.kind === "route") {
+    if (s.kind === "at") {
+      const name = `${s.hit.type} ${s.hit.num}`;
+      setText(name);
+      commit({ q: name, u: null, s: null, r: false }, "push");
+    } else if (s.kind === "route") {
       openRoute(text.trim());
     } else if (s.kind === "dest") {
       setText(s.text);
@@ -399,6 +443,19 @@ export function Search({
     else ask(text);
   }
 
+  /** "Hannover Hbf to ": the box, focused, ready for the destination (the suggestions list destinations from there). */
+  function startRoute(from: string) {
+    const v = `${from} ${lang === "de" ? "nach" : "to"} `;
+    if (asDoor || window.innerWidth < 960) {
+      window.dispatchEvent(new CustomEvent("gp:search", { detail: v }));
+      return;
+    }
+    setText(v);
+    setOpen(true);
+    warmStops();
+    input.current?.focus();
+  }
+
   function startVoice() {
     session.current?.cancel();
     window.clearTimeout(goTimer.current);
@@ -484,7 +541,7 @@ export function Search({
     <div className={styles.root} data-active={hasQuery || undefined} data-variant={variant}>
       {title ? (
         <div className={styles.intro}>
-          <h1 className="h1">{title}</h1>
+          <h1 className={hasQuery ? "h1 visually-hidden" : "h1"}>{title}</h1>
         </div>
       ) : null}
       {hasQuery || !figure ? null : <div className={styles.figureWrap}>{figure}</div>}
@@ -495,7 +552,7 @@ export function Search({
               {t("own.label")}
             </>
           ) : (
-            t("home.sub2")
+            t("home.find")
           )}
         </label>
         <div className={styles.anchor}>
@@ -522,7 +579,7 @@ export function Search({
             }}
             onBlur={() => window.setTimeout(() => setOpen(false), 160)}
             onKeyDown={onKeyDown}
-            placeholder={t("home.placeholder")}
+            placeholder={t("home.ph")}
             role="combobox"
             aria-expanded={showList && flat.length > 0}
             aria-controls={listId}
@@ -559,10 +616,11 @@ export function Search({
             ) : flat.length === 0 ? (
               <p className={styles.hint}>{t("sug.empty", { q: text.trim() })}</p>
             ) : (
-              <Groups suggestions={suggestions && dests.length === 0 && !routeItem ? suggestions : { trains: [], lines: [], stations: [] }} route={routeItem} dests={dests} stops={stops} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
+              <Groups suggestions={suggestions && dests.length === 0 && !routeItem ? suggestions : { trains: [], lines: [], stations: [] }} route={routeItem} at={atItem} dests={destsShown} stops={stops} flat={flat} active={active} uid={uid} lang={lang} onPick={pick} />
             )}
           </div>
         ) : null}
+          {showHelp && shortcuts ? shortcuts : null}
           {showHelp ? (
             <div className={variant === "sheet" ? styles.helpStatic : styles.help} role="group" aria-label={t("help.title")}>
               <p className={styles.helpTitle}>{t("help.title")}</p>
@@ -598,11 +656,6 @@ export function Search({
       {!hasQuery && idle ? <div className={styles.idle}>{idle}</div> : null}
 
       <div className={styles.results} aria-live="polite">
-        {live.live && applied.q && !applied.s && !applied.r ? (
-          <p className={styles.live} role="note">
-            {t("q.live", { span })}
-          </p>
-        ) : null}
         {applied.q && !live.text && !applied.s && !applied.r ? <NoMatch q={applied.q} ta={ta} lang={lang} askStation={askStation} askExample={askExample} /> : failed ? (
           <p className={styles.message}>{t("q.failed")}</p>
         ) : applied.r ? (
@@ -619,7 +672,7 @@ export function Search({
           )
         ) : applied.s ? (
           stationEntry && ta ? (
-            <StationView station={stationEntry} ta={ta} lang={lang} span={span} ask={ask} />
+            <StationView station={stationEntry} ta={ta} lang={lang} span={span} ask={ask} startRoute={startRoute} />
           ) : (
             <p className={styles.loading}>{t("q.loading", { q: applied.s })}</p>
           )
@@ -783,6 +836,7 @@ function statText(train: TaTrainEntry, lang: Lang): string {
 function Groups({
   suggestions,
   route: routeItem,
+  at,
   dests,
   stops,
   flat,
@@ -793,6 +847,7 @@ function Groups({
 }: {
   suggestions: NonNullable<ReturnType<typeof suggest>>;
   route: RouteItem | null;
+  at: AtItem | null;
   dests: DestItem[];
   stops: StopsIndex | null;
   flat: Item[];
@@ -803,16 +858,49 @@ function Groups({
 }) {
   const t = makeT(lang);
   const groups: [Key, Suggestion[]][] = [
-    ["sug.trains", suggestions.trains],
+    ["sug.trainsAvg", suggestions.trains],
     ["sug.lines", suggestions.lines],
     ["sug.stations", suggestions.stations],
   ];
   return (
     <>
-      {routeItem && stops ? (
-        <div className={styles.group} role="group" aria-label={t("sug.routes")}>
+      {at ? (
+        <div className={styles.group} role="group" aria-label={t("sug.yourTrain")}>
           <p className={styles.groupTitle} aria-hidden="true">
-            {t("sug.routes")}
+            {t("sug.yourTrain")}
+          </p>
+          <button
+            id={`${uid}-o${flat.indexOf(at)}`}
+            type="button"
+            role="option"
+            aria-selected={flat.indexOf(at) === active}
+            className={styles.option}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onPick(at)}
+          >
+            <span className={styles.optName}>
+              {at.hit.type} {at.hit.num}
+            </span>
+            <span className={styles.optRoute}>
+              {clock(at.hit.dep)} {shortStation(at.hit.fromName)} → {at.hit.arr === null ? "" : `${clock(at.hit.arr)} `}
+              {shortStation(at.hit.toName)}
+            </span>
+            {at.hit.avg !== null && at.hit.late !== null ? (
+              <span className={styles.optStat} style={{ color: delayColor(at.hit.avg) }}>
+                {t("list.avg", { x: fmt1(Math.max(0, at.hit.avg), lang) })}
+              </span>
+            ) : (
+              <span className={styles.optStat} style={{ color: "var(--muted)" }}>
+                {t("rt.few")}
+              </span>
+            )}
+          </button>
+        </div>
+      ) : null}
+      {routeItem && stops ? (
+        <div className={styles.group} role="group" aria-label={t(routeItem.avg !== null ? "sug.routeAvg" : "sug.routes")}>
+          <p className={styles.groupTitle} aria-hidden="true">
+            {t(routeItem.avg !== null ? "sug.routeAvg" : "sug.routes")}
           </p>
           <button
             id={`${uid}-o${flat.indexOf(routeItem)}`}
@@ -823,8 +911,15 @@ function Groups({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onPick(routeItem)}
           >
-            <span className={styles.optStation}>{routeHeading(stops, routeItem.query).map(shortStation).join(" → ")}</span>
-            {routeItem.late !== null ? (
+            <span className={styles.optStation}>
+              {routeHeading(stops, routeItem.query).map(shortStation).join(" → ")}
+              {routeItem.query.time !== null ? <small className={styles.optSub}>{t("sug.routeNear", { time: clock(routeItem.query.time) })}</small> : null}
+            </span>
+            {routeItem.avg !== null ? (
+              <span className={styles.optStat} style={{ color: delayColor(routeItem.avg) }}>
+                {t("list.avg", { x: fmt1(Math.max(0, routeItem.avg), lang) })}
+              </span>
+            ) : routeItem.late !== null ? (
               <span className={styles.optStat} style={{ color: lateShareColor(routeItem.late) }}>
                 {t("rt.late", { pct: fmtShare(routeItem.late, lang) })}
               </span>
@@ -837,9 +932,9 @@ function Groups({
         </div>
       ) : null}
       {dests.length > 0 ? (
-        <div className={styles.group} role="group" aria-label={t("sug.stations")}>
+        <div className={styles.group} role="group" aria-label={t(routeItem ? "sug.otherDest" : "sug.stations")}>
           <p className={styles.groupTitle} aria-hidden="true">
-            {t("sug.stations")}
+            {t(routeItem ? "sug.otherDest" : "sug.stations")}
           </p>
           {dests.map((d) => {
             const i = flat.indexOf(d);
@@ -918,12 +1013,15 @@ function StationView({
   lang,
   span,
   ask,
+  startRoute,
 }: {
   station: TaStationEntry;
   ta: TaIndex;
   lang: Lang;
   span: string;
   ask: (q: string, u?: string | null) => void;
+  /** Puts "Hannover Hbf to " in the box and focuses it, for a train that only passes through. */
+  startRoute: (from: string) => void;
 }) {
   const t = makeT(lang);
   const rows = station.trains.map((i) => ta.trains[i]).sort((a, b) => (b.avg ?? b.late) - (a.avg ?? a.late) || b.measured - a.measured);
@@ -935,6 +1033,12 @@ function StationView({
         {shortStation(station.name)}
       </h2>
       <p className={styles.stationSub}>{t("st.sub", { span })}</p>
+      <button type="button" className={`rowlink ${styles.through}`} onClick={() => startRoute(shortStation(station.name))}>
+        <span>
+          {t("st.where", { station: shortStation(station.name) })}
+          <small>{t("st.whereSub")}</small>
+        </span>
+      </button>
       {rows.length === 0 ? (
         <p className={styles.message}>{t("st.empty")}</p>
       ) : (
@@ -943,9 +1047,9 @@ function StationView({
             <div key={tr.key} className={styles.row}>
               <button type="button" className={styles.option} onClick={() => ask(unitName(tr))}>
                 <span className={styles.optName}>{unitName(tr)}</span>
-                <span className={styles.optRoute}>{`${shortStation(tr.origin)} → ${shortStation(tr.dest)}`}</span>
+                <span className={`${styles.optRoute} ${styles.optWrap}`}>{`${shortStation(tr.origin)} → ${shortStation(tr.dest)}`}</span>
                 <span className={styles.optStat} style={{ color: tr.avg === null ? lateShareColor(tr.late) : delayColor(tr.avg) }}>
-                  {tr.avg === null ? t("st.late", { pct: fmtShare(tr.late, lang) }) : t("sug.avg", { x: fmt1(Math.max(0, tr.avg), lang) })}
+                  {tr.avg === null ? t("st.late", { pct: fmtShare(tr.late, lang) }) : t("list.avg", { x: fmt1(Math.max(0, tr.avg), lang) })}
                 </span>
               </button>
             </div>

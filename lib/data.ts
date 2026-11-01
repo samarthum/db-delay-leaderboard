@@ -111,6 +111,13 @@ export function getConnectionsMeta(): { firstMonth: string; lastMonth: string } 
   }
 }
 
+/** Stations abroad that long-distance trains run to or from (data/stops.json): history is measured in Germany only. */
+export function isForeignStation(name: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const s = require("../data/stops.json") as { foreign: string[] };
+  return s.foreign.includes(name);
+}
+
 /** Trains that have a live lookup (data/live-trains.json from scripts/live_trains.py). */
 export function hasLiveTrain(name: string): boolean {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

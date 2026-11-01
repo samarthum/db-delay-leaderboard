@@ -6,6 +6,8 @@ export interface Recent {
   title: string;
   sub?: string;
   value?: string;
+  /** "ICE 1541" for long-distance trains that have a live lookup (the home page shows today's run). */
+  live?: string;
 }
 
 const KEY = "gp-recent-v1";

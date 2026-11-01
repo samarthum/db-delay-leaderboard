@@ -42,8 +42,10 @@ try {
     const big = await p.locator('.fig .big').innerText(); ok(/^16\s*min$/.test(big.replace(/\s+/g,' ').trim()), 'home: big figure is average minutes: ' + big);
     ok(!/\d trips/.test(await p.locator('main table.bt').innerText()), 'home: no trip counts under route names');
     const v1 = await p.locator('main table.bt td.v').first().innerText(); ok(/27\.1 min/.test(v1), 'home: first route by avg ' + v1.replace(/\s+/g,' '));
-    const fig = await p.locator('.fig .big').boundingBox(); const h1 = await p.locator('main h1').boundingBox();
-    const gap = Math.round(fig.y - (h1.y + h1.height)); ok(gap >= 12 && gap <= 28, 'home: headline-figure gap ' + gap);
+    // Home is built around "my train today": headline, then the box, then the network figure (Nov 2026 redesign).
+    const fig = await p.locator('.fig .big').boundingBox(); const h1 = await p.locator('main h1').boundingBox(); const box = await p.locator('main input[type=search]').boundingBox();
+    ok(h1.y < box.y && box.y < fig.y, 'home: headline, then search box, then network figure');
+    ok(box.y + box.height < 844 - 64, 'home: search box on the first phone screen ' + Math.round(box.y));
     await p.locator('main input[type=search]').tap(); await p.waitForTimeout(300);
     ok(await p.locator('[role=dialog]').isVisible(), 'home: box opens full-screen sheet');
     ok(await p.evaluate(() => document.activeElement?.closest('[role=dialog]') !== null && document.activeElement?.type === 'search'), 'home: sheet box focused');
@@ -109,7 +111,7 @@ try {
   // Train page
   { const p = await page(); await go(p, '/train/ice-1541/');
     ok(await p.locator('text=Your own trip?').count() === 0, 'train: inline search gone');
-    ok(await p.locator('.kv dt').count() >= 3, 'train: kv list');
+    ok(await p.locator('.kv dt').count() >= 2, 'train: kv list (cancelled, worst trip; the average is the big figure)');
     ok(await p.locator('a.rowlink[href*="/change/?t=ICE%201541"]').count() === 1, 'train: change row');
     ok(await p.locator('details.fold').count() >= 3, 'train: folds');
     await p.context().close(); }

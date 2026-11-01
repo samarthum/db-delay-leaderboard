@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SEARCH_INDEX, loadLine } from "@/lib/searchClient";
+import { SEARCH_INDEX, loadLine, loadStops } from "@/lib/searchClient";
 import { lineKey, unitName, weekdayExtremes, type SearchUnit } from "@/lib/searchCore";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtShare1, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
@@ -12,6 +12,8 @@ import { Arrow } from "../Arrow";
 import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { Figure } from "../Figure";
 import { LiveNow } from "../LiveNow";
+import { SaveButton } from "../SaveButton";
+import { remember } from "@/lib/recent";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
 import { shortStation } from "@/lib/routeSlug";
@@ -33,7 +35,13 @@ function shareUrl(u: SearchUnit, lang: Lang): string {
   return absoluteUrl(`${route(lang, "home")}?${p.toString()}`);
 }
 
-function Weekdays({ unit, lang }: { unit: SearchUnit; lang: Lang }) {
+/** Monday = 0 ... Sunday = 6, for today in Berlin. */
+export function berlinWeekday(): number {
+  const wd = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", weekday: "short" }).format(new Date());
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(wd);
+}
+
+function Weekdays({ unit, lang, today }: { unit: SearchUnit; lang: Lang; today: number }) {
   const t = makeT(lang);
   const { searchMinWeekdayRuns } = SEARCH_INDEX.params;
   const values = unit.weekday;
@@ -67,7 +75,7 @@ function Weekdays({ unit, lang }: { unit: SearchUnit; lang: Lang }) {
                 style={{ height: v === null ? 0 : `${Math.max(4, Math.round((Math.max(v, 0) / top) * 100))}%` }}
               />
             </span>
-            <span className={styles.dayName}>{t(`wds.${i}` as Key)}</span>
+            <span className={`${styles.dayName} ${i === today ? styles.dayToday : ""}`}>{t(`wds.${i}` as Key)}</span>
           </div>
         ))}
       </div>
@@ -91,6 +99,25 @@ export function SearchResult({
   const name = unitName(unit);
   const few = unit.measured < params.searchFewRuns;
   const [line, setLine] = useState<SearchUnit | null>(null);
+  const [today, setToday] = useState(-1);
+  // Trains that end abroad: our figures stop at the last German stop, and live times may stop earlier still.
+  const [abroadEnd, setAbroadEnd] = useState(false);
+  useEffect(() => {
+    let on = true;
+    setAbroadEnd(false);
+    if (unit.kind === 0) loadStops().then((idx) => on && setAbroadEnd(idx.raw.foreign.includes(unit.dest)), () => undefined);
+    return () => {
+      on = false;
+    };
+  }, [unit]);
+  useEffect(() => setToday(berlinWeekday()), []);
+  const ownHref = `${route(lang, "home")}?${new URLSearchParams(unit.kind === 0 ? { q: name } : { q: name, u: unit.key }).toString()}`;
+  // Long-distance trains without a page of their own go on "Looked up lately" on the home page (pages do this themselves).
+  useEffect(() => {
+    if (unit.slug) return;
+    remember(lang, { href: ownHref, title: name, sub: routeText(unit), value: t("list.avg", { x: fmt1(Math.max(0, unit.avg), lang) }), live: unit.kind === 0 ? name : undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownHref, lang]);
 
   useEffect(() => {
     let current = true;
@@ -115,12 +142,13 @@ export function SearchResult({
 
   return (
     <article className={styles.card} aria-labelledby="result-name">
-      <p className={styles.kicker}>
-        <span className={styles.chip}>{kindLabel(unit, lang)}</span>
-      </p>
-      <h3 id="result-name" className={styles.name}>
-        {name}
-      </h3>
+      <p className={styles.kicker}>{kindLabel(unit, lang)}</p>
+      <div className={styles.titleRow}>
+        <h3 id="result-name" className={styles.name}>
+          {name}
+        </h3>
+        <SaveButton lang={lang} item={{ kind: "train", href: fullHref ?? ownHref, title: name, sub: routeText(unit), avg: unit.avg, live: unit.kind === 0 ? name : undefined }} />
+      </div>
       <p className={styles.route}>{routeText(unit)}</p>
       {unit.kind === 2 && unit.line ? (
         <p className={styles.lineNote}>
@@ -146,27 +174,33 @@ export function SearchResult({
       {unit.kind === 0 && foreignOrigin(name) ? (
         <p className={styles.lineNote}>{t("res.fromBorder", { origin: shortStation(foreignOrigin(name)!.origin), border: shortStation(foreignOrigin(name)!.border) })}</p>
       ) : null}
-      {unit.kind === 0 ? <LiveNow train={name} lang={lang} /> : null}
+      {abroadEnd ? <p className={styles.lineNote}>{t("res.toBorder", { dest: shortStation(unit.dest) })}</p> : null}
+      {unit.kind === 0 ? <LiveNow train={name} lang={lang} quiet dest={abroadEnd ? shortStation(unit.dest) : undefined} origin={foreignOrigin(name) ? undefined : shortStation(unit.origin)} /> : null}
 
+      <h4 className={styles.past}>{t("res.past", { span })}</h4>
       <div className={styles.leadWrap}>
         <Figure
           avg={unit.avg}
           pct={unit.late}
           pct6={unit.late6}
           lang={lang}
-          sentence={<Rich text={t("fig.unit")} />}
-          basis={t("res.exact", { pct: fmtShare1(unit.late, lang), n: fmtInt(unit.measured, lang) }) + " " + t("res.basis", { span })}
+          sentence={<Rich text={t(abroadEnd ? "fig.unitAbroad" : "fig.unit")} />}
+          basis={t("home.networkBasis", { trips: fmtInt(unit.measured, lang), span })}
         />
       </div>
+
+      {today >= 0 && unit.weekday[today] !== null ? (
+        <p className={styles.today}>
+          {t("res.today", {
+            days: t(`wdp.${today}` as Key),
+            late: (unit.weekday[today] as number) < 0 ? t("res.early", { x: fmt1(-(unit.weekday[today] as number), lang) }) : t("res.late", { x: fmt1(unit.weekday[today] as number, lang) }),
+          })}
+        </p>
+      ) : null}
 
       {few ? <p className={styles.warning}>{t("res.few", { n: fmtInt(unit.measured, lang), min: params.searchMinRuns, fewMin: params.searchFewRuns })}</p> : null}
 
       <dl className={styles.tiles}>
-        <div className={styles.tile}>
-          <dt>{t("res.avg")}</dt>
-          <dd>{fmt1(Math.abs(unit.avg), lang)}</dd>
-          <dd className={styles.tileNote}>{unit.avg < 0 ? t("res.early", { x: "" }).trim() : t("res.late", { x: "" }).trim()}</dd>
-        </div>
         <div className={styles.tile}>
           <dt>{t("res.cancelled")}</dt>
           <dd>{fmtShare1(unit.cancelled, lang)}</dd>
@@ -182,7 +216,7 @@ export function SearchResult({
         <p className={styles.fine}>{t("res.worstRoute", { o: unit.worst.origin, d: unit.worst.dest })}</p>
       ) : null}
 
-      <Weekdays unit={unit} lang={lang} />
+      <Weekdays unit={unit} lang={lang} today={today} />
 
       <div className="actions">
         <ShareButton lang={lang} title={`${name} · German Punctuality`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")} image={unit.slug ? portraitPath(win.lastMonth, unit.slug, lang) : line?.slug ? portraitPath(win.lastMonth, line.slug, lang) : undefined} filename={unit.slug ?? line?.slug ?? "german-punctuality"} />

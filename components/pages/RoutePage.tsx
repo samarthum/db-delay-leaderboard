@@ -40,7 +40,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
   const others = all.routes.filter((x) => x.from === r.from && x.slug !== r.slug).sort((a, b) => b.trips - a.trips).slice(0, 5);
   const url = absoluteUrl(route(lang, "route", r.slug));
   const shareText = t("route.shareText", { from: r.from, to: r.to, avg: Math.round(r.avg), pct: fmtShare1(r.late, lang), pct6: fmtShare1(r.late6, lang), span });
-  const nearRows: NearRow[] = r.list.map((tr) => ({ name: `${tr[0]} ${tr[1]}`, href: trainHref(tr, slugs, lang), dep: tr[2], arr: tr[3], late: tr[4] }));
+  const nearRows: NearRow[] = r.list.map((tr) => ({ name: `${tr[0]} ${tr[1]}`, href: trainHref(tr, slugs, lang), dep: tr[2], arr: tr[3], late: tr[4], avg: tr[6] ?? null }));
 
   const pts = r.curve ? r.curve.points : [];
   let jump: { i: number; from: string; to: string } | null = null;
@@ -114,6 +114,8 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
             {r.rank !== null ? ` ${t("route.rankLine", { n: r.rank, total: all.leagueSize })}` : ""}
           </p>
 
+          <NearTime rows={nearRows} from={r.from} to={r.to} lang={lang} />
+
           <Figure
             avg={r.avg}
             pct={r.late}
@@ -124,8 +126,6 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
           />
 
           <LiveBoard from={r.from} to={r.to} lang={lang} />
-
-          <NearTime rows={nearRows} from={r.from} lang={lang} />
 
           <section className="blk" aria-labelledby="trains">
             <h2 id="trains">{t("route.trains.heading")}</h2>

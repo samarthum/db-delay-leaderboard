@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Category, HistBin, UnitDetail } from "@/lib/types";
-import { getLatePct, hasConnectionsFrom, hasLiveTrain, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
+import { monthLong } from "@/lib/format";
+import { getLatePct, hasConnectionsFrom, hasLiveTrain, isForeignStation, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
 import { lateShareColor, delayColor, LATE } from "@/lib/colors";
 import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
@@ -53,6 +54,10 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
   const isLine = category === "regional";
   const w = stats.window;
   const span = spanLabel(w.firstMonth, w.lastMonth, lang);
+  const endsAbroad = isForeignStation(t.dest);
+  // "How has it been lately": the latest month in the window, when it has enough runs to mean something.
+  const lastM = t.monthly[t.monthly.length - 1];
+  const latest = lastM && lastM.avg !== null && lastM.runs >= 8 && lastM.month === w.lastMonth ? { month: lastM.month, avg: lastM.avg } : null;
   const min = tr("unit.min");
 
   const canChange = !isLine && hasConnectionsFrom(t.name);
@@ -132,7 +137,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
 
   return (
     <main id="main" className="container page">
-      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} → ${shortStation(t.dest)}`, value: tr("list.avg", { x: fmt1(t.minutes.avg, lang) }) }} />
+      <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} → ${shortStation(t.dest)}`, value: tr("list.avg", { x: fmt1(t.minutes.avg, lang) }), live: !isLine && hasLiveTrain(t.name) ? t.name : undefined }} />
       <StickyTitle title={t.name} value={tr("list.avg", { x: fmt1(t.minutes.avg, lang) })} />
       <BackLink lang={lang} />
 
@@ -153,7 +158,8 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               <RouteText unit={t} lang={lang} />
             ) : (
               <>
-                <RouteName from={shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} to={shortStation(t.dest)} word={nameWord} />, {fmtDuration(t.avgScheduledMin, lang)}
+                <RouteName from={shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} to={shortStation(t.dest)} word={nameWord} />
+                {endsAbroad || foreignOrigin(t.name) ? null : <>, {fmtDuration(t.avgScheduledMin, lang)}</>}
               </>
             )}
           </p>
@@ -164,24 +170,29 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               {tr("res.fromBorder", { origin: shortStation(foreignOrigin(t.name)!.origin), border: shortStation(foreignOrigin(t.name)!.border) })}
             </p>
           ) : null}
-          {!isLine && hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} /> : null}
+          {!isLine && endsAbroad ? (
+            <p className="note" style={{ marginTop: 8 }}>
+              {tr("res.toBorder", { dest: shortStation(t.dest) })}
+            </p>
+          ) : null}
+          {!isLine && hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} dest={endsAbroad ? shortStation(t.dest) : undefined} origin={foreignOrigin(t.name) ? undefined : shortStation(t.origin)} /> : null}
 
+          <h2 className="past-h">{tr("res.past", { span })}</h2>
           <Figure
             avg={t.minutes.avg}
             pct={latePct}
             pct6={t.late6Pct}
             lang={lang}
-            sentence={<Rich text={tr("fig.unit")} />}
+            sentence={<Rich text={tr(endsAbroad ? "fig.unitAbroad" : "fig.unit")} />}
             basis={tr("home.networkBasis", { trips: fmtInt(t.measured, lang), span })}
           />
+          {latest ? (
+            <p className="lately">
+              {tr("res.lately", { month: monthLong(latest.month, lang), late: tr(latest.avg < 0 ? "res.early" : "res.late", { x: fmt1(Math.abs(latest.avg), lang) }) })}
+            </p>
+          ) : null}
 
           <dl className="kv">
-            <div>
-              <dt>{tr("unit.avgTile")}</dt>
-              <dd>
-                {fmt1(t.minutes.avg, lang)} {min}
-              </dd>
-            </div>
             <div>
               <dt>
                 {tr("unit.cancTile")}

@@ -18,10 +18,10 @@ History from open data (11 months), live status from DB's own API, cross-border 
 ## What is live (all on `main`)
 | Area | What the visitor gets | Code |
 | --- | --- | --- |
-| Home | Headline, average delay of long-distance trains (minutes first, 15+ min % second), search, worst routes, "Your trains" (starred, with live status) | `components/pages/HomePage.tsx`, `YourTrains.tsx` |
-| Search | Full-screen sheet on phones; trains (number), routes ("8:14 Köln to Berlin", "Amsterdam Frankfurt"), stations; lands on the page when one exists | `components/search/*`, `lib/routeSearch.ts`, `lib/searchCore.ts` |
-| Route pages (685) | Average delay, % 15+ and DB's 6-min rule, trains on the route with each train's average, live "next trains" board, share picture | `components/pages/RoutePage.tsx`, `scripts/routes.py` |
-| Train pages (50) + search result card (every other train) | Average delay, stops, live box: today's departure, platform, delay; for trains from abroad also the departure abroad; "next run" line outside the live window | `UnitPage.tsx`, `search/SearchResult.tsx`, `LiveNow.tsx` |
+| Home | Built around "my train today" (redesign 1 Nov 2026, `docs/notes/home-redesign-log.md`): headline, one-line lead, the search box, then "Your trains" (starred) and "Looked up lately" with today's live departure and arrival (named stops), a starred route's next train, the usual delay read from current data; then the network average and the most delayed routes | `components/pages/HomePage.tsx`, `YourTrains.tsx` |
+| Search | Full-screen sheet on phones (starred trains and recent pages first); trains (number), routes ("8:14 Köln to Berlin" offers the train closest to that time first, then the route), stations (with "Where are you going from X?"); lands on the page when one exists; suggestion figures labelled "average delay" | `components/search/*`, `lib/routeSearch.ts`, `lib/searchCore.ts` |
+| Route pages (685) | Average delay, % 15+ and DB's 6-min rule, trains on the route with each train's average, live "next trains" board, share picture; opened with a time (`?t=08:14`) the closest trains come first with the nearest marked and its live state | `components/pages/RoutePage.tsx`, `scripts/routes.py` |
+| Train pages (50) + search result card (every other train) | Live box first: departure at the first and arrival at the last station with live times (delay, platform change, cancellation; "no delay reported" in grey, never "on time"), departure abroad for trains from abroad, where live times stop for trains ending abroad, "next run" outside the window; card says when a train has no live times or the feed is down. Then "How late it has run" (11 months), "Sundays, like today" (card), "latest month" (train page). Save star on both | `UnitPage.tsx`, `search/SearchResult.tsx`, `LiveNow.tsx` |
 | Change trains | Pick arriving train, station, next train: how often that change worked; live: minutes to change by DB's forecast and history for days the arriving train was similarly late | `ChangeTrains.tsx`, `lib/changeTrains.ts`, `lib/liveChange.ts`, `scripts/connections.py` |
 | Rankings / Network / Recap / Method | Route and train rankings (avg delay or most often late), network map + month chart, yearly recap, method + credits | `components/pages/*` |
 | Compensation | Plain-language page: 3-zone ruler, calculator, claim in 3 steps, what counts, 20/60/100-min ladder, can DB say no, 1-in-17 dot grid, legal fine print in folds | `CompensationPage.tsx`, `CompCalc.tsx`, `Compensation.module.css` |
@@ -68,6 +68,8 @@ wholesale (see RULES).
 | File | What | Needs |
 | --- | --- | --- |
 | `e2e/pages.mjs` | Phone + desktop checks of every page type, search sheet, sticky title, rankings, compensation calculator, DE | test server |
+| `e2e/home-today.mjs` | Home, search card, route-with-time and every live state against MOCKED `/api/live/` answers (`tests/fixtures/live.mjs`, same shape as `api/live.js`); no keys needed | test server |
+| `tools/home-shots.mjs` | Screenshots of home/search/card/route/train states at 390/320/1280 with mocked live, for design reviews (`OUT=dir`) | test server |
 | `e2e/next-run.mjs`, `e2e/abroad.mjs` | Next-run line; trains from abroad (cards, route search) | test server with live keys (`node --env-file=.env.local tests/tools/serve.mjs`) |
 | `e2e/live-now.mjs` | Live box + save/Your trains. Set `SOON=` and `IDLE=` train slugs for the current Berlin time | live keys |
 | `e2e/cx-live.mjs` | Change trains live, picks changes due in 10-120 min | live keys |
@@ -97,4 +99,8 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   of the live box were tested with a mock, rarely seen with real data.
 - The Free-plan terms of the DB API Marketplace for a public site were never read in full.
 - Transitous may only be used while the site is open source and non-commercial (see RULES).
+- Per-day history ("how was it last week") does not exist: the live collector is stopped. Per-month history per train
+  exists only for the 50 train pages; the search result card has 11-month and per-weekday figures only (ROADMAP).
+- Live states on the redesigned home/card were built and tested against mocked feed answers only (no keys in the build
+  environment); check them on a real phone after deploy.
 - `/more/` and `/de/mehr/` still exist but are unlinked (owner to decide: delete or redirect).

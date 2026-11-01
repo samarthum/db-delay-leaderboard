@@ -50,6 +50,17 @@ export function delayColor(avgMinutes: number): string {
   return delayBucket(avgMinutes).color;
 }
 
+/**
+ * A delay Deutsche Bahn reports today. Nothing reported is grey (not green: that would claim "on time"); a reported
+ * delay under 15 min is amber, 15+ min (the site's "late") and cancelled are red.
+ */
+export const NO_REPORT = "#a3a9b1";
+export function liveColor(minutes: number | null | undefined): string {
+  const n = minutes ?? 0;
+  if (n <= 0) return NO_REPORT;
+  return n < 15 ? WARN : LATE;
+}
+
 /** A share of trips that arrive 15+ min late (higher is worse): under 20 safe, 20 to 35, 35 to 50, 50 and up late. */
 export function lateShareColor(pct: number): string {
   if (pct < 20) return SAFE;

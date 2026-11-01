@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { delayColor, LATE } from "@/lib/colors";
+import { LATE, liveColor } from "@/lib/colors";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { Rich } from "./Rich";
 
 /** One train as /api/live/ sends it. Times are DB's local wall-clock stamps, yyMMddHHmm. */
-interface LiveTrain {
+export interface LiveTrain {
   cat: string;
   n: string;
   pd: string;
@@ -22,6 +22,26 @@ interface LiveTrain {
 type Answer = { ok: true; asOf: string; trains: LiveTrain[] } | { ok: false; error: string };
 
 const REFRESH_MS = 60_000;
+
+// The board's latest good answer, shared with other islands on the same page (the "closest to your time" list marks
+// today's state of your train from it) without a second request.
+let shared: { asOf: string; trains: LiveTrain[] } | null = null;
+const listeners = new Set<() => void>();
+function publish(a: { asOf: string; trains: LiveTrain[] }) {
+  shared = a;
+  listeners.forEach((f) => f());
+}
+export function useSharedBoard(): { asOf: string; trains: LiveTrain[] } | null {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const f = () => bump((x) => x + 1);
+    listeners.add(f);
+    return () => {
+      listeners.delete(f);
+    };
+  }, []);
+  return shared;
+}
 const clockOf = (stamp: string) => `${stamp.slice(6, 8)}:${stamp.slice(8, 10)}`;
 
 /**
@@ -48,7 +68,10 @@ export function LiveBoard({ from, to, lang }: { from: string; to: string; lang: 
         const j = (await r.json()) as Answer & { error?: string };
         if (!alive) return;
         // Keep the last good answer when a refresh fails; "disabled" means this deploy has no live data at all.
-        if (j.ok) setAnswer(j);
+        if (j.ok) {
+          setAnswer(j);
+          publish(j);
+        }
         else if (j.error !== "disabled") setAnswer((prev) => (prev && prev.ok ? prev : j));
       } catch {
         /* offline, or no function on this host: show nothing new */
@@ -95,7 +118,7 @@ export function LiveBoard({ from, to, lang }: { from: string; to: string; lang: 
           <tbody>
             {answer.trains.map((r) => {
               const status = r.canc ? t("live.canc") : r.late ? t("live.late", { n: r.late }) : t("live.onTime");
-              const color = r.canc ? LATE : delayColor(r.late ?? 0);
+              const color = r.canc ? LATE : liveColor(r.late);
               const arrival = r.canc
                 ? null
                 : r.arrCanc

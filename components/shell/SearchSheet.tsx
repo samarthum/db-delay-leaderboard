@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { isHome, readRecent, type Recent } from "@/lib/recent";
+import { readSaved } from "@/lib/saved";
+import { fmt1 } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 import { Search } from "../search/Search";
@@ -20,12 +22,17 @@ export function SearchSheet({ lang }: { lang: Lang }) {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<Recent[]>([]);
+  const [initial, setInitial] = useState<string | undefined>(undefined);
 
   useEffect(() => setOpen(false), [pathname]);
   // The home page's box opens this sheet on phones. Open and focus in the same tap, so phones show the keyboard.
   useEffect(() => {
-    const go = () => {
-      flushSync(() => setOpen(true));
+    const go = (e: Event) => {
+      const detail = (e as CustomEvent<string | undefined>).detail;
+      flushSync(() => {
+        setInitial(typeof detail === "string" ? detail : undefined);
+        setOpen(true);
+      });
       document.querySelector<HTMLInputElement>(`.${styles.sheet} input[type=search]`)?.focus();
     };
     const close = () => setOpen(false);
@@ -38,7 +45,10 @@ export function SearchSheet({ lang }: { lang: Lang }) {
   }, []);
   useEffect(() => {
     if (!open) return;
-    setRecent(readRecent(lang).filter((r) => r.href !== pathname));
+    // Starred trains and routes first (they are what a returning rider looks for), then pages looked at lately.
+    const saved: Recent[] = readSaved(lang).map((s) => ({ href: s.href, title: s.title, sub: s.sub, value: t("list.avg", { x: fmt1(Math.max(0, s.avg), lang) }) }));
+    const seen = new Set(saved.map((s) => s.href));
+    setRecent([...saved, ...readRecent(lang).filter((r) => !seen.has(r.href))].filter((r) => r.href !== pathname).slice(0, 8));
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const id = window.setTimeout(() => (document.querySelector<HTMLInputElement>(`.${styles.sheet} input[type=search]`))?.focus(), 30);
@@ -71,25 +81,33 @@ export function SearchSheet({ lang }: { lang: Lang }) {
             </button>
           </div>
           <div className={`container ${styles.sheetBody}`}>
-            <Search lang={lang} variant="sheet" />
-            {recent.length > 0 ? (
-              <div className={styles.recent}>
-                <p className={styles.recentTitle}>{t("search.recent")}</p>
-                <ul>
-                  {recent.map((r) => (
-                    <li key={r.href}>
-                      <Link href={r.href} prefetch={false} onClick={() => setOpen(false)}>
-                        <span>
-                          <b>{r.title}</b>
-                          {r.sub ? <small>{r.sub}</small> : null}
-                        </span>
-                        {r.value ? <em>{r.value}</em> : null}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <Search
+              lang={lang}
+              variant="sheet"
+              initial={initial}
+              shortcuts={
+                recent.length > 0 ? (
+
+                      <div className={styles.recent}>
+                        <p className={styles.recentTitle}>{t("search.recent")}</p>
+                        <ul>
+                          {recent.map((r) => (
+                            <li key={r.href}>
+                              <Link href={r.href} prefetch={false} onClick={() => setOpen(false)}>
+                                <span>
+                                  <b>{r.title}</b>
+                                  {r.sub ? <small>{r.sub}</small> : null}
+                                </span>
+                                {r.value ? <em>{r.value}</em> : null}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                ) : null
+              }
+            />
           </div>
         </div>
       ) : null}

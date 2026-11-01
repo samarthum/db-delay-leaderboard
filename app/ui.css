@@ -1129,7 +1129,7 @@ ul.plain li {
   height: 8px;
   margin-right: 8px;
   border-radius: 50%;
-  background: var(--late);
+  background: var(--ink);
   vertical-align: 1px;
   animation: lnpulse 2s ease-in-out infinite;
 }
@@ -1141,39 +1141,97 @@ ul.plain li {
 }
 .livenow {
   margin-top: 16px;
-  padding: 14px 16px 12px;
-  background: #fff;
-  border: 1px solid var(--ink);
-  border-radius: var(--radius);
+  padding: 10px 0 12px;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
 }
 .ln-head {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--ink-2);
 }
-.ln-status {
-  margin-top: 6px;
-  font-size: 26px;
-  font-weight: 800;
-  font-stretch: 82%;
-  line-height: 1.1;
+/* One leg per end of the trip: where and when (small), then the status (big). */
+.ln-leg {
+  margin-top: 10px;
 }
-.ln-status::before {
-  content: "";
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 10px;
-  background: var(--c, var(--ink-2));
-  vertical-align: 2px;
+.ln-leg + .ln-leg {
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
 }
-.ln-arr {
-  margin-top: 4px;
+.ln-where {
   font-size: 15px;
   color: var(--ink);
 }
+.ln-lab {
+  color: var(--ink-2);
+}
+.ln-where b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ln-plat {
+  color: var(--ink-2);
+}
+.ln-platnew {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 750;
+  color: var(--ink);
+}
+.ln-status.ln-quietst {
+  font-size: 19px;
+  font-weight: 600;
+  font-stretch: 100%;
+}
+.ln-beyond {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.ln-after {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 18px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.ln-after a {
+  display: inline-block;
+  padding: 10px 0;
+  text-underline-offset: 3px;
+}
+.ln-plat {
+  white-space: nowrap;
+}
+.ln-status {
+  margin-top: 2px;
+  font-size: 24px;
+  font-weight: 800;
+  font-stretch: 82%;
+  line-height: 1.15;
+}
+.ln-status {
+  position: relative;
+  padding-left: 22px;
+}
+.ln-status::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.38em;
+  width: 12px;
+  height: 12px;
+  background: var(--c, var(--ink-2));
+}
+.ln-status.ln-unknown {
+  font-size: 17px;
+  font-weight: 600;
+  font-stretch: 100%;
+  color: var(--muted);
+}
 .ln-src {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -1193,8 +1251,9 @@ ul.plain li {
   color: var(--ink);
 }
 /* "Your trains" on the home page */
-.yt {
-  margin-top: 18px;
+.yt-wrap {
+  display: grid;
+  gap: 18px;
 }
 .yt > h2 {
   font-size: 15px;
@@ -1226,24 +1285,63 @@ ul.plain li {
 }
 .yt-main small {
   display: block;
-  font-size: 13px;
-  color: var(--muted);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+.yt a:has(.yt-live) {
+  flex-wrap: wrap;
+  row-gap: 2px;
 }
 .yt-live {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.yt-st {
+  position: relative;
+  display: block;
+  padding-left: 16px;
   font-weight: 700;
   font-size: 15px;
-  white-space: nowrap;
 }
-.yt-live::before {
+.yt-st::before {
   content: "";
-  display: inline-block;
+  position: absolute;
+  left: 0;
+  top: 0.45em;
   width: 9px;
   height: 9px;
-  margin-right: 7px;
   background: var(--c);
+}
+.yt-hint {
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.yt-st.yt-arr {
+  font-size: 15px;
+}
+.yt-st.yt-quiet {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.yt-down {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.yt-st.yt-plat {
+  font-weight: 750;
+  color: var(--ink);
+}
+.yt-st.yt-plat::before {
+  display: none;
+}
+.yt-banner {
+  font-size: 14px;
+  color: var(--ink-2);
+  padding-bottom: 2px;
 }
 .yt-avg {
   text-align: right;
@@ -1252,8 +1350,9 @@ ul.plain li {
 .yt-avg em {
   display: block;
   font-style: normal;
-  font-weight: 700;
-  color: var(--ink);
+  font-size: 15px;
+  font-weight: 550;
+  color: var(--ink-2);
 }
 .yt-avg small {
   display: block;
@@ -1295,11 +1394,15 @@ ul.plain li {
 /* Train not on now: its next planned run, one quiet line */
 .ln-next {
   margin-top: 14px;
-  padding: 10px 12px;
+  padding: 10px 0;
   font-size: 15px;
   font-weight: 600;
-  background: #fff;
-  border-left: 4px solid var(--rule);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.ln-next.ln-quiet {
+  font-weight: 400;
+  color: var(--ink-2);
 }
 .ln-next span {
   font-weight: 400;
@@ -1314,4 +1417,114 @@ ul.plain li {
   font-weight: 600;
   color: var(--ink-2);
   border-bottom: 1px solid var(--rule);
+}
+
+/* Home (Nov 2026): the box finds your train; your trains, the network figure, top routes and the rest follow. */
+.home-lead {
+  margin-top: -4px;
+  max-width: 36em;
+  font-size: 17px;
+  color: var(--ink-2);
+}
+.home-idle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+.home-idle > .yt-wrap {
+  margin-top: 6px;
+}
+.home-net > .fig {
+  margin-top: 6px;
+}
+.home-more ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+.home-more .rowlink {
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+@media (min-width: 960px) {
+  .home-idle {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+  .home-idle > .yt-wrap {
+    grid-column: 1 / 8;
+  }
+  .home-idle > .home-net {
+    grid-column: 1 / 6;
+  }
+  .home-idle > .home-routes {
+    grid-column: 7 / 13;
+  }
+  .home-idle > .home-more {
+    grid-column: 1 / -1;
+  }
+  .home-more ul {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+}
+/* Train page and card: the history under today's live box, labelled so it never reads as today's delay. */
+.past-h {
+  margin-top: 22px;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+.past-h + .fig {
+  margin-top: 6px;
+}
+.lately {
+  margin-top: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+/* "Closest to 08:14" on a route page: the nearest train marked (yellow = what the visitor picked). */
+.near .near-hit td {
+  background: var(--mark);
+}
+.near .near-liverow td {
+  padding: 6px 0 12px 72px;
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: normal;
+}
+.near-today {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.near-st {
+  position: relative;
+  display: block;
+  padding-left: 17px;
+  font-weight: 650;
+}
+.near-st::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 9px;
+  height: 9px;
+  background: var(--c);
+}
+
+/* First visit: the network section follows the box at the same rhythm as the returning layout. */
+.home-idle > .home-net:first-child {
+  margin-top: 30px;
+}
+@media (min-width: 960px) {
+  .home-idle > .home-net,
+  .home-idle > .home-routes {
+    margin-top: 30px;
+  }
 }

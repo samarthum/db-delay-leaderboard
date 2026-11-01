@@ -1,5 +1,6 @@
 /* A lookup result on the home page: a line, a regional train, or several trains with one number. Paper and ink, no box. */
 .card {
+  max-width: 760px;
   display: grid;
   gap: 0;
   padding-top: 4px;
@@ -63,7 +64,7 @@
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   margin: 18px 0 0;
   border-top: 1px solid var(--rule);
 }
@@ -176,5 +177,52 @@
   .name {
     font-size: 54px;
     line-height: 1;
+  }
+}
+
+/* Name and the save star on one row. */
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.titleRow > :global(.savebtn) {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-top: -4px;
+  margin-right: -10px;
+}
+
+/* "How late it has run, Nov 2025 to Sep 2026": the history under today's live box. */
+.past {
+  margin-top: 22px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+/* "Sundays, like today: 9.6 min late on average." */
+.today {
+  margin-top: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dayToday {
+  font-weight: 750;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (min-width: 960px) {
+  .titleRow {
+    justify-content: flex-start;
+    align-items: center;
+  }
+  .titleRow > :global(.savebtn) {
+    margin: 0;
   }
 }

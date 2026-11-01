@@ -167,7 +167,6 @@
   border: 1px solid var(--ink);
   border-radius: var(--radius);
   background: #fff;
-  box-shadow: 0 8px 24px rgba(20, 22, 26, 0.12);
 }
 
 .picker {
@@ -255,8 +254,18 @@
   border: 1px solid var(--ink);
   border-radius: var(--radius);
   background: #fff;
-  box-shadow: 0 8px 24px rgba(20, 22, 26, 0.12);
 }
+/* In the full-screen phone sheet there is nothing to float over: rows under hairlines, no frame. */
+.root[data-variant="sheet"] .list {
+  bottom: auto;
+  max-height: none;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: none;
+}
+
 
 .group + .group {
   border-top: 1px solid var(--rule);
@@ -580,49 +589,24 @@
   .root[data-variant="home"]:not([data-active]) {
     grid-template-columns: repeat(12, 1fr);
     column-gap: 32px;
-    row-gap: 0;
+    row-gap: 14px;
     padding-top: 32px;
   }
 
-  .root[data-variant="home"]:not([data-active]) > .intro {
-    grid-column: 1 / 8;
-    grid-row: 1;
-  }
-
-  .root[data-variant="home"]:not([data-active]) > .figureWrap {
-    grid-column: 1 / 7;
-    grid-row: 2 / 5;
-  }
-
+  /* Wide screens: question, lead and box in one readable column on the left; the rest underneath. */
+  .root[data-variant="home"]:not([data-active]) > .intro,
+  .root[data-variant="home"]:not([data-active]) > .figureWrap,
   .root[data-variant="home"]:not([data-active]) > .field {
-    grid-column: 8 / 13;
-    grid-row: 1 / 3;
-    align-self: center;
-    padding: 28px;
-    background: #fff;
-    box-shadow: 0 0 0 1px var(--rule);
-  }
-
-  .root[data-variant="home"]:not([data-active]) > .eg {
-    grid-column: 8 / 13;
-    grid-row: 3;
-    padding-inline: 28px;
-  }
-
-  .root[data-variant="home"]:not([data-active]) > .change {
-    grid-column: 8 / 13;
-    grid-row: 4;
-    padding-inline: 28px;
-    margin-top: 0;
+    grid-column: 1 / 8;
   }
 
   .root[data-variant="home"]:not([data-active]) > .idle {
     grid-column: 1 / -1;
-    grid-row: 5;
+    margin-top: 8px;
   }
 
   .root[data-variant="home"] > .intro .h1 {
-    max-width: 15ch;
+    max-width: 18ch;
   }
 }
 
@@ -643,4 +627,30 @@
 }
 .root[data-variant="sheet"] .inputWrap {
   height: 52px;
+}
+
+/* Second line under a route suggestion: "all trains, those near 08:14 first". */
+.optSub {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Station view: the way out for a train that only passes through ("Hannover Hbf to …"). */
+button.through {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+}
+.optWrap {
+  white-space: normal;
+  overflow: visible;
 }
