@@ -6,7 +6,8 @@
 //                      visible on dark tab strips).
 //   app/apple-icon.png 180 px home-screen icon: the line mark (mark.svg) in ink on paper.
 //   public/icons/icon-192.png, icon-512.png   the same for Android and installs, listed in the web manifests
-//                      (app/(en)/manifest.webmanifest, app/(de)/de/manifest.webmanifest).
+//                      (the icon list is in lib/manifest.ts, served by app/(en)/manifest.webmanifest/route.ts and
+//                      app/(de)/de/manifest.webmanifest/route.ts).
 //   public/icons/icon-maskable-512.png        the Android launcher icon: the mark inside the safe circle, so any mask
 //                      shape keeps all of it.
 // Then run `npm run build` to copy them into out/. `node scripts/check-brand.mjs` (part of `npm run check`) fails if

@@ -28,9 +28,9 @@ const mark = read("scripts/brand/mark.svg");
 if (geometry(tsx) !== geometry(mark)) problems.push("components/brand/BrandMark.tsx does not match scripts/brand/mark.svg");
 
 const small = read("scripts/brand/mark-16.svg");
-if (read("app/icon.svg") !== faviconSvg(small)) problems.push("app/icon.svg is stale");
-if (!read("app/favicon.ico", null).equals(faviconIco(small))) problems.push("app/favicon.ico is stale");
 const icons = {
+  "app/icon.svg": () => Buffer.from(faviconSvg(small)),
+  "app/favicon.ico": () => faviconIco(small),
   "app/apple-icon.png": () => appleIcon(mark),
   "public/icons/icon-192.png": () => manifestIcon(mark, 192),
   "public/icons/icon-512.png": () => manifestIcon(mark, 512),
@@ -40,6 +40,11 @@ for (const [file, make] of Object.entries(icons)) {
   if (!fs.existsSync(path.join(root, file))) problems.push(`${file} is missing`);
   else if (!read(file, null).equals(make())) problems.push(`${file} is stale`);
 }
+// Nothing else in public/icons/: an old icon there would still be served though no manifest lists it.
+const extra = fs.existsSync(path.join(root, "public/icons"))
+  ? fs.readdirSync(path.join(root, "public/icons")).filter((f) => !(`public/icons/${f}` in icons))
+  : [];
+for (const f of extra) problems.push(`public/icons/${f} is not made by scripts/brand-icons.mjs (delete it or add it there)`);
 
 if (problems.length) {
   for (const p of problems) console.error(`brand: ${p} (see scripts/check-brand.mjs)`);

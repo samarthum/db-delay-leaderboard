@@ -131,7 +131,8 @@ function arrow(size, color = C.ink, bothWays = false) {
 // The brand mark, read from its one source so the cards follow any change to it (and the card cache key with it).
 const MARK_SVG = await fs.readFile(path.join(ROOT, "scripts", "brand", "mark.svg"), "utf8");
 const MARK_SRC = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString("base64")}`;
-const MARK_RATIO = 27.2 / 25.4; // the mark's viewBox, width over height
+const [, , MARK_VW, MARK_VH] = MARK_SVG.match(/viewBox="([^"]+)"/)[1].split(/\s+/).map(Number);
+const MARK_RATIO = MARK_VW / MARK_VH;
 
 function watermark(size = 34) {
   const mh = Math.round(size * 1.3);
@@ -394,7 +395,11 @@ function recapTall(f, t, lang) {
     t,
     d({ fontFamily: COND, fontWeight: 800, fontSize: 124, lineHeight: 0.96, marginTop: 56 }, t("recap.title")),
     d({ fontSize: 32, color: C.ink2, marginTop: 20 }, t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span })),
-    d({ marginTop: 80 }, figure(f.ld.avgDelayMin, f.ld.latePct, f.ld.late6Pct, t("fig.home"), t, lang, { ...TALL_FIG, big: 420, sentence: 48 })),
+    // German "durchschnittliche" plus the wider "Min." leave no room beside the number, so there the sentence goes under it.
+    d(
+      { marginTop: lang === "de" ? 56 : 80 },
+      figure(f.ld.avgDelayMin, f.ld.latePct, f.ld.late6Pct, t("fig.home"), t, lang, { ...TALL_FIG, big: lang === "de" ? 380 : 420, sentence: 48, stack: lang === "de" }),
+    ),
     d(
       { flexDirection: "column", marginTop: 90 },
       factRow(`${fmt1(f.ld.avgDelayMin, lang)} ${t("unit.min")}`, t("recap.fact.avg"), 36),
@@ -514,7 +519,7 @@ function leaguePortrait(worst, best, t, lang, span, n) {
     [56, 64, 44],
     span,
     t,
-    d({ fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 100 : 116, lineHeight: 0.96, marginTop: 34 }, t("routes.card.title")),
+    d({ fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 90 : 116, lineHeight: 0.96, marginTop: lang === "de" ? 26 : 34 }, t("routes.card.title")),
     d({ fontSize: 28, color: C.ink2, marginTop: 14, marginBottom: 22 }, t("routes.card.sub", { n })),
     d({ flexDirection: "column", borderTop: `3px solid ${C.ink}` }, worst.map((r, i) => leagueRow(r, i + 1, top, o))),
     d({ fontFamily: COND, fontWeight: 800, fontSize: 36, marginTop: 24, marginBottom: 4, color: C.safe }, t("routes.card.best")),
