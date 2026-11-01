@@ -2,7 +2,7 @@
 export const week = {
   "wk.title": "The last 7 days",
   "wk.titleStale": "7 days to {date}",
-  "wk.asOf": "{first} to {date}, the latest complete day.",
+  "wk.asOf": "{first} to {date}, the latest day with complete data.",
   "wk.asOfStale": "{first} to {date}. Not updated for {n} days.",
   "wk.dep": "Departure from {st}",
   "wk.arr": "Arrival at {st}",
@@ -26,7 +26,7 @@ export const week = {
   "wk.key.zero": "(0 = no delay reported)",
   "wk.key.canc": "cancelled",
   "wk.key.none": "no run (empty), not measured (–), data incomplete (?)",
-  "wk.note": "Measured only at {o} and {d}, as reported by Deutsche Bahn. Your own stops: live times and usual delays under “{fold}” above.",
+  "wk.note": "Measured only at {o} and {d}, as reported by Deutsche Bahn. Live times and usual delays between your own stops are under “{fold}” above.",
   "wk.sr.late": "{n} min late",
   "wk.sr.canc": "cancelled",
   "wk.sr.noRun": "no run in the data",

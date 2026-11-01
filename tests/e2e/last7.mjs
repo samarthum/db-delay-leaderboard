@@ -38,7 +38,7 @@ try {
       ok(await p.locator('.wk .wk-cell').count() === 14, `${where} full: departure and arrival mark per day`);
       ok(/11 min late on average, 15\+ min late on 2 of 7 days/.test(wk), `${where} full: sentence ` + wk);
       ok(!/on time/i.test(wk), `${where} full: never "on time"`);
-      ok(/the latest complete day/.test(wk), `${where} full: as-of date said`);
+      ok(/the latest day with complete data/.test(wk), `${where} full: as-of date said`);
       ok(/Measured only at .* and /.test(wk), `${where} full: names the two stations it is measured at`);
       // The block sits under today's live box, above the long history.
       const order = await p.evaluate(() => { const a = document.querySelector('.livenow'), w = document.querySelector('.wk'), h = [...document.querySelectorAll('h2, h4')].find((x) => /How late it has run/.test(x.textContent)); return !!(a && w && h && (a.compareDocumentPosition(w) & 4) && (w.compareDocumentPosition(h) & 4)); });
