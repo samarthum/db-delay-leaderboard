@@ -128,15 +128,17 @@ function arrow(size, color = C.ink, bothWays = false) {
   );
 }
 
+// The brand mark, read from its one source so the cards follow any change to it (and the card cache key with it).
+const MARK_SVG = await fs.readFile(path.join(ROOT, "scripts", "brand", "mark.svg"), "utf8");
+const MARK_SRC = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString("base64")}`;
+const [, , MARK_VW, MARK_VH] = MARK_SVG.match(/viewBox="([^"]+)"/)[1].split(/[\s,]+/).map(Number);
+const MARK_RATIO = MARK_VW / MARK_VH;
+
 function watermark(size = 34) {
+  const mh = Math.round(size * 1.3);
   return d(
     { alignItems: "center", fontFamily: COND, fontWeight: 800, fontSize: size, color: C.ink },
-    h(
-      "svg",
-      { width: Math.round(size * 0.62), height: Math.round(size * 0.62), viewBox: "0 0 20 20", style: { marginRight: 12 } },
-      h("circle", { cx: 10, cy: 10, r: 4.2, fill: C.ink }),
-      h("circle", { cx: 10, cy: 10, r: 8.4, fill: "none", stroke: C.ink, strokeWidth: 1.8 }),
-    ),
+    h("img", { src: MARK_SRC, width: Math.round(mh * MARK_RATIO), height: mh, style: { marginRight: 12 } }),
     "German Punctuality",
   );
 }
@@ -393,7 +395,11 @@ function recapTall(f, t, lang) {
     t,
     d({ fontFamily: COND, fontWeight: 800, fontSize: 124, lineHeight: 0.96, marginTop: 56 }, t("recap.title")),
     d({ fontSize: 32, color: C.ink2, marginTop: 20 }, t("home.networkBasis", { trips: fmtInt(f.ld.measured, lang), span: f.span })),
-    d({ marginTop: 80 }, figure(f.ld.avgDelayMin, f.ld.latePct, f.ld.late6Pct, t("fig.home"), t, lang, { ...TALL_FIG, big: 420, sentence: 48 })),
+    // German "durchschnittliche" plus the wider "Min." leave no room beside the number, so there the sentence goes under it.
+    d(
+      { marginTop: lang === "de" ? 56 : 80 },
+      figure(f.ld.avgDelayMin, f.ld.latePct, f.ld.late6Pct, t("fig.home"), t, lang, { ...TALL_FIG, big: lang === "de" ? 380 : 420, sentence: 48, stack: lang === "de" }),
+    ),
     d(
       { flexDirection: "column", marginTop: 90 },
       factRow(`${fmt1(f.ld.avgDelayMin, lang)} ${t("unit.min")}`, t("recap.fact.avg"), 36),
@@ -505,15 +511,17 @@ function leagueRow(r, i, top, o) {
 
 function leaguePortrait(worst, best, t, lang, span, n) {
   const top = Math.max(...worst.map((r) => r.avg));
-  const o = { rowH: 104, rankW: 64, fs: 40, barW: 560, barH: 14, valW: 210, lang, db: true, min: t("unit.min") };
-  const o2 = { ...o, rowH: 84, fs: 34, barW: 560, db: true };
+  // The German title takes two lines, so its rows are a little shorter to keep the footer where every portrait has it.
+  const de = lang === "de";
+  const o = { rowH: de ? 96 : 104, rankW: 64, fs: 40, barW: 560, barH: 14, valW: 210, lang, db: true, min: t("unit.min") };
+  const o2 = { ...o, rowH: de ? 80 : 84, fs: 34, barW: 560, db: true };
   return sheet(
     1080,
     1350,
     [56, 64, 44],
     span,
     t,
-    d({ fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 100 : 116, lineHeight: 0.96, marginTop: 34 }, t("routes.card.title")),
+    d({ fontFamily: COND, fontWeight: 800, fontSize: lang === "de" ? 90 : 116, lineHeight: 0.96, marginTop: lang === "de" ? 26 : 34 }, t("routes.card.title")),
     d({ fontSize: 28, color: C.ink2, marginTop: 14, marginBottom: 22 }, t("routes.card.sub", { n })),
     d({ flexDirection: "column", borderTop: `3px solid ${C.ink}` }, worst.map((r, i) => leagueRow(r, i + 1, top, o))),
     d({ fontFamily: COND, fontWeight: 800, fontSize: 36, marginTop: 24, marginBottom: 4, color: C.safe }, t("routes.card.best")),

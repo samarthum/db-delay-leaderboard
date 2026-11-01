@@ -10,7 +10,7 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "data": "python scripts/compute.py",
-    "check": "tsc --noEmit && node scripts/check-dict.mjs",
+    "check": "tsc --noEmit && node scripts/check-dict.mjs && node scripts/check-brand.mjs",
     "serve": "node tests/tools/serve.mjs",
     "test": "node tests/e2e/pages.mjs",
     "crawl": "node tests/tools/crawl-overflow.mjs"

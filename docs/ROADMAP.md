@@ -11,7 +11,8 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 6. Trains from abroad: real origin, route search from abroad, border stations live, departure abroad via Transitous.
 7. Weekly refresh job for the abroad data. Repo made public under MIT.
 8. Home redesign around "my train today" (1 Nov 2026; branch, owner's yes pending): log in `docs/notes/home-redesign-log.md`.
-9. Last 7 days per train on every train page and card, from piebro's raw files, refreshed daily by GitHub Actions
+9. New brand mark: flustered little train in the header, favicon and home-screen icon (live on main since 1 Nov 2026). Share cards and Android home-screen icons (web manifest) carry it too.
+10. Last 7 days per train on every train page and card, from piebro's raw files, refreshed daily by GitHub Actions
    (Nov 2026, PR; owner's yes pending): `docs/notes/data-pipeline.md` ("Last 7 days"), log `docs/notes/last7-log.md`.
 
 ## Next (owner picks the order)

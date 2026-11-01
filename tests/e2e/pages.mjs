@@ -208,6 +208,18 @@ try {
     await go(p, '/'); await p.locator('main input[type=search]').click(); ok(!(await p.locator('[role=dialog]').count()), 'desktop: home box stays inline');
     await p.keyboard.type('ICE 15', { delay: 30 }); await p.waitForTimeout(1200); ok(await p.locator('[role=listbox]').isVisible(), 'desktop: inline suggestions');
     await p.context().close(); }
+  // Home-screen install: each language links its own manifest; it parses, opens on its home page and every icon loads.
+  { const p = await page();
+    for (const [u, href, start] of [['/', '/manifest.webmanifest', '/'], ['/de/zug/ice-1541/', '/de/manifest.webmanifest', '/de/']]) {
+      await go(p, u);
+      const links = await p.locator('link[rel=manifest]').evaluateAll(ls => ls.map(l => l.getAttribute('href')));
+      ok(links.length === 1 && links[0] === href, `one manifest link on ${u}, ${href} (${links})`);
+      const r = await p.request.get(BASE + href); const m = await r.json().catch(() => null);
+      ok(r.ok() && m && m.start_url === start && m.id === start, `manifest ${href} parses, start_url and id ${start}`);
+      ok(m && Array.isArray(m.icons) && m.icons.some(i => i.purpose === 'maskable' && i.sizes === '512x512') && ['192x192', '512x512'].every(s => m.icons.some(i => i.sizes === s && i.purpose === 'any')), `manifest ${href} lists 192, 512 and maskable icons`);
+      for (const i of m?.icons || []) { const ir = await p.request.get(BASE + i.src); ok(ir.ok() && /image\/png/.test(ir.headers()['content-type'] || ''), `icon ${i.src} loads as png`); }
+    }
+    await p.context().close(); }
 } finally { await b.close(); }
 console.log(`mv2: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

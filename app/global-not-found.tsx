@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fontClasses } from "@/lib/fonts";
 import { makeT } from "@/lib/t";
 import { NotFoundSearch } from "@/components/NotFoundSearch";
+import { BrandMark } from "@/components/brand/BrandMark";
 import "./globals.css";
 import "./ui.css";
 import styles from "./not-found.module.css";
@@ -17,6 +18,7 @@ export default function GlobalNotFound() {
       <body>
         <main className={`container ${styles.main}`}>
           <Link href="/" className={styles.brand}>
+            <BrandMark className={styles.mark} />
             German Punctuality
           </Link>
           <h1 className={`h1 ${styles.title}`}>{en("notfound.title2")}</h1>
