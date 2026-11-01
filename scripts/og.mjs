@@ -131,7 +131,7 @@ function arrow(size, color = C.ink, bothWays = false) {
 // The brand mark, read from its one source so the cards follow any change to it (and the card cache key with it).
 const MARK_SVG = await fs.readFile(path.join(ROOT, "scripts", "brand", "mark.svg"), "utf8");
 const MARK_SRC = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString("base64")}`;
-const [, , MARK_VW, MARK_VH] = MARK_SVG.match(/viewBox="([^"]+)"/)[1].split(/\s+/).map(Number);
+const [, , MARK_VW, MARK_VH] = MARK_SVG.match(/viewBox="([^"]+)"/)[1].split(/[\s,]+/).map(Number);
 const MARK_RATIO = MARK_VW / MARK_VH;
 
 function watermark(size = 34) {
@@ -511,8 +511,10 @@ function leagueRow(r, i, top, o) {
 
 function leaguePortrait(worst, best, t, lang, span, n) {
   const top = Math.max(...worst.map((r) => r.avg));
-  const o = { rowH: 104, rankW: 64, fs: 40, barW: 560, barH: 14, valW: 210, lang, db: true, min: t("unit.min") };
-  const o2 = { ...o, rowH: 84, fs: 34, barW: 560, db: true };
+  // The German title takes two lines, so its rows are a little shorter to keep the footer where every portrait has it.
+  const de = lang === "de";
+  const o = { rowH: de ? 96 : 104, rankW: 64, fs: 40, barW: 560, barH: 14, valW: 210, lang, db: true, min: t("unit.min") };
+  const o2 = { ...o, rowH: de ? 80 : 84, fs: 34, barW: 560, db: true };
   return sheet(
     1080,
     1350,
