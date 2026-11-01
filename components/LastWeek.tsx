@@ -135,8 +135,8 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
     const x = c as [End, End, string | null, string | null];
     const h = dayHead(index.days[i], t, lang);
     const day = `${h.wd} ${h.d}`;
-    if (x[2]) other.push(t("wk.otherStart", { day, st: shortStation(x[2]), usual: origin }));
-    if (x[3]) other.push(t("wk.otherEnd", { day, st: shortStation(x[3]), usual: dest }));
+    if (x[2] && origin) other.push(t("wk.otherStart", { day, st: shortStation(x[2]), usual: origin }));
+    if (x[3] && dest) other.push(t("wk.otherEnd", { day, st: shortStation(x[3]), usual: dest }));
   });
   return (
     <section className="wk" aria-labelledby={`wk-${train.replace(/\s/g, "-")}`}>
@@ -190,7 +190,7 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
           <span>{t("wk.key.none")}</span>
         </span>
       </p>
-      <p className="wk-fine">{t("wk.note", { o: origin, d: dest, fold: t("own.toggle") })}</p>
+      {origin && dest ? <p className="wk-fine">{t("wk.note", { o: origin, d: dest, fold: t("own.toggle") })}</p> : null}
     </section>
   );
 }
