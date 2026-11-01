@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-The MIT licence covers the code. The data files in data/ are derived from
-third-party sources and keep their own licences (see "How we measure" on the
-site): the train data is CC BY 4.0 / ODbL, live data from Deutsche Bahn's
-Timetables API is CC BY 4.0, and live data abroad comes from Transitous
-(https://transitous.org/sources/).

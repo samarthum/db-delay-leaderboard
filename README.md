@@ -100,4 +100,5 @@ Not affiliated with Deutsche Bahn.
 
 ## Licence
 
-Code: MIT (see `LICENSE`). Data files keep the licences of their sources listed above.
+Code: MIT (see `LICENSE`). The data files in `data/` are derived from the sources under Attribution and keep
+their licences: train data CC BY 4.0 / ODbL, DB Timetables API CC BY 4.0, Transitous (see https://transitous.org/sources/).
