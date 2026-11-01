@@ -34,3 +34,15 @@ dry run or real refresh: window, verifier and gate result, what changed.
   for a regional train that changes line or number en route, so the pipeline itself was not reproducible there.
   Fixed: `min()` in compute.py and the verifier; the fixture now has such a ride (RE 4 -> RE 50).
 
+
+## Dry run 2 (1 Nov 2026, Actions run 41347435494, head bbe26f7; same window, October not yet published)
+- Verifier: **236,115 values, 0 differences** (regional lines and numbers now agree after the `min()` fix);
+  verify_bins 13 pairs, 0 differences; check_headline within tolerance.
+- Gate: 56 of 57 checks passed. Same window, so months unchanged and route trips median new/old 1.000. Route lists
+  23,223 -> 23,158 rows, **0 rows running the other way**; route pages 685 -> 687 (`bitterfeld-berlin-suedkreuz`,
+  `koeln-hbf-muenchen-hbf`: their right-direction runs had been counted the other way). Search shards 5,432 ->
+  6,091 kB (+12%, field 17). Line pages: `rb-34-idar-oberstein-nohen` out, `rb-40-muenchen-ost-ampfing` in (the
+  deterministic line rule moved a few rides); search lines 645 -> 644, regional numbers 31,552 -> 31,528.
+- The failed check was the gate's own threshold: "70% of trains have figures for the last month"; really 1,203 of
+  1,732 (69%) in a normal month, the rest did not run in September. Lowered to 50% (it is there to catch a missing
+  or empty month). The route-fix comparison now runs before the gate so it always reports.

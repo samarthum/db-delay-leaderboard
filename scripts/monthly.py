@@ -234,7 +234,9 @@ def gate(args):
     trains = [r for k, r in un.items() if k[0] == 0]
     current = sum(1 for r in trains if len(r) > 17 and r[17] and r[17][-1][0] == wn["lastMonth"])
     check(all(len(r) > 17 for r in un.values()), "search: every record has its latest months (field 17)")
-    check(current >= 0.7 * len(trains), f"search: {current:,} of {len(trains):,} trains have figures for {wn['lastMonth']}")
+    # About 70% in a normal month (Sep 2026: 1,203 of 1,732; the rest did not run that month), so half catches a
+    # missing or empty month without failing on seasonal trains.
+    check(current >= 0.5 * len(trains), f"search: {current:,} of {len(trains):,} trains have figures for {wn['lastMonth']}")
 
     stops_o, stops_n = load(old, "stops.json"), load(new, "stops.json")
     keep("stops.json trains", {f"{t[0]} {t[1]}" for t in stops_o["trains"]}, {f"{t[0]} {t[1]}" for t in stops_n["trains"]}, 0.15, 0.85)

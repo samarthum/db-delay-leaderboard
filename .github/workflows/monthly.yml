@@ -80,16 +80,16 @@ jobs:
           GP_PARQUET="$PQ" python tests/data/verify_bins.py
           python scripts/check_headline.py --data-dir "$PQ"
 
-      - name: Sanity gate (window, row counts, families, fields, sizes) and what changes
-        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
-        run: python scripts/monthly.py gate --old "$OLD" --expect "${{ steps.plan.outputs.expect }}"
-
       # Pull requests only: the route-direction fix on the COMMITTED window (same months, so only the fix differs).
       - name: Route fix on the committed window (rows running the other way, figures they fed)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && !cancelled()
         run: |
           python scripts/routes.py --data-dir "$PQ" --stats "$OLD/stats.json" --out "$RUNNER_TEMP/routes-same-window.json"
           python tests/data/compare_routes.py --old "$OLD/routes.json" --new "$RUNNER_TEMP/routes-same-window.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Sanity gate (window, row counts, families, fields, sizes) and what changes
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: python scripts/monthly.py gate --old "$OLD" --expect "${{ steps.plan.outputs.expect }}"
 
       - name: Diff summary (dry run)
         if: github.event_name == 'pull_request'
