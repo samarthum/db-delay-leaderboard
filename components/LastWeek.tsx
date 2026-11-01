@@ -15,7 +15,7 @@ function dayHead(iso: string, t: T, lang: Lang) {
 
 /** One end of one day: what the mark shows, the number under it and what a screen reader hears. */
 function endOf(day: Day, which: 0 | 1, t: T): { kind: "min" | "canc" | "none" | "gap" | "unmeasured" | "elsewhere"; n?: number; text: string; sr: string } {
-  if (day === null) return { kind: "none", text: "–", sr: t("wk.sr.noRun") };
+  if (day === null) return { kind: "none", text: "\u00a0", sr: t("wk.sr.noRun") };
   if (day === "?") return { kind: "gap", text: "?", sr: t("wk.sr.gap") };
   // The red mark carries the ×; the number line under it stays empty.
   if (day === "x") return { kind: "canc", text: "\u00a0", sr: t("wk.sr.canc") };
@@ -94,6 +94,8 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
   }, [train]);
   if (!data) return null;
   const stale = age > 3;
+  // Older than a week: none of it is "the last 7 days" any more.
+  if (age > 7) return null;
   const { index, week } = data;
   const first = fmtDate(index.days[0], lang).replace(/\s\d{4}$/, "");
   const firstWd = `${t(`wds.${weekdayOf(index.days[0])}` as Key)}${lang === "de" ? "," : ""} ${first}`;
@@ -101,7 +103,7 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
   const asOf = `${t(`wds.${weekdayOf(index.asOf)}` as Key)}${lang === "de" ? "," : ""} ${last}`;
   const head = (
     <h3 className="wk-h" id={`wk-${train.replace(/\s/g, "-")}`}>
-      {t("wk.title")}
+      {stale ? t("wk.titleStale", { date: asOf }) : t("wk.title")}
     </h3>
   );
   if (!week) {
@@ -127,7 +129,12 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
             ? t("wk.sum1", { st: dest, n: one })
             : t("wk.sum1On", { st: dest })
           : t(s.late15 === 0 ? "wk.sum0" : "wk.sum", { st: dest, avg, k: s.late15, n: s.arrDays });
-  const canc = s.cancelled === 0 ? "" : s.cancelled === 1 ? t("wk.canc1") : t("wk.cancN", { n: s.cancelled });
+  const canc = [
+    s.cancelled === 0 ? "" : s.cancelled === 1 ? t("wk.canc1") : t("wk.cancN", { n: s.cancelled }),
+    s.elsewhere === 0 ? "" : s.elsewhere === 1 ? t("wk.else1") : t("wk.elseN", { n: s.elsewhere }),
+  ]
+    .filter(Boolean)
+    .join(" ");
   // Days that started or ended somewhere else than usual: said under the diagram, never hidden.
   const other: string[] = [];
   week.c.forEach((c, i) => {
@@ -175,7 +182,7 @@ export function LastWeek({ train, lang }: { train: string; lang: Lang }) {
               {l}
             </span>
           ))}
-          <span>{t("wk.key.zero")}</span>
+          <span className="wk-sw">{t("wk.key.zero")}</span>
         </span>
         <span className="wk-k">
           <span className="wk-mark wk-km" style={{ ["--c" as string]: LATE }}>

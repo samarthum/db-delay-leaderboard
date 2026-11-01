@@ -67,6 +67,8 @@ export interface WeekSummary {
   late15: number;
   /** Days with a cancellation: the whole run or one of its two ends. */
   cancelled: number;
+  /** Days whose arrival was at another station than the usual last stop (not in the average). */
+  elsewhere: number;
   /** Days with no run in the data, and days with incomplete data. */
   noRun: number;
   incomplete: number;
@@ -77,6 +79,7 @@ export function summarise(cells: Day[]): WeekSummary {
   let cancelled = 0;
   let noRun = 0;
   let incomplete = 0;
+  let elsewhere = 0;
   for (const c of cells) {
     if (c === null) noRun++;
     else if (c === "?") incomplete++;
@@ -84,8 +87,9 @@ export function summarise(cells: Day[]): WeekSummary {
     else {
       if (c[0] === "x" || c[1] === "x") cancelled++;
       // Early counts as 0 (as the marks show it); a day that ended at another stop is not this stop's arrival.
-      const elsewhere = c.length > 2 && c[3] !== null && c[3] !== undefined;
-      if (typeof c[1] === "number" && !elsewhere) arr.push(Math.max(0, c[1]));
+      const other = c.length > 2 && c[3] !== null && c[3] !== undefined;
+      if (typeof c[1] === "number" && !other) arr.push(Math.max(0, c[1]));
+      if (other) elsewhere++;
     }
   }
   return {
@@ -93,6 +97,7 @@ export function summarise(cells: Day[]): WeekSummary {
     arrAvg: arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : null,
     late15: arr.filter((x) => x >= 15).length,
     cancelled,
+    elsewhere,
     noRun,
     incomplete,
   };

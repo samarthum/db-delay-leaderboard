@@ -1686,10 +1686,9 @@ main:has(.yt-wrap) .home-lead {
 /* "The last 7 days" (components/LastWeek.tsx): one mark per day at departure and arrival, under the live box. Colour
    only on the marks (live scale); numbers in ink; no run / incomplete days hollow, so they never read as fine. */
 .wk {
-  max-width: 560px;
   margin-top: 18px;
   padding-top: 10px;
-  border-top: 2px solid var(--ink);
+  border-top: 1px solid var(--ink);
 }
 .wk-h {
   font-size: 17px;
@@ -1713,6 +1712,7 @@ main:has(.yt-wrap) .home-lead {
 }
 .wk-table {
   width: 100%;
+  max-width: 560px;
   margin-top: 10px;
   border-collapse: collapse;
   table-layout: fixed;
@@ -1807,8 +1807,8 @@ main:has(.yt-wrap) .home-lead {
   margin-top: 3px;
 }
 .wk-km {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 .wk-fine {
   margin-top: 6px;

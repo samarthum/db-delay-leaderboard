@@ -34,12 +34,12 @@ export const WEEK = {
 /**
  * Route /last7/ for `trains` (default: the trains the tests use) with `scenario` cells.
  * scenario 'empty': the site has no data yet (empty index); 'absent': data exists but not for these trains;
- * 'stale': the full week, but the latest day is 6 days ago.
+ * 'stale': the full week, but the latest day is 6 days ago; 'old': 9 days ago (block hidden).
  */
 export async function mockLast7(ctx, scenario = 'full', trains = Object.keys(ENDS)) {
-  const end = scenario === 'stale' ? -6 : -1;
+  const end = scenario === 'stale' ? -6 : scenario === 'old' ? -9 : -1;
   const d = days(end);
-  const cells = WEEK[scenario === 'stale' ? 'full' : scenario] ?? WEEK.full;
+  const cells = WEEK[scenario] ?? WEEK.full;
   const shards = {};
   if (scenario !== 'absent' && scenario !== 'empty') {
     for (const t of trains) {
