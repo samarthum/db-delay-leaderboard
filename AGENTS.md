@@ -17,7 +17,7 @@ Read these before changing anything:
 4. `docs/notes/<topic>.md` before touching that area: data-pipeline, live-status, live-and-international,
    change-trains, compensation, german-copy, share-cards-and-pages, product-and-ui, release, review-process.
 
-Checks before any push: `npx tsc --noEmit`, `node scripts/check-dict.mjs`, `npm run build`,
+Checks before any push: `npx tsc --noEmit`, `node scripts/check-dict.mjs`, `node scripts/check-brand.mjs`, `npm run build`,
 `node tests/tools/serve.mjs &` then `node tests/e2e/pages.mjs`. Publishing is a fast-forward push to `main`; ask the
 owner first (see RULES). Keep `docs/STATUS.md` and `docs/ROADMAP.md` current in the same commit as the work.
 Never commit keys: they live in Vercel and in a git-ignored `.env.local`.
