@@ -4,6 +4,8 @@ import type { Key } from "@/lib/t";
 export interface NavItem {
   key: "home" | "change" | "ranking" | "more" | "network" | "recap" | "method" | "compensation";
   label: Key;
+  /** One line under the label in the header's "Menu" on phones on phones. */
+  sub?: Key;
   href: (lang: Lang) => string;
   /** Address prefixes (without language) where this item counts as the current place. */
   match: string[];
@@ -21,11 +23,12 @@ export const TABS: NavItem[] = [
   { key: "network", label: "nav.network", href: at("network"), match: ["network"], icon: "network" },
 ];
 
-/** The remaining pages, as a quiet row of links at the bottom of every page on phones. */
+/** The remaining pages, Compensation first (the owner wants it found): the "Pages" menu in the phone header, a quiet
+ * row of links at the bottom of every page on phones, and the end of the desktop header. */
 export const FOOTER_LINKS: NavItem[] = [
-  { key: "recap", label: "nav.recap", href: at("recap"), match: ["recap"] },
-  { key: "compensation", label: "nav.compensation", href: at("compensation"), match: ["compensation"] },
-  { key: "method", label: "nav.method", href: at("method"), match: ["method"] },
+  { key: "compensation", label: "nav.compensation", sub: "nav.compensation.sub", href: at("compensation"), match: ["compensation"] },
+  { key: "recap", label: "nav.recap", sub: "nav.recap.sub", href: at("recap"), match: ["recap"] },
+  { key: "method", label: "nav.method", sub: "nav.method.sub", href: at("method"), match: ["method"] },
 ];
 
 /** The same places in the header on wide screens, with the footer pages listed after them. */

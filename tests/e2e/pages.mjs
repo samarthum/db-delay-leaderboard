@@ -157,9 +157,54 @@ try {
     ok(hs2.every(h => h < 50), 'de 320 route sort one line ' + hs2);
     ok(await ov(p) <= 0.5, 'de 320 route overflow');
     await p.context().close(); }
+  // Header: language switch and "Pages" menu on phones, on every page (owner request, Nov 2026)
+  { const p = await page(); 
+    for (const [u, word] of [['/', 'Deutsch'], ['/change/', 'Deutsch'], ['/route/hamburg-hbf-berlin-hbf/', 'Deutsch'], ['/de/', 'English'], ['/de/umsteigen/', 'English']]) {
+      await go(p, u); const l = p.locator('header a[hreflang]');
+      ok(await l.isVisible() && (await l.innerText()).trim() === word && (await l.boundingBox()).y < 56, `header lang switch on ${u}`);
+      ok(await p.locator('header button[aria-controls]').isVisible(), `header pages menu on ${u}`);
+    }
+    await go(p, '/route/hamburg-hbf-berlin-hbf/');
+    const btn = p.locator('header button[aria-controls]'); const menu = p.locator('header nav[aria-label="Menu"]');
+    ok(await btn.getAttribute('aria-expanded') === 'false' && await menu.isHidden(), 'menu: closed at start');
+    const y0 = (await p.locator('main h1').boundingBox()).y, hh0 = (await p.locator('header').boundingBox()).height;
+    await btn.click(); await p.waitForTimeout(200);
+    ok(await btn.getAttribute('aria-expanded') === 'true' && await menu.isVisible(), 'menu: opens on tap');
+    ok((await p.locator('main h1').boundingBox()).y === y0 && (await p.locator('header').boundingBox()).height === hh0, 'menu: opening moves nothing');
+    const links = await menu.locator('a').evaluateAll(as => as.map(a => a.getAttribute('href')));
+    ok(links.join() === '/compensation/,/recap/,/method/', 'menu: Compensation first, then Recap, Method ' + links);
+    const mb = await menu.boundingBox(); ok(mb.x >= 0 && mb.x + mb.width <= 390, 'menu: inside the screen');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+    ok(await menu.isHidden() && await btn.getAttribute('aria-expanded') === 'false', 'menu: Esc closes');
+    ok(await btn.evaluate(b => document.activeElement === b), 'menu: Esc returns focus to the button');
+    await p.keyboard.press('Enter'); await p.waitForTimeout(100);
+    ok(await menu.isVisible(), 'menu: Enter opens');
+    await p.keyboard.press('Tab'); ok(await p.evaluate(() => document.activeElement?.getAttribute('href')) === '/compensation/', 'menu: Tab goes to the first link');
+    await p.mouse.click(30, 700); await p.waitForTimeout(150);
+    ok(await menu.isHidden(), 'menu: tap outside closes');
+    await btn.click(); await menu.locator('a[href="/compensation/"]').click(); await p.waitForURL('**/compensation/'); await p.waitForTimeout(200);
+    ok(await menu.isHidden(), 'menu: link lands on Compensation, menu closed');
+    await btn.click(); ok(await menu.locator('a[aria-current="page"]').getAttribute('href') === '/compensation/', 'menu: current page marked');
+    await p.keyboard.press('Escape');
+    await go(p, '/route/hamburg-hbf-berlin-hbf/'); await p.locator('header a[hreflang="de"]').click(); await p.waitForURL('**/de/strecke/hamburg-hbf-berlin-hbf/');
+    ok(true, 'lang switch: one tap to the same page in German');
+    ok(await p.locator('header button[aria-controls]').innerText() === 'Menü', 'menu DE label');
+    await p.context().close(); }
+  for (const u of ['/de/strecke/hamburg-hbf-berlin-hbf/', '/route/aschaffenburg-hbf-duesseldorf-hbf/', '/compensation/', '/de/', '/']) {
+    const p = await page(320, 700); { await go(p, u); ok(await ov(p) <= 0.5, `320 header no overflow ${u} (${await ov(p)})`);
+      const bb = await p.locator('header button[aria-controls]').boundingBox(), lb = await p.locator('header a[hreflang]').boundingBox();
+      ok(Math.abs(bb.y - lb.y) < 2 && bb.height <= 44 && lb.x + lb.width <= 320, `320 menu + lang on one row ${u}`);
+      await p.locator('header button[aria-controls]').click(); const mb = await p.locator('header nav[id]').boundingBox();
+      ok(mb.x >= 0 && mb.x + mb.width <= 320, `320 menu inside the screen ${u}`); await p.keyboard.press('Escape');
+      ok(Math.round(lb.x + lb.width) === 300 + 10, `320 lang switch ends at the same x on every page ${u} (${lb.x + lb.width})`);
+    }
+    await p.context().close(); }
   // Desktop sanity
   { const p = await page(1280, 900); for (const u of ['/', '/route/hamburg-hbf-berlin-hbf/', '/train/ice-1541/', '/ranking/', '/compensation/']) { await go(p, u); ok(await ov(p) <= 0.5, 'desktop overflow ' + u); ok(p.errs.length === 0, 'desktop errs ' + u + p.errs.join('|')); await p.screenshot({ path: SHOTS + '/desk' + u.replace(/\//g, '_') + '.png' }); }
     ok(await p.locator('header a[hreflang="de"]').isVisible(), 'desktop: lang switch in header');
+    ok(await p.locator('header button[aria-controls]').isHidden(), 'desktop: no Pages menu (the header lists every page)');
+    const dl = await p.locator('header nav a').evaluateAll(as => as.map(a => a.getAttribute('href')));
+    ok(dl.indexOf('/compensation/') >= 0 && dl.indexOf('/compensation/') < dl.indexOf('/recap/'), 'desktop: Compensation before Recap ' + dl);
     await go(p, '/'); await p.locator('main input[type=search]').click(); ok(!(await p.locator('[role=dialog]').count()), 'desktop: home box stays inline');
     await p.keyboard.type('ICE 15', { delay: 30 }); await p.waitForTimeout(1200); ok(await p.locator('[role=listbox]').isVisible(), 'desktop: inline suggestions');
     await p.context().close(); }

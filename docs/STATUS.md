@@ -27,8 +27,7 @@ History from open data (11 months), live status from DB's own API, cross-border 
 | Compensation | Plain-language page: 3-zone ruler, calculator, claim in 3 steps, what counts, 20/60/100-min ladder, can DB say no, 1-in-17 dot grid, legal fine print in folds | `CompensationPage.tsx`, `CompCalc.tsx`, `Compensation.module.css` |
 | Share pictures | Portrait 1080x1350 per route/train/line (recap 1080x1920); wide 1200x630 only as og:image | `scripts/og.mjs` |
 
-Phone navigation: four tabs (Search, Change trains, Rankings, Network); Recap / Compensation / Method in a footer link
-row (not on Change trains). Desktop header lists all.
+Phone navigation: four tabs (Search, Change trains, Rankings, Network); top bar on every page has the Deutsch/English switch and a "Menu" dropdown (Compensation, Recap, Method; `PagesMenu.tsx`), also in the footer link row (not on Change trains). Desktop header lists all.
 
 Switched OFF but built: voice search (ElevenLabs Scribe; `VOICE_ENABLED=1` turns it on; owner found it buggy).
 The live-feed collector service (`docs/notes/live-and-international.md`) is stopped.

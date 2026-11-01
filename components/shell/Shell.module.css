@@ -4,14 +4,16 @@
 }
 
 .header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   height: 56px;
 }
 
 .brand {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -24,7 +26,16 @@
   white-space: nowrap;
 }
 
+/* Phones: the name sits on two lines so the language switch and the Pages menu fit beside it down to 320 px. */
+.brandName {
+  max-width: 6.5em;
+  font-size: 16px;
+  line-height: 1;
+  white-space: normal;
+}
+
 .dot {
+  flex-shrink: 0;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -46,6 +57,92 @@
 
 .desktopNav {
   display: none;
+}
+
+/* Language switch and "Pages" menu (phones; from 960 px the header lists the pages and the menu goes) */
+.headerEnd .langLink {
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--rule);
+}
+
+.headerEnd > * {
+  flex-shrink: 0;
+}
+
+.menuBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chev {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.menuBtn[aria-expanded="true"] .chev {
+  transform: rotate(180deg);
+}
+
+.menu {
+  position: absolute;
+  z-index: 50;
+  top: 100%;
+  right: var(--gutter);
+  left: var(--gutter);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 0 4px 0 rgb(20 22 26 / 0.08);
+}
+
+.menu[hidden] {
+  display: none;
+}
+
+.menu li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.menu a {
+  display: block;
+  padding: 11px 16px 12px;
+  text-decoration: none;
+}
+
+.menu b {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.menu small {
+  display: block;
+  margin-top: 1px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* You are here: bold with a 2 px ink underline, as in the desktop header. */
+.menu a[aria-current="page"] b {
+  font-weight: 700;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+}
+
+/* On one of the menu's own pages no tab is lit, so the button says where you are (an underline: bold would shift it). */
+.menuBtn[data-here] {
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
 }
 
 /* Bottom tab bar (phones) -------------------------------------------- */
@@ -133,11 +230,8 @@
 .headerEnd {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   margin-right: -10px;
-}
-.wideOnly {
-  display: none;
 }
 .iconBtn {
   display: grid;
@@ -234,8 +328,13 @@
 }
 
 @media (min-width: 960px) {
-  .wideOnly {
-    display: inline;
+  .menuWrap {
+    display: none;
+  }
+  .brandName {
+    max-width: none;
+    font-size: inherit;
+    white-space: nowrap;
   }
   .headerEnd {
     margin-right: 0;
@@ -286,9 +385,9 @@
     background: var(--ink);
   }
 
-  .langLink {
+  .headerEnd .langLink {
+    margin-left: 0;
     padding-left: 24px;
-    border-left: 1px solid var(--rule);
   }
 
 }
