@@ -1,29 +1,132 @@
 name: Stops and history abroad
 
-# Cross-border trains: every stop abroad (stop lists) and how late each train usually is at those stops (history from
-# each country's open data). The build sandbox reaches only GitHub, so real-data work runs here.
+# Cross-border trains (docs/notes/live-and-international.md):
+#   stops    every stop abroad of each train that crosses the border, from Transitous (scripts/foreign_stops.mjs ->
+#            data/foreign-stops.json). Weekly (timetables change; trains not running in the next two days keep their
+#            last entry), committed to main only when that file is the only change and it did not shrink.
+#   history  how late each train usually is at its stops abroad, for the site's window (scripts/abroad_history.py ->
+#            data/abroad-history.json), re-counted independently (tests/data/verify_abroad_history.py, 0 differences
+#            or no commit). The monthly job (monthly.yml) recomputes it with the window; here only on pull requests.
+# The build sandbox reaches only GitHub, so real-data work runs here. On pull requests from this repository both
+# jobs commit their file to the pull request's branch (trial data to review), never to main.
 on:
+  schedule:
+    - cron: "17 5 * * 3"
   workflow_dispatch:
   pull_request:
     paths:
+      - scripts/foreign_stops.mjs
+      - scripts/abroad_history.py
+      - tests/data/verify_abroad_history.py
+      - tests/data/test_abroad_history.py
       - tests/data/probe_abroad.py
       - .github/workflows/abroad.yml
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: abroad-${{ github.event_name }}
+  cancel-in-progress: false
 
 jobs:
-  probe:
+  stops:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        part: [round2]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Stops abroad from Transitous
+        run: |
+          before=$(node -e "try{console.log(Object.keys(require('./data/foreign-stops.json').trains).length)}catch{console.log(0)}")
+          node scripts/foreign_stops.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+          after=$(node -e "console.log(Object.keys(require('./data/foreign-stops.json').trains).length)")
+          echo "trains with stops abroad: $before -> $after" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$after" -lt "$before" ] || [ "$after" -lt 100 ]; then echo "REFUSE: shrank or too few"; exit 1; fi
+
+      - name: Commit data/foreign-stops.json
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          changed="$(git status --porcelain)"
+          if [ -z "$changed" ]; then echo "Data unchanged."; exit 0; fi
+          if [ "$changed" != " M data/foreign-stops.json" ] && [ "$changed" != "?? data/foreign-stops.json" ]; then
+            echo "Unexpected changes, not committing:"; echo "$changed"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/foreign-stops.json
+          git commit -m "data: stops abroad ($(node -e "console.log(Object.keys(require('./data/foreign-stops.json').trains).length)") trains)"
+          branch="${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}"
+          for i in 1 2 3 4; do
+            git pull --rebase origin "$branch" && git push origin "HEAD:$branch" && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
+
+  history:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - run: pip install -r scripts/requirements.txt
+
+      - name: Script and verifier on synthetic files (no network)
+        run: python tests/data/test_abroad_history.py
+
+      - name: History abroad for the site's window
+        run: python scripts/abroad_history.py --cache "$RUNNER_TEMP/abroad"
+
+      - name: Independent recount of every cell (0 differences or no commit)
+        run: python tests/data/verify_abroad_history.py --cache "$RUNNER_TEMP/abroad" | tail -40 | tee -a "$GITHUB_STEP_SUMMARY"; test "${PIPESTATUS[0]}" = 0
+
+      - name: Gate (window, coverage, size)
+        run: python scripts/abroad_history.py --cache "$RUNNER_TEMP/abroad" --check
+
+      - name: Commit data/abroad-history.json to the pull request
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          changed="$(git status --porcelain)"
+          if [ -z "$changed" ]; then echo "Data unchanged."; exit 0; fi
+          if [ "$changed" != " M data/abroad-history.json" ] && [ "$changed" != "?? data/abroad-history.json" ]; then
+            echo "Unexpected changes, not committing:"; echo "$changed"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/abroad-history.json
+          git commit -m "data: history abroad (trial run on the committed window)"
+          for i in 1 2 3 4; do
+            git pull --rebase origin "${{ github.head_ref }}" && git push origin "HEAD:${{ github.head_ref }}" && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
+
+  probe:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5.6.0
         with:
           python-version: "3.12"
-      - name: Probe ${{ matrix.part }}
-        run: python tests/data/probe_abroad.py --part ${{ matrix.part }}
+      - name: Probe sources (diagnostic)
+        continue-on-error: true
+        run: python tests/data/probe_abroad.py --part round3

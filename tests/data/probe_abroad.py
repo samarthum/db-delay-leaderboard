@@ -235,6 +235,50 @@ def round2():
     print("Emmerich board", st, len(j.get("stopTimes", [])), sorted({(s.get("displayName"), s.get("tripShortName"), s.get("source", "")[:12]) for s in j.get("stopTimes", [])})[:60])
 
 
+def round3():
+    base = "https://opendata.infrabel.be/api/explore/v2.1/catalog/datasets/stiptheid-gegevens-maandelijksebestanden"
+    st, h, b = get(base)
+    try:
+        m = json.loads(b)
+        print("BE monthly metas", json.dumps(m.get("metas", {}).get("default", {}), ensure_ascii=False)[:1500])
+        print("BE fields", [f["name"] for f in m.get("fields", [])])
+    except Exception as e:  # noqa: BLE001
+        print(e, b[:300])
+    show("BE monthly records", f"{base}/records?limit=20", 5000)
+    show("BE monthly attachments", f"{base}/attachments", 3000)
+    for y, mm in (("2026", "09"), ("2026", "01"), ("2025", "12")):
+        for u in (f"https://archive.opentransportdata.swiss/istdaten/{y}/ist-daten-{y}-{mm}.zip",):
+            req = urllib.request.Request(u, method="HEAD", headers={"User-Agent": UA})
+            try:
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    print("CH HEAD", u, r.status, r.headers.get("Content-Length"))
+            except Exception as e:  # noqa: BLE001
+                print("CH HEAD", u, e)
+    hrefs = text_around("https://data.opentransportdata.swiss/en/dataset/istdaten", ["archive", "Archiv", "zip"], 150, 4)
+    print("CH istdaten links", [x for x in hrefs if "zip" in x or "archive" in x or "csv" in x][:40])
+    hrefs = text_around("https://data.oebb.at/de/datensaetze", ["Zugfahrten", "Verspätung", "Lizenz", "CC BY", "Creative"], 300, 8)
+    print("OEBB links", [x for x in hrefs if "csv" in x.lower() or "zip" in x.lower() or "datensatz" in x.lower() or "download" in x.lower()][:60])
+    api = "https://api.transitous.org/api"
+    st, h, b = get(f"{api}/v1/geocode?type=STOP&text=Amsterdam%20Centraal")
+    sid = next(x["id"] for x in json.loads(b) if x.get("type") == "STOP")
+    for ab in ("false", "true"):
+        time.sleep(1.5)
+        t = "2026-11-02T18:00:00Z"
+        st, h, b = get(f"{api}/v6/stoptimes?stopId={urllib.parse.quote(sid)}&time={t}&window=3600&n=60&arriveBy={ab}&mode=HIGHSPEED_RAIL,LONG_DISTANCE")
+        j = json.loads(b)
+        print("arriveBy", ab, "time", t, [(x.get("displayName"), x["place"].get("scheduledArrival"), x["place"].get("scheduledDeparture")) for x in j.get("stopTimes", [])][:12])
+    for name in ("Köln Hbf", "Emmerich(Gr)"):
+        time.sleep(1.5)
+        st, h, b = get(f"{api}/v1/geocode?type=STOP&text={urllib.parse.quote(name)}")
+        hit = next((x for x in json.loads(b) if "LONG_DISTANCE" in (x.get("modes") or [])), None)
+        if not hit:
+            continue
+        time.sleep(1.5)
+        st, h, b = get(f"{api}/v6/stoptimes?stopId={urllib.parse.quote(hit['id'])}&n=600&window=86400&mode=HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL")
+        j = json.loads(b)
+        print("board", name, hit["id"], st, len(j.get("stopTimes", [])), b[:200] if st != 200 else "")
+
+
 def other():
     show("CZ data.gov.cz", "https://data.gov.cz/api/v2/datasets?query=zpo%C5%BEd%C4%9Bn%C3%AD%20vlak%C5%AF", 3000)
     show("FR SNCF regularite", "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets?where=search(%22regularite%22)&limit=20", 4000)
@@ -246,5 +290,5 @@ if __name__ == "__main__":
     ap.add_argument("--part", required=True)
     part = ap.parse_args().part
     import urllib.parse  # noqa: E402,F401
-    {"gtfs": gtfs, "transitous": transitous, "rdt": rdt, "be": be, "ch": ch, "at": at, "other": other, "round2": round2}[part]()
+    {"gtfs": gtfs, "transitous": transitous, "rdt": rdt, "be": be, "ch": ch, "at": at, "other": other, "round2": round2, "round3": round3}[part]()
     sys.stdout.flush()
