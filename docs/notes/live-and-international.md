@@ -50,7 +50,7 @@ Owner's test: "amsterdam to dusseldorf", "düsseldorf amsterdam", "Köln Bruxell
   ROADMAP. AT: data.oebb.at mentions train-run CSVs with delays updated weekly, but the page gives no download links to
   scripts and mobilitaetsdaten.gv.at timed out from Actions; CZ, PL, DK, FR: no per-train, per-stop delay data found
   (SNCF publishes monthly aggregates only).
-- Probes of every source: `tests/data/probe_abroad.py` (PR job in `abroad.yml`).
+- Probes of every source: `tests/data/probe_abroad.py` (`probe` job of `abroad.yml`, manual runs only; parts gtfs, transitous, rdt, be, ch, at, other, round2-4).
 
 ## gtfs.de realtime (free GTFS-RT)
 - `https://realtime.gtfs.de/realtime-free.pb` is ONE nationwide file for all public transport: ~32k trip updates (buses ~2/3, regional rail, trams), only ~110 are long-distance on a given evening. 9.5 MB, 3.6 MB gzip (requests asks for gzip by default). The server ignores query filters, so server-side "poll only what we need" is impossible; filter client-side with the static long-distance schedule.

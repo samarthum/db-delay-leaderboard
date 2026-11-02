@@ -126,7 +126,7 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   no keys): `scripts/foreign_stops.mjs` reads Transitous (light use, ~1,000 calls 1.5 s apart) and commits only
   `data/foreign-stops.json` to `main` when it is the only change and did not shrink. On pull requests touching it: a
   trial run committed to the PR branch (skipped when the trial data is newer than the script), the history abroad on
-  the committed window with its independent recount, and source probes (`tests/data/probe_abroad.py`).
+  the committed window with its independent recount and an awk hand check of three cells. Source probes (`tests/data/probe_abroad.py`) run by hand.
 - Vercel builds on push (~2-10 min; ~10 min when all share cards redraw).
 
 ## Known gaps and caveats

@@ -146,8 +146,9 @@ jobs:
           done
           exit 1
 
+  # Diagnostic of every source (layouts, licences, archives): run by hand from the Actions tab.
   probe:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
