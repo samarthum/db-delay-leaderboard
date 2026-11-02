@@ -106,12 +106,15 @@ for (const [q, lang, from, to] of SEARCHES) {
   ok(/In the past/.test(t), 'not now: history still shown');
   await p.context().close();
 }
-// A stop abroad without a source says so instead of a guess.
+// A stop abroad without a source says so instead of a guess; one with a source shows its figure.
 {
   const p = await page(390, 'onTime');
-  await search(p, '', 'Köln Bruxelles');
+  await search(p, '', 'München Wien');
   const stat = await flat(p, '[class*=option]');
-  ok(/no data abroad/.test(stat), 'route row: "no data abroad" for Belgium without a source: ' + stat.slice(0, 120));
+  ok(/no data abroad/.test(stat), 'route row: "no data abroad" for Austria (no source): ' + stat.slice(0, 120));
+  await search(p, '', 'Köln Bruxelles');
+  const be = await flat(p, '[class*=option]');
+  ok(/\d+% late|few trips/.test(be) && !/no data abroad/.test(be.split('ICE')[1] || ''), 'route row: Belgium has figures (Infrabel): ' + be.slice(0, 120));
   await p.context().close();
 }
 
