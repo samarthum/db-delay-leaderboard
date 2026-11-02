@@ -3,6 +3,25 @@
 
 Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0), window set by `data/stats.json`. DuckDB venv: `python (with duckdb)`. Order: `compute.py` -> `stops.py` (~30 s) -> `routes.py --data-dir DIR` (~35 s) -> `connections.py` -> `compensation.py` (needs routes.json) -> `npm run build` (prebuild runs og.mjs ~50 s and copy-search.mjs). `scripts/monthly.py run --data-dir DIR` runs the five in this order; the monthly job does it for you (below).
 
+## Stop order: planned time, then stop number (Nov 2026, owner's yes)
+- Every place that picks a run's first/last stop or the previous/next stop orders the stop rows by planned time
+  (arrival, else departure), then stop number (`STOP_ORDER` in compute.py; stops.py, routes.py, connections.py and
+  compensation.py import it; live_trains.py and last7.py apply it in their own queries). NOT by stop number alone: rows
+  numbered 100 and up are appended after the planned list (diversions: ICE 953 via Magdeburg 100 / Stendal 101 before
+  Berlin Hbf 8; repeated stations: ICE 504 lists Berlin Hbf as stop 10 and 100), ~4.2% of long-distance runs, so "last
+  stop by number" was a mid-route stop. piebro's reference query year.py still uses the number; the site does not.
+- A station listed twice in a run at the same planned times (same station NAME, planned arrival and departure) is ONE
+  stop: the row with the lowest stop number is kept (by name, not id: the copy usually carries Berlin Hbf's other id,
+  tief / oben; by id the first real dry run found only 2 such groups), before anything is counted (run delay, cancelled, per-stop counts in
+  stops.json, previous/next stop). `ONE_ROW_PER_STOP` in compute.py. Not applied to stations.json (arrivals per station
+  id over all rows; ROADMAP).
+- Rows without any planned time sort last (the monthly files hold none: `probe_direction.py` counts them).
+- Independent re-implementations, not imports: verify_monthly.py (lowest number per group by window min, last stop as
+  "latest planned arrival, then highest number" in two steps, first station by a text key), check_headline.py (grouping),
+  verify_bins.py, verify_last7.py (plain dicts), compare_monthly.py, and a plain-Python one in test_monthly.py.
+- The run delay is still "the arrival delay at the last stop that was not cancelled and has a planned arrival"; only
+  which stop is "last" changed. Before/after on real data: `docs/notes/monthly-log.md` ("Last stop by planned time").
+
 ## Monthly refresh (.github/workflows/monthly.yml, since Nov 2026)
 - When: daily 07:37 UTC on the 2nd-10th, plus `workflow_dispatch`. `scripts/monthly.py plan` says act=true only when the
   last finished month's `monthly_processed_data/data-YYYY-MM.parquet` is on Hugging Face AND `data/stats.json` ends
@@ -20,6 +39,12 @@ Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0),
   latest months), stations, a sample of stops.json trains, every route and every route row (and that none runs the
   other way), the change-time ladder of the two busiest stations, compensation; `tests/data/verify_bins.py`
   (connection pairs, 5 trains, kept cases or the busiest); `scripts/check_headline.py`.
+- Recompute (`gh workflow run monthly.yml -f recompute=true`, Nov 2026): `plan --recompute` acts on the COMMITTED window
+  (until = its last month), for a rule change; same download, pipeline, verifiers and commit (message "data: recompute
+  window ..."); the gate runs `--expect recompute`: window unchanged, runs per month unchanged in every month (a run's
+  existence does not depend on where it is measured), monthly averages move at most 2 min and measured counts at most
+  5%. `tests/data/compare_last_stop.py` writes the before/after into the job summary. Pull-request dry runs without a
+  new month use the same `recompute` expectation (a PR may change a rule).
 - Gate (`monthly.py gate --old <copy of data/>`): window contiguous and end +1 month (start same or +1, 12 at most);
   every file names the same window; months both windows hold and whose source file has the same size are unchanged;
   the new month's runs within 0.75-1.33x the median month, 80%+ measured; route pages, train/line pages, search units
@@ -117,8 +142,10 @@ with the numbers already on the site beats a stricter rule nobody else applies. 
 - Scope: compute.py's long-distance types (ICE IC EC ECE RJ RJX FLX TGV WB), no replacement trains. A run is all stops
   with the same `<trip>-<start>` id prefix; it belongs to the day of its scheduled start (min planned time); delays
   outside -10..600 min are not measured (null). A number running twice on one day keeps the earlier run (logged).
-- Departure = the first stop (by stop number) with a planned departure; arrival = the LAST stop with a planned arrival
-  (the planned final German stop, cancelled or not). This differs on purpose from the 11-month figure, which measures
+- Departure = the first stop with a planned departure; arrival = the LAST stop with a planned arrival (the planned
+  final German stop, cancelled or not); first and last by planned time, then stop number, a station listed twice at the
+  same planned times counted once (the monthly history's rule since Nov 2026; compare_monthly.py reads piebro's file
+  with the same rule and reports how many ends "by stop number" would move). This differs on purpose from the 11-month figure, which measures
   at the last stop actually served: a rider at the final stop needs to see "cancelled" there.
 - Whole run cancelled = every timed stop cancelled -> "x". An end stop cancelled -> that end "x".
 - Window: the 7 newest COMPLETE service days. A day is complete once a change list exists from 10:00 Berlin the next
@@ -126,7 +153,8 @@ with the numbers already on the site beats a stricter rule nobody else applies. 
   keeps an event only ~6 h. The newest complete day is yesterday at best.
 - "?" only for true holes, where the plan answer itself is missing at an END of the run: (a) a stop with a change
   record but no plan record (not an extra stop; matched by ride id, such entries rarely name their train) numbered
-  before the run's first departure or after its last arrival, or the run has no such end at all; or (b) a plan hour no
+  before the run's first departure or after its last arrival (still by stop NUMBER against the chosen ends' numbers:
+  such a stop usually has no planned time; a missing row numbered 100+ therefore marks the day "?", the cautious side), or the run has no such end at all; or (b) a plan hour no
   raw file holds within 2 h before the first or after the last planned stop (the real end may sit in that hour). A
   hole between the ends does not matter: the ends are still measured, as in the monthly build. The per-day missing
   plan hours are in `gaps`. A day with no run in the data is null, as the monthly build would also have nothing.

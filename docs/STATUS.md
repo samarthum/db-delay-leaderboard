@@ -79,8 +79,9 @@ wholesale (see RULES).
 | `data/verify_bins.py`, `data/verify_train_avg.py` | Independent recompute from raw Parquet (different query shape) | `GP_PARQUET` |
 | `data/test_last7.py` | `scripts/last7.py` + `verify_last7.py` against a simulated raw-data tree (`data/last7_fixture.py`: 6-hourly fetches, DST change, a missed fetch, a lost plan hour, cancellations, replacement train) | Python deps only |
 | `data/verify_last7.py` | Independent recompute of `data/last7.json` from the raw files (regex + dicts; the daily job runs it) | raw files (`--raw`) |
-| `data/test_monthly.py` | The monthly refresh end to end on synthetic months (`data/monthly_fixture.py`): plan, pipeline, gate, verifiers, planted errors caught (25 checks, ~2 min) | Python deps only |
+| `data/test_monthly.py` | The monthly refresh end to end on synthetic months (`data/monthly_fixture.py`): plan (incl. `--recompute`), pipeline, gate (incl. `--expect recompute`), verifiers, planted errors caught, the last-stop rule against a plain-Python third implementation (38 checks, ~2 min) | Python deps only |
 | `data/verify_monthly.py` | Independent recompute of every history file family from the Parquet (the monthly job runs it) | `--parquet DIR` |
+| `data/compare_last_stop.py` | Before/after of the last-stop rule: both rules from the Parquet (headline, train moves, top movers with raw stop rows) and which file figures changed (PR dry run and recompute runs) | `--parquet DIR --old DIR` |
 | `data/compare_routes.py` | Route fix on one window: committed routes.json vs a re-run (PR-only step) | two routes.json |
 | `data/compare_monthly.py` | `last7.py`'s per-run logic on a September 2026 week of raw files vs piebro's monthly file (the 11-month history's source): per-ride first/last-stop delays must agree 98%+ exactly (PR-only job in `last7.yml`) | Hugging Face (Actions), or `--raw` + `--monthly` |
 | `e2e/skew.mjs` | Version skew: a tab on build A taps links, search suggestions, tabs, menu, recent list after `out/` is swapped for build B; a hung soft navigation ends as a full load. Builds twice (~2-3 min), leaves `out/` as a test build | none (own server on :4612) |
@@ -109,7 +110,10 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   routes -> connections -> compensation, re-checks every file family against the Parquet (`tests/data/verify_monthly.py`,
   `verify_bins.py`, `check_headline.py`), runs the sanity gate (`monthly.py gate`: window +1 month, row counts, no family
   shrinking, no field vanishing, sizes) and commits only the history data files to `main` as github-actions[bot]. On
-  pull requests touching the pipeline: dry run with a summary and artifact. Replaced `refresh.yml` (Nov 2026). Rules:
+  pull requests touching the pipeline: dry run with a summary and artifact. `gh workflow run monthly.yml -f
+  recompute=true` reruns the COMMITTED window after a rule change (gate: same window and runs, figures move a little;
+  before/after report `tests/data/compare_last_stop.py` in the job summary). Stop order everywhere: planned time, then
+  stop number; a station listed twice at the same planned times counts once (Nov 2026; data-pipeline notes). Replaced `refresh.yml` (Nov 2026). Rules:
   `docs/notes/data-pipeline.md` ("Monthly refresh"); log: `docs/notes/monthly-log.md`.
 - Vercel builds on push (~2-10 min; ~10 min when all share cards redraw).
 

@@ -16,6 +16,8 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
    (Nov 2026, PR; owner's yes pending): `docs/notes/data-pipeline.md` ("Last 7 days"), log `docs/notes/last7-log.md`.
 11. Monthly history refresh in GitHub Actions with independent verification and a sanity gate; route-direction fix;
    latest month on the search card; deterministic next-run test (Nov 2026, PR #5): `docs/notes/monthly-log.md`.
+12. A run's last stop by planned time, not stop number, in the history, the 7-day block and every check; recompute
+   mode for the monthly job (Nov 2026, PR #6): `docs/notes/monthly-log.md`.
 
 ## Next (owner picks the order)
 1. **Monthly report card.** A shareable monthly summary ("October: long-distance trains averaged 17 min late, worst
@@ -36,10 +38,10 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
   hidden rows also fed route runs/trips/shares/cancelled/train count, see `monthly-log.md`). **Left:** remove
   `runsThisWay` (`lib/routePage.ts`, `components/pages/RoutePage.tsx`, `scripts/copy-search.mjs`) once refreshed
   data with 0 backward rows is live.
-- **A run's last stop by planned time (decide)**: 4.2% of long-distance runs carry stop rows numbered 100+ (diversions,
-  repeated stations), so `compute.py`'s "last stop by number" can be a mid-route station (ICE 504: Berlin Hbf, not
-  Hamburg-Altona). Routes were fixed (planned time); the headline, train figures, compensation and connections still
-  use stop numbers, like piebro's reference query. Changing it moves published numbers: `docs/notes/monthly-log.md`.
+- ~~A run's last stop by planned time~~: done (Nov 2026, owner's yes; PR #6): every first/last and previous/next stop is
+  picked by planned time, then stop number; a station listed twice at the same planned times counts once. Published by
+  a recompute of the same window (`monthly.yml`, input `recompute`): `docs/notes/monthly-log.md`. **Left:**
+  `stations.json` still counts a station listed twice in a run twice (arrivals per station id over all rows; small).
 - **Station view by time**: the station list only has trains that start or end there, by delay. A time-sorted list of
   every train calling there needs per-station times in the typeahead data (they exist in `stops.json`).
 

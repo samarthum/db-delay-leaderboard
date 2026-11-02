@@ -71,3 +71,39 @@ at the last stop (by stop number) not cancelled" (as piebro's reference query ye
 duplicate Berlin Hbf row 100, not Hamburg-Altona. ~4% of long-distance runs may be measured at a mid-route stop. A
 fix (last stop by planned time) would move the headline, every train figure and compensation; it needs its own
 verification and the owner's yes. `connections.py`'s previous/next stop (by stop number) has the same blind spot.
+
+## Last stop by planned time (2 Nov 2026, PR #6; owner's yes to the open question above)
+Decision: every place that picks a run's first/last stop or previous/next stop orders the stop rows by planned time
+(arrival, else departure), then stop number; a station listed twice at the same planned times is one stop (lowest stop
+number). Applies to the history (compute, stops, routes, connections, compensation), `live_trains.py` and the 7-day
+block (`last7.py`), so the 7-day and 11-month numbers are measured the same way. Rules: `data-pipeline.md` ("Stop order").
+
+**Dry run on real data** (Actions run 41404013877, head 7c32bed, same window Nov 2025 - Sep 2026; October not yet
+published): verify_monthly **236,117 values, 0 differences** (it implements the rule on its own), verify_bins 13 pairs
+0, check_headline within tolerance (long-distance 18.80 vs 18.76), gate `--expect recompute` 59 of 59 (runs per month
+unchanged in all 11 months both categories; monthly long-distance average moved at most 0.8 min, measured at most 0.04%).
+`compare_last_stop.py` (both rules from the Parquet; "before" equals the committed stats.json):
+- Measuring stop moves for **11,073 of 336,428 long-distance runs (3.29%)**, 11,072 of them because the old rule picked
+  a row numbered 100+; delay changes on 10,688. Regional: 19,069 of 6.7 M (0.28%).
+- Headline (Jul-Sep 2026), long-distance: **average 18.1 -> 18.8 min**, 15+ min late 38.1 -> 38.8%, 6+ 57.4 -> 57.9%;
+  regional 4.08 -> 4.10 min. Measured runs and cancellations unchanged (to within 41 of 310,559).
+- 1,732 long-distance trains: 440 unchanged, 111 under 0.1 min, 510 0.1-0.5, 281 0.5-1, 250 1-2, 122 2-5, 18 more than 5
+  min. Top movers, each checked by hand against its raw stop rows (the old stop was always a row numbered 100+ planned
+  before the real end, the new one the planned final stop): IC 2400 27.5 -> 40.0 (Bonn-Beuel 101 at 19:15 vs Stuttgart
+  Hbf 10 at 22:23), ICE 2600 16.0 -> 27.8 (Salzwedel 100 between Stendal 3 and Uelzen 4; Hamburg Hbf 6), RJ 13462 8.4 ->
+  18.0 (Neumünster 100 before Schleswig 2), EC 458 29.7 -> 37.9 and IC 60408 30.6 -> 37.4 (Nürnberg Hbf 100 between
+  Leipzig and Karlsruhe; Freiburg), ICE 1251 7.9 -> 15.6 (Viersen 100 before Mönchengladbach 4; Frankfurt Hbf 8), ICE 2590
+  39.3 -> 46.8 (Frankfurt Süd 100; Berlin Südkreuz 13, the last stop not cancelled), ICE 1695 11.1 -> 18.6 (Würzburg 101;
+  München Hbf 8), IC 2802 18.4 -> 25.4 (Lehrte 100; Hannover Hbf 7), ICE 2580 7.8 -> 14.1 (Löhne 100; Aachen Hbf 18).
+- Files (committed vs new; routes and compensation routes also carry the Nov 2026 route-direction fix, first published
+  here): search train averages 1,195 of 1,732 changed (largest 12.5 min), train pages 32 of 45, route trips 621 of 685,
+  compensation per month 32 of 33; train pages in/out: ec-458, ic-60408, ice-542, ice-652, ice-655 in; flx-1243,
+  ic-60403, ice-553, ice-651, ice-855 out; route pages 685 -> 687.
+- 7-day block, PR dry run (run 41404013787): compare_monthly 13,784 of 13,784 ride ends agree exactly with piebro's
+  September file read with the same rule; the old rule would have put 233 of 14,160 ends elsewhere.
+
+**Follow-up (same day): duplicates by station name.** The probe found only 2 same-ID duplicate groups: the repeated
+rows (ICE 504 / ICE 654: Berlin Hbf as stop 2/10 and again as 100 at the same times) carry Berlin Hbf's other station
+id (tief / oben). Like the rest of the pipeline, the rule now keys on the station name (commit 023563e; fixture ICE 705's
+copy uses the other id). Published 2 Nov: recompute run 41406932683 (station-id version, triggered on main), then a
+second recompute with the name rule (below).
