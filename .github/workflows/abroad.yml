@@ -1,0 +1,29 @@
+name: Stops and history abroad
+
+# Cross-border trains: every stop abroad (stop lists) and how late each train usually is at those stops (history from
+# each country's open data). The build sandbox reaches only GitHub, so real-data work runs here.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - tests/data/probe_abroad.py
+      - .github/workflows/abroad.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [gtfs, transitous, rdt, be, ch, at, other]
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Probe ${{ matrix.part }}
+        run: python tests/data/probe_abroad.py --part ${{ matrix.part }}
