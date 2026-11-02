@@ -30,6 +30,8 @@ async function open(url, { w = 390, h = 844, live = 'disabled', store = null, no
 }
 const close = (p) => p.context().close();
 // The window's last month, as the search index says (the card shows "<month>, the latest month we have" only for it).
+// ICE 1541's average on its train page (moves with each data refresh).
+const USUAL_1541 = JSON.parse(fs.readFileSync(new URL('../../data/trains/ice-1541.json', import.meta.url))).minutes.avg.toFixed(1);
 const LAST = JSON.parse(fs.readFileSync(new URL('../../data/search/index.json', import.meta.url))).window.lastMonth;
 const prevMonth = (m) => { const [y, mo] = m.split('-').map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; };
 /** Serve the search shards with field 17 (latest months) of `unit` set to `recent`, whatever the committed data holds. */
@@ -119,7 +121,7 @@ try {
     const p = await open('/', { w, h, live: 'late', store });
     const row = await text(p, '.yt li');
     ok(/Departure: 12 min late, expected \d\d:\d\d/.test(row) && /Arrival at Berlin Südkreuz: 9 min late, expected \d\d:\d\d/.test(row), `home ${w}: starred row names both ends ` + row.replace(/\s+/g, ' '));
-    ok(/46\.8 min/.test(row), `home ${w}: usual delay read from the index, same as the train page (46.8) ` + row.replace(/\s+/g, ' '));
+    ok(new RegExp(`${String(USUAL_1541).replace('.', '\\.')} min`).test(row), `home ${w}: usual delay read from the index, same as the train page (${USUAL_1541}) ` + row.replace(/\s+/g, ' '));
     const box = await p.locator('main input[type=search]').boundingBox();
     ok(box && box.y + box.height < h, `home ${w}: box on first screen`);
     ok(p.ov <= 0.5 && p.errs.length === 0, `home ${w}: no overflow, clean console ` + p.errs.join('|'));

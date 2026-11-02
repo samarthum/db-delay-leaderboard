@@ -23,7 +23,7 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } }
 const SEARCHES = [
   ['amsterdam to dusseldorf', '', /Amsterdam/, /Düsseldorf/],
   ['düsseldorf amsterdam', '', /Düsseldorf/, /Amsterdam/],
-  ['Köln Bruxelles', '', /Köln/, /Bruxelles/],
+  ['Köln Bruxelles', '', /Köln/, /Bruxelles|Brussels/],
   ['München Wien', '', /München/, /Wien/],
   ['Basel Frankfurt', '', /Basel/, /Frankfurt/],
   ['Berlin Praha', '', /Berlin/, /Praha/],
@@ -44,14 +44,13 @@ const overflow = (p) => p.evaluate(() => document.documentElement.scrollWidth - 
 
 async function search(p, lang, q) {
   await p.goto(`${BASE}${lang}/`, { waitUntil: 'networkidle' });
-  // Phones: the home box is a door to the search sheet.
-  const box = p.locator('input[type=search], input[role=combobox]').first();
-  await box.click();
-  const field = p.locator('input[type=search], input[role=combobox]').last();
-  await field.fill(q);
-  await p.waitForTimeout(700);
-  await field.press('Enter');
-  await p.waitForTimeout(1800);
+  // Phones: the home box is a door to the full-screen search sheet, which takes the typing.
+  await p.locator('main input[type=search]').tap();
+  await p.waitForTimeout(300);
+  await p.keyboard.type(q, { delay: 25 });
+  await p.waitForTimeout(900);
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(2200);
 }
 
 let shot = 0;
@@ -80,7 +79,7 @@ for (const [q, lang, from, to] of SEARCHES) {
       ok(!/undefined|NaN|null|\{/.test(trip), `${q}@${w}: clean text`);
       ok(!/on time|pünktlich/i.test(trip), `${q}@${w}: never "on time"`);
       ok(await overflow(p) <= 0.5, `${q}@${w}: no overflow`);
-      if (w === 390 && shot < 7) await p.locator('.trip').screenshot({ path: `${SHOTS}/trip-${shot++}.png` });
+      if (w === 390 && shot < 7 && trip) await p.locator('.trip').screenshot({ path: `${SHOTS}/trip-${shot++}.png` });
     }
     ok(p.errs.length === 0, `${q}@${w}: console ${p.errs.join(' | ')}`);
     await p.context().close();
@@ -103,7 +102,7 @@ for (const [q, lang, from, to] of SEARCHES) {
   await p.locator('[class*=option]').first().click();
   await p.waitForTimeout(2500);
   const t = await flat(p, '.trip');
-  ok(/Live times show from three hours before it leaves/.test(t) && !/min late/.test(t), 'not now: planned times + history, no live claim ' + t.slice(0, 300));
+  ok(/Live times show from three hours before it leaves/.test(t) && await p.locator('.trip .ln-status').count() === 0, 'not now: planned times + history, no live claim ' + t.slice(0, 300));
   ok(/In the past/.test(t), 'not now: history still shown');
   await p.context().close();
 }

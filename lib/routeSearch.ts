@@ -123,11 +123,13 @@ export function stationsFor(idx: StopsIndex, text: string): number[] {
     if (wordsMatch(q, w)) hits.push(i);
   });
   // "Frankfurt" is also Frankfurt Flughafen and Frankfurt Süd; keep only stations that matter when many match.
+  // Abroad, a city's main station first (Wien Hbf before Wien Meidling), as in findTrains.
+  const rank = (i: number) => idx.weight[i] + mainAbroad(idx, i);
   if (hits.length > 6) {
     const top = Math.max(...hits.map((i) => idx.weight[i]));
-    return hits.filter((i) => idx.weight[i] >= top * 0.25).sort((a, b) => idx.weight[b] - idx.weight[a]);
+    return hits.filter((i) => idx.weight[i] >= top * 0.25).sort((a, b) => rank(b) - rank(a));
   }
-  return hits.sort((a, b) => idx.weight[b] - idx.weight[a]);
+  return hits.sort((a, b) => rank(b) - rank(a));
 }
 
 /** Foreign places a text names ("amsterdam" is Amsterdam Centraal), most trains first. */
@@ -317,6 +319,11 @@ export interface RouteHit {
   noHistory?: boolean;
 }
 
+/** Abroad, the main station of a city is what a typed city name means (Praha hl.n. over Praha-Holešovice, Zürich HB). */
+function mainAbroad(idx: StopsIndex, st: number): number {
+  return countryOf(idx, st) !== null && idx.stationWords[st].includes("hbf") ? 20 : 0;
+}
+
 /** Minutes between two clock times, the short way round the clock. */
 export function clockGap(a: number, b: number): number {
   const d = Math.abs(a - b) % 1440;
@@ -345,8 +352,11 @@ export function findTrains(idx: StopsIndex, q: RouteQuery): RouteHit[] {
       if (!boardHere || stops[i][1] === null) continue;
       const consider = (j: number, viaToHere: boolean) => {
         if (j <= i || stops[j][2] === null || stops[j][8] <= stops[i][8]) return;
-        const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
-        if (!best || score > best.score) best = { i, j, score, viaFrom: viaFrom && i === 0, viaTo: viaToHere };
+        const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]] + mainAbroad(idx, stops[i][0]) + mainAbroad(idx, stops[j][0]);
+        // Two stations of one city served by the same trains (Wien Hbf and Meidling, Bruxelles Nord and Midi): board at
+        // the earlier one, get off at the later one (the train's own end there).
+        if (!best || score > best.score || (score === best.score && (i < best.i || (i === best.i && j > best.j))))
+          best = { i, j, score, viaFrom: viaFrom && i === 0, viaTo: viaToHere };
       };
       for (let j = i + 1; j < stops.length; j++) if (toSet.has(stops[j][0])) consider(j, false);
       if (viaTo) consider(stops.length - 1, true);
@@ -380,8 +390,12 @@ export function findTrains(idx: StopsIndex, q: RouteQuery): RouteHit[] {
   const t = q.time;
   // Without a time the day starts at 04:00, so night trains come last instead of first.
   const dayOrder = (m: number) => (m - 240 + 1440) % 1440;
+  // Trains matched at real stops first; those known only by their origin or destination abroad (measured at the border,
+  // no stop there in the data) after them.
+  const viaLabel = (h: RouteHit) => Number(Boolean(h.abroad || h.fromAbroad) && (q.from.length > 0 || Boolean(q.fromForeign?.length)) && (q.to.length > 0 || q.toForeign.length > 0) && hits.some((o) => !o.abroad && !o.fromAbroad));
   hits.sort((x, y) =>
-    t === null ? dayOrder(x.dep) - dayOrder(y.dep) || x.num.localeCompare(y.num) : clockGap(x.dep, t) - clockGap(y.dep, t) || x.dep - y.dep,
+    viaLabel(x) - viaLabel(y) ||
+    (t === null ? dayOrder(x.dep) - dayOrder(y.dep) || x.num.localeCompare(y.num) : clockGap(x.dep, t) - clockGap(y.dep, t) || x.dep - y.dep),
   );
   return hits;
 }

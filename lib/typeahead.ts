@@ -78,6 +78,8 @@ const ALIASES: Record<string, string> = {
   centraal: "hbf",
   centrale: "hbf",
   hlavni: "hbf",
+  hl: "hbf",
+  hb: "hbf",
   zuid: "midi",
   bruessel: "bruxelles",
   liege: "liege",

@@ -27,7 +27,7 @@ for (const q of ['Amsterdam to Frankfurt', 'Amsterdam Frankfurt', 'amsterdam kö
   ok(rows > 0 && !/Nothing found|aren't covered/.test(t), 'route from abroad: ' + q);
 }
 await go('/?r=1&q=' + encodeURIComponent('Amsterdam Frankfurt')); t = await txt();
-ok(/ICE (121|221|105|123|125|127|129)/.test(t) && /These trains start abroad/.test(t), 'Amsterdam Frankfurt lists ICE 1x/2x with footnote');
+ok(/ICE (121|221|105|123|125|127|129)/.test(t) && /Amsterdam Centraal/.test(t) && /Times abroad come from/.test(t), 'Amsterdam Frankfurt lists ICE 1x/2x boarding in Amsterdam, with the source footnote');
 await go('/de/?q=ICE+221'); t = await txt(); console.log(' DE:', t.slice(60, 300));
 ok(/Amsterdam Centraal → Frankfurt Hbf/.test(t) && /Startet in Amsterdam Centraal/.test(t), 'DE card');
 await go('/?r=1&q=K%C3%B6ln+to+Berlin'); ok(/\/route\/koeln-hbf-berlin-hbf/.test(p.url()), 'normal route still opens its page ' + p.url());

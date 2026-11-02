@@ -45,7 +45,7 @@ jobs:
         id: need
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] && [ -f data/foreign-stops.json ] && \
-             [ "$(git log -1 --format=%ct -- data/foreign-stops.json)" -gt "$(git log -1 --format=%ct -- scripts/foreign_stops.mjs lib/tripStops.cjs)" ]; then
+             [ "$(git log -1 --format=%ct -- data/foreign-stops.json)" -ge "$(git log -1 --format=%ct -- scripts/foreign_stops.mjs lib/tripStops.cjs)" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"; echo "Trial data is newer than the script: skipped."
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
@@ -112,6 +112,21 @@ jobs:
 
       - name: Gate (window, coverage, size)
         run: python scripts/abroad_history.py --cache "$RUNNER_TEMP/abroad" --check
+
+      # Two cells by hand with awk straight from the raw files (a third way to count; compare with the file in the summary).
+      - name: Hand check (awk on the raw files)
+        run: |
+          cd "$RUNNER_TEMP/abroad"
+          {
+          echo "ICE 220 arriving Amsterdam Centraal (RdT): measured, avg, % 15+"
+          zcat rdt-services-*.csv.gz | awk -F, '$3=="ICE" && $5=="220" && $11=="Amsterdam Centraal" && $12!="" && $14!="true" && $13!="" && $13>=-10 && $13<=600 {n++; s+=$13; if ($13>=15) l++} END {printf "  %d, %.1f, %.1f\n", n, s/n, 100*l/n}'
+          echo "ICE 121 leaving Amsterdam Centraal (RdT): measured, avg, % 15+"
+          zcat rdt-services-*.csv.gz | awk -F, '$3=="ICE" && $5=="121" && $11=="Amsterdam Centraal" && $15!="" && $17!="true" && $16!="" && $16>=-10 && $16<=600 {n++; s+=$16; if ($16>=15) l++} END {printf "  %d, %.1f, %.1f\n", n, s/n, 100*l/n}'
+          echo "ICE 10 arriving Liege-Guillemins (Infrabel): measured, avg, % 15+"
+          cat infrabel-*.csv | awk -F, '$4=="ICE" && $3=="10" && $9=="LIEGE-GUILLEMINS" && $16!="" && $16!=$17 && $19!="" {d=int($19/60); if (d>=-10 && d<=600) {n++; s+=d; if (d>=15) l++}} END {printf "  %d, %.1f, %.1f\n", n, s/n, 100*l/n}'
+          cd "$GITHUB_WORKSPACE"
+          python -c "import json; t=json.load(open('data/abroad-history.json'))['trains']; print('file: ICE 220 Amsterdam', t['ICE 220']['Amsterdam Centraal'][2:5], '| ICE 121 Amsterdam (departure)', t['ICE 121']['Amsterdam Centraal'][5:8], '| ICE 10 Liege', t['ICE 10']['Liège-Guillemins'][2:5])"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Commit data/abroad-history.json to the pull request
         if: github.event.pull_request.head.repo.full_name == github.repository
