@@ -105,5 +105,10 @@ unchanged in all 11 months both categories; monthly long-distance average moved 
 **Follow-up (same day): duplicates by station name.** The probe found only 2 same-ID duplicate groups: the repeated
 rows (ICE 504 / ICE 654: Berlin Hbf as stop 2/10 and again as 100 at the same times) carry Berlin Hbf's other station
 id (tief / oben). Like the rest of the pipeline, the rule now keys on the station name (commit 023563e; fixture ICE 705's
-copy uses the other id). Published 2 Nov: recompute run 41406932683 (station-id version, triggered on main), then a
-second recompute with the name rule (below).
+copy uses the other id). Dry run (Actions run 41409559487, PR #7): verify_monthly **236,054 values, 0 differences**,
+verify_bins 11 pairs 0, gate 59 of 59; duplicate groups by name **172** (171 with a copy numbered 100+; the copies
+disagree on cancelled in 67 and on the changed time in 163, so "keep the lowest stop number" matters); against the
+stop-number data the run-level counts barely move (long-distance measuring stop moves on 11,076 runs, headline still
+18.8 min), stops.json now changes 76 per-stop run counts (copies no longer counted twice), connection-pairs 33 trains'
+station order. Published 2 Nov: recompute run 41406932683 on main at 7c32bed (station-id version, commit 2e25776,
+headline 18.8 min), then a second `recompute=true` run after this follow-up reached main.
