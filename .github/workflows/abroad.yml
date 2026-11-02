@@ -129,4 +129,4 @@ jobs:
           python-version: "3.12"
       - name: Probe sources (diagnostic)
         continue-on-error: true
-        run: python tests/data/probe_abroad.py --part round3
+        run: python tests/data/probe_abroad.py --part round4

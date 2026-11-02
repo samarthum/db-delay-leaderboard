@@ -191,7 +191,7 @@ const TRAINS = require("../data/live-trains.json");
 // (scripts/abroad_trips.mjs) and the origin's name (scripts/foreign_origins.mjs).
 const ABROAD = require("../data/abroad-trips.json");
 const ORIGINS = require("../data/foreign-origins.json");
-const TRANSITOUS = "https://api.transitous.org/api";
+const TRANSITOUS = process.env.TRANSITOUS_UPSTREAM || "https://api.transitous.org/api";
 const TRANSITOUS_PER_MINUTE = 20;
 let tCalls = [];
 const BEFORE_MIN = 180; // show a run this long before it leaves
@@ -340,6 +340,157 @@ async function trainNow(name) {
   };
 }
 
+// ---- one trip: the stops a visitor gets on and off at, on either side of the border ---------------------------------
+// GET /api/live/?train=ICE%20121&on=Amsterdam%20Centraal&off=D%C3%BCsseldorf%20Hbf
+// Both stops must be stops of that train in the site's own data (data/stops.json, German) or its stops abroad
+// (data/foreign-stops.json, Transitous). A German stop with a live lookup (data/live-stations.json) is read from DB's
+// Timetables API; any other stop from the train's whole trip in Transitous, found at the train's German anchor stop
+// (two calls, shared by every stop of the trip, cached 45 s). The run: the one whose departure at `on` is between 3 h
+// ahead and 90 min after its planned arrival at `off`, today's, yesterday's or tomorrow's.
+const { fold, canonical, tripStops } = require("../lib/tripStops.cjs");
+const STOPS = require("../data/stops.json");
+const FOREIGN = (() => {
+  try {
+    return require("../data/foreign-stops.json");
+  } catch {
+    return { stations: {}, trains: {} };
+  }
+})();
+const STATION_BY_FOLD = new Map(Object.values(STATIONS).map((s) => [fold(s.name), s]));
+for (const [k, v] of Object.entries(STATIONS)) STATION_BY_FOLD.set(fold(k), v);
+
+function transitousGet(path) {
+  const now = Date.now();
+  tCalls = tCalls.filter((x) => now - x < 60000);
+  if (tCalls.length >= TRANSITOUS_PER_MINUTE) return Promise.reject(new Error("busy"));
+  tCalls.push(now);
+  return fetch(`${TRANSITOUS}${path}`, {
+    headers: { "User-Agent": "german-punctuality/1.0 (+https://german-punctuality.vercel.app)", Accept: "application/json" },
+    signal: AbortSignal.timeout(4000),
+  }).then((r) => {
+    if (!r.ok) throw new Error(`transitous ${r.status}`);
+    return r.json();
+  });
+}
+
+/** Minutes (as minutesOf) -> ISO instant, for a Berlin wall-clock minute. */
+function isoOfWall(min) {
+  const d = new Date(min * 60000);
+  const wall = `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}T${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:00`;
+  const probe = new Date(`${wall}Z`);
+  const offset = minutesOf(stampOf(probe.getTime())) - probe.getTime() / 60000;
+  return new Date(Date.parse(`${wall}Z`) - offset * 60000).toISOString();
+}
+
+/** Today's whole trip of `train` in Transitous: [{name, sa, sd, a, d, canc}] (ISO times), or null. */
+async function transitousTrip(train, anchorMin) {
+  const f = FOREIGN.trains[train];
+  if (!f || !f.aid) return null;
+  const num = train.split(" ")[1];
+  const iso = isoOfWall(anchorMin - 20);
+  return cached(`tt:${train}:${iso.slice(0, 13)}`, 45000, async () => {
+    const board = await transitousGet(`/v6/stoptimes?stopId=${encodeURIComponent(f.aid)}&time=${iso}&window=3600&n=60&mode=HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL`);
+    const re = new RegExp(`(^|\\D)${num}$`);
+    const hits = (board.stopTimes || []).filter((s) => (re.test(String(s.tripShortName || "")) || re.test(String(s.displayName || ""))) && s.place && s.place.scheduledDeparture);
+    hits.sort((x, y) => Math.abs(minutesOf(stampIso(x.place.scheduledDeparture)) - anchorMin) - Math.abs(minutesOf(stampIso(y.place.scheduledDeparture)) - anchorMin));
+    const s = hits[0];
+    if (!s || Math.abs(minutesOf(stampIso(s.place.scheduledDeparture)) - anchorMin) > 45) return null;
+    const trip = await transitousGet(`/v6/trip?tripId=${encodeURIComponent(s.tripId)}`);
+    const leg = (trip.legs || [])[0];
+    if (!leg) return null;
+    const live = Boolean(leg.realTime);
+    return [leg.from, ...(leg.intermediateStops || []), leg.to].filter(Boolean).map((p) => ({
+      name: canonical(p.name, STOPS.foreign),
+      sa: p.scheduledArrival || null,
+      sd: p.scheduledDeparture || null,
+      a: p.arrival || null,
+      d: p.departure || null,
+      canc: Boolean(p.cancelled || leg.cancelled || s.tripCancelled),
+      live,
+    }));
+  }).catch(() => null);
+}
+
+/** One end from DB: departure (`kind` "dp") or arrival ("ar") of the train at a station with a live lookup. */
+async function dbEnd(st, train, kind, plannedMin) {
+  const [tt, num] = train.split(" ");
+  const hours = new Set([stampAt(plannedMin)]);
+  if (plannedMin % 60 >= 40) hours.add(stampAt(plannedMin + 25));
+  if (plannedMin % 60 <= 20) hours.add(stampAt(plannedMin - 25));
+  const [plans, chg] = await Promise.all([Promise.all([...hours].map((h) => plan(st.eva, h))), changes(st.eva)]);
+  const s = plans.flat().find((x) => x.tl && x.tl.c === tt && x.tl.n === num && x[kind] && x[kind].pt && Math.abs(minutesOf(x[kind].pt) - plannedMin) <= 60);
+  if (!s) return null;
+  const c = chg.find((x) => tripKey(x.id) === tripKey(s.id));
+  const ev = c && c[kind];
+  const pt = s[kind].pt;
+  const canc = Boolean((ev && ev.cs === "c") || s[kind].cs === "c");
+  const ct = ev && ev.ct ? ev.ct : null;
+  return {
+    pt,
+    late: canc ? null : Math.max(0, diff(pt, ct) ?? 0),
+    live: true,
+    canc,
+    plat: (ev && ev.cp) || s[kind].pp || null,
+    platChanged: Boolean(ev && ev.cp && s[kind].pp && ev.cp !== s[kind].pp),
+    src: "db",
+  };
+}
+
+/** One end from the Transitous trip. */
+function tripEnd(places, name, kind) {
+  if (!places) return null;
+  const p = places.find((x) => fold(x.name) === fold(name));
+  if (!p) return null;
+  const sched = kind === "dp" ? p.sd : p.sa;
+  if (!sched) return null;
+  const pt = stampIso(sched);
+  const real = kind === "dp" ? p.d : p.a;
+  const live = p.live && !p.canc;
+  return { pt, late: live && real ? Math.max(0, diff(pt, stampIso(real)) ?? 0) : null, live, canc: p.canc, plat: null, platChanged: false, src: "transitous" };
+}
+
+async function tripNow(train, onName, offName) {
+  const stops = tripStops(STOPS, FOREIGN, train);
+  if (!stops) return { error: "unknown" };
+  const a = stops.findIndex((s) => fold(s.name) === fold(onName) && s.dep !== null);
+  const b = stops.findIndex((s, i) => i > a && fold(s.name) === fold(offName) && s.arr !== null);
+  if (a < 0 || b < 0) return { error: "stops" };
+  const A = stops[a];
+  const B = stops[b];
+  const nowMin = minutesOf(stampOf(Date.now()));
+  const today = Math.floor(nowMin / 1440) * 1440;
+  // Offsets are arrival-based (stops.py); a departure is the stop's dwell later.
+  const dwell = (s) => (s.dep !== null && s.arr !== null && (s.dep - s.arr + 1440) % 1440 < 60 ? (s.dep - s.arr + 1440) % 1440 : 0);
+  const depOff = (s) => s.off + dwell(s);
+  const span = B.off - depOff(A);
+  let onAbs = null;
+  for (const day of [today, today - 1440, today + 1440]) {
+    const t = day + A.dep;
+    if (nowMin >= t - BEFORE_MIN && nowMin <= t + span + AFTER_MIN && (onAbs === null || Math.abs(t - nowMin) < Math.abs(onAbs - nowMin))) onAbs = t;
+  }
+  const plan0 = { on: A.name, off: B.name, pd: A.dep, pa: B.arr };
+  if (onAbs === null) return { run: null, plan: plan0 };
+  const offAbs = onAbs + span;
+  const f = FOREIGN.trains[train];
+  const anchor = f ? stops.find((s) => s.name === f.at) : null;
+  const needTrip = [A, B].some((s) => !(s.cc === null && STATION_BY_FOLD.has(fold(s.name))));
+  const placesP = needTrip && anchor ? transitousTrip(train, onAbs + depOff(anchor) - depOff(A)) : Promise.resolve(null);
+  const end = async (s, kind, abs) => {
+    const st = s.cc === null ? STATION_BY_FOLD.get(fold(s.name)) : null;
+    if (st) {
+      const e = await dbEnd(st, train, kind, abs).catch((e) => {
+        if (e && e.message === "busy") throw e;
+        return null;
+      });
+      if (e) return e;
+    }
+    return tripEnd(await placesP, s.name, kind);
+  };
+  const [on, off] = await Promise.all([end(A, "dp", onAbs), end(B, "ar", offAbs)]);
+  const anyAbroad = A.cc !== null || B.cc !== null;
+  return { run: { asOf: stampOf(Date.now()), on, off, pd: stampAt(onAbs), pa: stampAt(offAbs), abroad: anyAbroad }, plan: plan0 };
+}
+
 // ---- one change: the arriving train A and the next train B at one station, today ---------------------------------
 // GET /api/live/?at=Berlin%20Hbf&a=ICE%201541&ta=348&b=ICE%20240&tb=374   (ta/tb: planned minutes after midnight, as in
 // connection-pairs.json). Answers only for a change whose planned arrival is between CHG_BACK minutes ago and CHG_AHEAD
@@ -425,6 +576,25 @@ module.exports = async function handler(req, res) {
     if (!st || !TRAIN_RE.test(an) || !okMin(ta) || (!noB && (!TRAIN_RE.test(bn) || !okMin(tb)))) return send(res, 400, { error: "change" });
     try {
       return send(res, 200, { ok: true, ...(await changeNow(st, an, ta, noB ? null : bn, noB ? ta : tb)) }, "public, s-maxage=45");
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e && e.message === "busy" ? "busy" : "upstream" }, "public, s-maxage=15");
+    }
+  }
+  const trip = (() => {
+    try {
+      const q = new URL(req.url, "http://x").searchParams;
+      return q.has("on") || q.has("off") ? { on: q.get("on") || "", off: q.get("off") || "" } : null;
+    } catch {
+      return null;
+    }
+  })();
+  if (train !== null && trip) {
+    if (!TRAIN_RE.test(train) || !trip.on || !trip.off || trip.on.length > 80 || trip.off.length > 80) return send(res, 400, { error: "trip" });
+    try {
+      const out = await tripNow(train, trip.on, trip.off);
+      // A train or stop the site does not know: a quiet 200, like ?train= alone.
+      if (out.error) return send(res, 200, { ok: false, error: out.error }, "public, s-maxage=86400");
+      return send(res, 200, { ok: true, train, ...out }, "public, s-maxage=45");
     } catch (e) {
       return send(res, 200, { ok: false, error: e && e.message === "busy" ? "busy" : "upstream" }, "public, s-maxage=15");
     }

@@ -16,6 +16,7 @@
 //     "trains": { "ICE 221": { "at": "Emmerich", "t": 1191, "seen": "2026-11-02",
 //                              "s": [["Amsterdam Centraal", null, -183], ["Utrecht Centraal", -158, -153], ...] } } }
 //   at = the German anchor stop (stops.json name), t = its usual planned departure there (minutes after midnight, Berlin),
+//   aid = its Transitous stop id (api/live.js finds today's run there, then reads the whole trip),
 //   s = stops abroad in running order: [name, arrival offset | null, departure offset | null].
 // Trains not running in the next two days keep their last entry (merge, never shrink); a train found again is replaced.
 //
@@ -23,7 +24,9 @@
 // 2 calls per border station and 1-2 per train, 1.5 s apart (~15 minutes).
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 
+const shared = createRequire(import.meta.url)("../lib/tripStops.cjs");
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const API = process.env.TRANSITOUS_API || "https://api.transitous.org/api";
 const UA = "german-punctuality/1.0 (+https://german-punctuality.vercel.app)";
@@ -35,10 +38,10 @@ const stops = JSON.parse(fs.readFileSync(path.join(ROOT, "data/stops.json"), "ut
 const outline = JSON.parse(fs.readFileSync(path.join(ROOT, "lib/germany.json"), "utf8")).rings;
 const old = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, "utf8")) : { stations: {}, trains: {} };
 
-export const fold = (s) => String(s).toLowerCase().replace(/ß/g, "ss").normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/hauptbahnhof/g, "hbf").replace(/[^a-z0-9]/g, "");
+const fold = shared.fold;
 
 /** Inside Germany's outline (Natural Earth 1:50m), with ray casting over every ring. */
-export function inGermany(lat, lon) {
+function inGermany(lat, lon) {
   let inside = false;
   for (const ring of outline)
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -58,7 +61,7 @@ const BOXES = [
   ["FR", 42.3, 51.1, -4.8, 8.25], ["IT", 36.6, 47.1, 6.6, 18.5], ["HU", 45.74, 48.59, 16.11, 22.9], ["SE", 55.3, 69.1, 11.0, 24.2],
   ["SI", 45.42, 46.88, 13.37, 16.6], ["HR", 42.4, 46.55, 13.5, 19.45], ["SK", 47.73, 49.61, 16.83, 22.57],
 ];
-export function countryOf(stopId, lat, lon) {
+function countryOf(stopId, lat, lon) {
   const m = /DELFI_0*(\d{2})\d{5}$/.exec(stopId);
   if (m && UIC[m[1]] && UIC[m[1]] !== "DE") return UIC[m[1]];
   const p = /^([a-z]{2})-/.exec(stopId);
@@ -148,19 +151,8 @@ function candidates() {
 }
 
 const germanNames = new Set(stops.stations.map(fold));
-// One spelling per station across the site: DB's own label where our data already names the place (the destination
-// labels in stops.json, "Bruxelles Midi", "Praha hl.n."), else a fixed spelling for feeds that use another language.
-const LABELS = new Map((stops.foreign || []).map((n) => [fold(n), n]));
-const PRETTY = {
-  "Brussel-Zuid": "Bruxelles Midi", "Bruxelles-Midi": "Bruxelles Midi", "Brussels-Midi": "Bruxelles Midi", "Brussel-Noord": "Bruxelles Nord",
-  "Bruxelles-Nord": "Bruxelles Nord", "Bruxelles-Central": "Bruxelles Central", "Brussel-Centraal": "Bruxelles Central",
-  "Luik-Guillemins": "Liège-Guillemins", "Liege-Guillemins": "Liège-Guillemins", "Antwerpen-Centraal": "Antwerpen Centraal",
-  "Koebenhavn H": "København H", "Kobenhavn H": "København H", "Praha hlavni nadrazi": "Praha hl.n.", "Praha hl. n.": "Praha hl.n.",
-};
-export function canonical(name) {
-  const n = String(name).trim();
-  return PRETTY[n] || LABELS.get(fold(n)) || n;
-}
+const LABELS = stops.foreign || [];
+const canonical = (name) => shared.canonical(name, LABELS);
 const stations = { ...(old.stations || {}) };
 const trains = { ...(old.trains || {}) };
 const today = new Date().toISOString().slice(0, 10);
@@ -213,7 +205,7 @@ for (const c of LIMIT ? list.slice(0, LIMIT) : list) {
       stations[name] = [cc, p.stopId];
     }
     if (!abroad.length) { onlyGerman++; continue; }
-    trains[c.name] = { at: c.anchor, t: c.t, seen: today, s: abroad };
+    trains[c.name] = { at: c.anchor, t: c.t, aid: best.id, seen: today, s: abroad };
     found++;
   } catch (e) {
     failed++;

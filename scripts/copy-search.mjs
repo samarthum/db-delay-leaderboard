@@ -4,7 +4,9 @@ import fs from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
+const { fold, tripStops } = createRequire(import.meta.url)("../lib/tripStops.cjs");
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
@@ -28,49 +30,35 @@ function mergeAbroad(stops) {
   } catch {
     console.log("history abroad: data/abroad-history.json not found, stops abroad show no history");
   }
-  const fold = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
   const index = new Map(stops.stations.map((n, i) => [fold(n), i]));
   const abroad = {};
-  const mod = (m) => ((m % 1440) + 1440) % 1440;
   let trains = 0;
   let added = 0;
   let withHist = 0;
   for (const tr of stops.trains) {
     const name = `${tr[0]} ${tr[1]}`;
-    const f = fs1.trains[name];
-    if (!f) continue;
-    const st = tr[2];
-    const a = st.find((s) => stops.stations[s[0]] === f.at);
-    if (!a) continue;
-    // The anchor's offset is measured at its arrival (stops.py: arrival, else departure); the offsets abroad count from
-    // its departure: add the planned stop there.
-    const dwell = a[1] !== null && a[2] !== null ? mod(a[1] - a[2]) : 0;
-    const base = a[8] + (dwell < 60 ? dwell : 0);
+    if (!fs1.trains[name]) continue;
+    const merged = tripStops(stops, fs1, name, tr);
     const h = new Map(Object.entries(hist.trains[name] || {}).map(([k, v]) => [fold(k), v]));
-    const here = new Set(st.map((s) => s[0]));
-    let n = 0;
-    for (const [sname, arr, dep] of f.s) {
-      const key = fold(sname);
+    const abroadStops = merged.filter((x) => x.de === null);
+    if (!abroadStops.length) continue;
+    for (const x of abroadStops) {
+      const key = fold(x.name);
       let i = index.get(key);
       if (i === undefined) {
-        i = stops.stations.push(sname) - 1;
+        i = stops.stations.push(x.name) - 1;
         index.set(key, i);
       }
-      if (here.has(i)) continue;
-      const cc = fs1.stations[sname]?.[0] ?? null;
-      if (cc) abroad[i] = cc;
+      if (x.cc) abroad[i] = x.cc;
       const v = h.get(key);
-      const rec = [i, dep === null ? null : mod(f.t + dep), arr === null ? null : mod(f.t + arr), v ? v[1] : 0, v ? v[2] : 0, v ? v[3] : null, v ? v[4] : null, v ? v[8] : 0, base + (arr ?? dep)];
+      const rec = [i, x.dep, x.arr, v ? v[1] : 0, v ? v[2] : 0, v ? v[3] : null, v ? v[4] : null, v ? v[8] : 0, x.off];
       if (v && v[5] > 0) rec.push([v[5], v[6], v[7]]);
       if (v) withHist++;
-      st.push(rec);
-      here.add(i);
-      n++;
+      tr[2].push(rec);
     }
-    if (!n) continue;
-    st.sort((x, y) => x[8] - y[8]);
+    tr[2].sort((x, y) => x[8] - y[8]);
     trains++;
-    added += n;
+    added += abroadStops.length;
   }
   stops.abroad = abroad;
   stops.sources = Object.keys(hist.sources || {}).sort();

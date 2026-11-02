@@ -279,6 +279,41 @@ def round3():
         print("board", name, hit["id"], st, len(j.get("stopTimes", [])), b[:200] if st != 200 else "")
 
 
+def round4():
+    base = "https://opendata.infrabel.be/api/explore/v2.1/catalog/datasets/stiptheid-gegevens-maandelijksebestanden"
+    st, h, b = get(f"{base}/records?limit=40&where=mois%3E%3D%222025-10%22&order_by=mois")
+    links = [(r["mois"], r["link_to_data"]) for r in json.loads(b).get("results", [])]
+    print("BE months", links)
+    if links:
+        u = links[-1][1]
+        st, h, b = get(u, 3000)
+        print("BE file", u, st, h.get("Content-Length"), h.get("Content-Type"))
+        print(b[:3000].decode("utf-8", "replace"))
+        st, h, b = get(u, timeout=600)
+        txt = b.decode("utf-8", "replace").splitlines()
+        print("BE lines", len(txt))
+        head = txt[0]
+        print("head", head)
+        for line in txt[1:]:
+            if ",ICE," in line or ";ICE;" in line:
+                print("ICE row", line)
+                break
+        sep = ";" if head.count(";") > head.count(",") else ","
+        cols = head.split(sep)
+        ri = [i for i, c in enumerate(cols) if c.strip('"').upper() == "RELATION"]
+        ti = [i for i, c in enumerate(cols) if c.strip('"').upper() == "TRAIN_NO"]
+        ni = [i for i, c in enumerate(cols) if c.strip('"').upper() == "PTCAR_LG_NM_NL"]
+        rel, ice = {}, {}
+        for line in txt[1:]:
+            f = line.split(sep)
+            if ri and len(f) > ri[0]:
+                rel[f[ri[0]]] = rel.get(f[ri[0]], 0) + 1
+                if "ICE" in f[ri[0]] and ti and ni:
+                    ice.setdefault(f[ti[0]], set()).add(f[ni[0]])
+        print("relations", sorted(rel.items(), key=lambda x: -x[1])[:30])
+        print("ICE numbers and points", {k: sorted(v) for k, v in sorted(ice.items())})
+
+
 def other():
     show("CZ data.gov.cz", "https://data.gov.cz/api/v2/datasets?query=zpo%C5%BEd%C4%9Bn%C3%AD%20vlak%C5%AF", 3000)
     show("FR SNCF regularite", "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets?where=search(%22regularite%22)&limit=20", 4000)
@@ -290,5 +325,5 @@ if __name__ == "__main__":
     ap.add_argument("--part", required=True)
     part = ap.parse_args().part
     import urllib.parse  # noqa: E402,F401
-    {"gtfs": gtfs, "transitous": transitous, "rdt": rdt, "be": be, "ch": ch, "at": at, "other": other, "round2": round2, "round3": round3}[part]()
+    {"gtfs": gtfs, "transitous": transitous, "rdt": rdt, "be": be, "ch": ch, "at": at, "other": other, "round2": round2, "round3": round3, "round4": round4}[part]()
     sys.stdout.flush()
