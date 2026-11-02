@@ -13,6 +13,7 @@ export const abroad = {
   "trip.srcHist": "History abroad: {sources}.",
   "trip.srcNL": "Rijden de Treinen (Netherlands, CC BY 4.0)",
   "trip.srcBE": "Infrabel (Belgium, CC0)",
+  "footer.histAbroad": "History at stops abroad: the Netherlands [Rijden de Treinen](https://www.rijdendetreinen.nl/en/open-data) (train archive, CC BY 4.0), Belgium [Infrabel](https://opendata.infrabel.be/explore/dataset/stiptheid-gegevens-maandelijksebestanden/) (monthly raw punctuality data, CC0). Stops abroad: Transitous timetables. For other countries we have no delay data yet.",
   "rt.noHist": "no data abroad",
   "rt.noHistAria": "No delay data from {country} for {to}",
   "rt.abroadTimes": "Times abroad come from each country's own timetable (Transitous); figures abroad from {sources} where there are any.",

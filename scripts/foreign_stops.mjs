@@ -33,6 +33,9 @@ const UA = "german-punctuality/1.0 (+https://german-punctuality.vercel.app)";
 const RAIL = ["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"];
 const OUT = process.env.OUT || path.join(ROOT, "data/foreign-stops.json");
 const LIMIT = Number(process.env.LIMIT || 0); // for a quick trial: only the first N trains
+// Stop asking after this many minutes and write what was found (the next run carries on: trains never seen, or seen
+// longest ago, go first). Keeps the job inside its timeout when Transitous is slow.
+const DEADLINE = Date.now() + Number(process.env.DEADLINE_MIN || 45) * 60000;
 
 const stops = JSON.parse(fs.readFileSync(path.join(ROOT, "data/stops.json"), "utf8"));
 const outline = JSON.parse(fs.readFileSync(path.join(ROOT, "lib/germany.json"), "utf8")).rings;
@@ -150,15 +153,21 @@ function candidates() {
   return out;
 }
 
-const germanNames = new Set(stops.stations.map(fold));
+const germanNames = new Set(stops.stations.map(shared.stationKey));
 const LABELS = stops.foreign || [];
 const canonical = (name) => shared.canonical(name, LABELS);
 const stations = { ...(old.stations || {}) };
 const trains = { ...(old.trains || {}) };
 const today = new Date().toISOString().slice(0, 10);
 let found = 0, noStop = 0, noRun = 0, onlyGerman = 0, failed = 0;
-const list = candidates();
+// NORMALIZE_ONLY=1: no lookups, only rewrite the committed file's spellings (after a change to lib/tripStops.cjs).
+const list = process.env.NORMALIZE_ONLY ? [] : candidates().sort((x, y) => String(trains[x.name]?.seen ?? "").localeCompare(String(trains[y.name]?.seen ?? "")));
+let stopped = 0;
 for (const c of LIMIT ? list.slice(0, LIMIT) : list) {
+  if (Date.now() > DEADLINE) {
+    stopped++;
+    continue;
+  }
   try {
     const re = new RegExp(`(^|\\D)${c.num}$`);
     let best = null;
@@ -179,6 +188,8 @@ for (const c of LIMIT ? list.slice(0, LIMIT) : list) {
         seenTrip.add(s.tripId);
         const places = placesOf(await get(`/v6/trip?tripId=${encodeURIComponent(s.tripId)}`));
         if (!best || places.length > best.places.length) best = { places, board: s, id };
+        // A trip that already reaches abroad is enough: no second feed's copy needed.
+        if (places.some((p) => !inGermany(p.lat, p.lon))) break;
       }
       anchor = a;
       break;
@@ -192,7 +203,7 @@ for (const c of LIMIT ? list.slice(0, LIMIT) : list) {
     const base = Date.parse(best.board.place.scheduledDeparture) / 60000;
     const abroad = [];
     for (const p of places) {
-      if (c.german.has(fold(p.name)) || germanNames.has(fold(p.name)) || inGermany(p.lat, p.lon)) continue;
+      if (c.german.has(fold(p.name)) || germanNames.has(shared.stationKey(p.name)) || inGermany(p.lat, p.lon)) continue;
       const cc = countryOf(p.stopId || "", p.lat, p.lon);
       if (!cc) continue;
       const off = (iso) => (iso ? Math.round(Date.parse(iso) / 60000 - base) : null);
@@ -212,10 +223,30 @@ for (const c of LIMIT ? list.slice(0, LIMIT) : list) {
     console.log("error", c.name, e.message);
   }
 }
+// One spelling per station key across the file (feeds spell the same station several ways): DB's label, else the
+// spelling that reads best (shared.spellingCost); every train's stops and the station table use it.
+{
+  const byKey = new Map();
+  const names = new Set([...Object.keys(stations), ...Object.values(trains).flatMap((t) => t.s.map((x) => x[0]))]);
+  for (const n of names) {
+    const k = shared.stationKey(n);
+    const label = LABELS.find((l) => shared.stationKey(l) === k);
+    const pick = canonical(label || n);
+    const cur = byKey.get(k);
+    if (!cur || (!label && !cur.label && shared.spellingCost(pick) < shared.spellingCost(cur.name)) || (label && !cur.label)) byKey.set(k, { name: pick, label: Boolean(label) });
+  }
+  const show = (n) => byKey.get(shared.stationKey(n)).name;
+  const merged = {};
+  for (const [n, v] of Object.entries(stations)) if (!merged[show(n)] || n === show(n)) merged[show(n)] = v;
+  for (const k of Object.keys(stations)) delete stations[k];
+  Object.assign(stations, merged);
+  for (const t of Object.values(trains)) t.s = t.s.filter(([n]) => !germanNames.has(shared.stationKey(n))).map(([n, a, d]) => [show(n), a, d]);
+  for (const n of Object.keys(stations)) if (germanNames.has(shared.stationKey(n))) delete stations[n];
+}
 const doc = { generatedAt: new Date().toISOString(), source: "Transitous (transitous.org), timetables of each country's railway", stations: Object.fromEntries(Object.entries(stations).sort()), trains: Object.fromEntries(Object.entries(trains).sort()) };
 fs.writeFileSync(OUT, JSON.stringify(doc) + "\n");
 const byCc = {};
 for (const t of Object.values(trains)) for (const [n] of t.s) byCc[stations[n]?.[0]] = (byCc[stations[n]?.[0]] || 0) + 1;
-console.log(`foreign stops: ${list.length} trains asked, found ${found}, anchor stop unknown ${noStop}, not running in the next 2 days ${noRun}, no stop abroad ${onlyGerman}, errors ${failed}; file has ${Object.keys(trains).length} trains, ${Object.keys(stations).length} stations abroad; ${calls} calls`);
+console.log(`foreign stops: ${list.length} trains, ${stopped} left for the next run (time limit), found ${found}, anchor stop unknown ${noStop}, not running in the next 2 days ${noRun}, no stop abroad ${onlyGerman}, errors ${failed}; file has ${Object.keys(trains).length} trains, ${Object.keys(stations).length} stations abroad; ${calls} calls`);
 console.log("train-stops by country:", JSON.stringify(byCc));
 console.log("anchor ids:", JSON.stringify(stopIds));

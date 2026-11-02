@@ -8,6 +8,50 @@
 - `scripts/abroad_trips.mjs` writes data/abroad-trips.json: {train: [transitousStopId, minutes from the origin departure to the live-trains.json departure at the first German stop]} (109). Feeds abroad may leave out the border stop, so the gap is measured against our own German time. In api/live.js, `abroadNow()` (20 calls/min cap, 45 s cache) adds `run.abroad` {from, pd, late, live, canc}. LiveNow shows it ABOVE the German line, in trip order. Tests: `abroad.mjs` (search and cards), `abroad-live.mjs` (set TRAINS= to trains running now).
 - 20 border stations were added to live-stations.json after checking that each id lists long-distance trains. 15 ids did not (e.g. Passau, Flensburg).
 
+## Stops abroad, live and history at both ends (Nov 2026, PR #8)
+Owner's test: "amsterdam to dusseldorf", "düsseldorf amsterdam", "Köln Bruxelles", "München Wien", "Basel Frankfurt",
+"Berlin Praha" list the trains that run that way; picking one shows status and history at BOTH stops.
+- **Stop lists abroad**: `scripts/foreign_stops.mjs` (Transitous, no key; weekly in `.github/workflows/abroad.yml`, Wed
+  05:17 UTC; commits only `data/foreign-stops.json`, never shrinking) -> `{trains: {"ICE 121": {at, t, aid, seen, s:
+  [[name, arrOffset, depOffset]]}}, stations: {name: [country, transitousStopId]}}`. Offsets are minutes from the
+  German anchor stop's planned departure; the anchor is one of the 4 German stops nearest the border (the DELFI
+  timetable leaves some border stops out: ICE 221 passes Emmerich without a stop). One board per anchor station and day
+  (2 days), one `/v6/trip` per train. Country: inside `lib/germany.json` = German (skipped), else UIC code in a DELFI id
+  (`0000084…` NL), else coarse boxes. One spelling per station: `lib/tripStops.cjs` `canonical()` (DB's label from
+  stops.json `foreign` when it exists, else a small table: Brussel-Zuid -> Bruxelles Midi ...).
+- **Ruled out for stop lists**: gtfs.de `fv_free` is now ~350 kB, 4.5k trips, route names without train numbers
+  ("ICE", "IC"), so trains cannot be matched; Transitous `/v6/stoptimes?arriveBy=true` returns arrivals from the day
+  before (unreliable); arrivals at a terminus are read from the trip instead.
+- **Search**: `scripts/copy-search.mjs` (`mergeAbroad`, via `lib/tripStops.cjs`) puts the stops abroad into each train's
+  stop list in `public/search/stops.json` as stations of their own (`abroad`: index -> country, `sources`: countries with
+  history), so A -> B by planned time works across the border in both directions and abroad-to-abroad (Amsterdam ->
+  Basel). Trains with no stops abroad found keep the old label fallback (field 3/4: board at the first / measure at the
+  last German stop). Aliases in `lib/typeahead.ts` (centraal = hbf, zuid = midi, Brüssel, Prag, Wien/Vienna, Lüttich ...).
+  Picking a train in a route list adds `?on=&off=` (`lib/trip.ts`) to the card or train page.
+- **Live**: `GET /api/live/?train=ICE%20121&on=Amsterdam%20Centraal&off=D%C3%BCsseldorf%20Hbf` (`tripNow()` in
+  `api/live.js`): both stops must be stops of that train in stops.json / foreign-stops.json; German stops with a DB id
+  (`live-stations.json`) come from DB's plan + fchg, every other stop from the train's Transitous trip (stoptimes at the
+  anchor + `/v6/trip`, 2 calls per train, 45 s cache, inside the existing 20 calls/min Transitous ceiling). Window: 3 h
+  before the departure at `on` to 90 min after the planned arrival at `off`, today's, yesterday's or tomorrow's run.
+  Unknown train/stop: quiet 200 `{ok:false}`. UI: `components/TripEnds.tsx` ("Your trip": both ends, live + history;
+  replaces the live box when the address names the stops; `TripOrLive`).
+- **History abroad** (`scripts/abroad_history.py` -> `data/abroad-history.json`, same months and rules as `stops.py`:
+  measured = not cancelled, planned arrival, delay in the clamp; 15+ share; average; departure figures only where the
+  train starts; 20 measured runs or "few trips"): NL Rijden de Treinen services files (CC BY 4.0; only runs that also
+  call in Germany, because NS numbers domestic Intercitys like DB's IC 2xxx), BE Infrabel monthly raw files (CC0; a stop
+  is a planned wait or an end, passing points like Leuven/Hergenrath are not stops; seconds -> whole minutes toward zero;
+  no cancellations in that data, so no cancelled share). Independent recount `tests/data/verify_abroad_history.py` (csv
+  + dicts, every cell, 0 differences or no commit), synthetic test `tests/data/test_abroad_history.py`. Runs in the
+  monthly job (`monthly.yml`) with the window; the gate allows a source to lag by up to 2 months (the months used are
+  in the file).
+- **No source (UI says "No history abroad yet for <country>")**: CH: opentransportdata.swiss Ist-Daten archive exists
+  (`archive.opentransportdata.swiss/istdaten/YYYY/ist-daten-YYYY-MM.zip`, ~1.3 GB a month of daily CSVs, terms: cite
+  opentransportdata.swiss; Sep 2026 not yet published on 2 Nov) but was not built: ~14 GB per window, next step on the
+  ROADMAP. AT: data.oebb.at mentions train-run CSVs with delays updated weekly, but the page gives no download links to
+  scripts and mobilitaetsdaten.gv.at timed out from Actions; CZ, PL, DK, FR: no per-train, per-stop delay data found
+  (SNCF publishes monthly aggregates only).
+- Probes of every source: `tests/data/probe_abroad.py` (PR job in `abroad.yml`).
+
 ## gtfs.de realtime (free GTFS-RT)
 - `https://realtime.gtfs.de/realtime-free.pb` is ONE nationwide file for all public transport: ~32k trip updates (buses ~2/3, regional rail, trams), only ~110 are long-distance on a given evening. 9.5 MB, 3.6 MB gzip (requests asks for gzip by default). The server ignores query filters, so server-side "poll only what we need" is impossible; filter client-side with the static long-distance schedule.
 - Static schedule `https://download.gtfs.de/germany/fv_free/latest.zip` (DELFI NeTEx, CC BY 4.0, 30-day window, ~5.3k trips, ICE/IC/EC/ECE/RJ/EN): has route short name, no train numbers, no delays, but DOES list foreign stops (Amsterdam, Basel, Bruxelles). It is the denominator for coverage.

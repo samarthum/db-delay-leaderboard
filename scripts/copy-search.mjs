@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
-const { fold, tripStops } = createRequire(import.meta.url)("../lib/tripStops.cjs");
+const { stationKey, tripStops } = createRequire(import.meta.url)("../lib/tripStops.cjs");
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
@@ -30,7 +30,7 @@ function mergeAbroad(stops) {
   } catch {
     console.log("history abroad: data/abroad-history.json not found, stops abroad show no history");
   }
-  const index = new Map(stops.stations.map((n, i) => [fold(n), i]));
+  const index = new Map(stops.stations.map((n, i) => [stationKey(n), i]));
   const abroad = {};
   let trains = 0;
   let added = 0;
@@ -39,11 +39,11 @@ function mergeAbroad(stops) {
     const name = `${tr[0]} ${tr[1]}`;
     if (!fs1.trains[name]) continue;
     const merged = tripStops(stops, fs1, name, tr);
-    const h = new Map(Object.entries(hist.trains[name] || {}).map(([k, v]) => [fold(k), v]));
+    const h = new Map(Object.entries(hist.trains[name] || {}).map(([k, v]) => [stationKey(k), v]));
     const abroadStops = merged.filter((x) => x.de === null);
     if (!abroadStops.length) continue;
     for (const x of abroadStops) {
-      const key = fold(x.name);
+      const key = stationKey(x.name);
       let i = index.get(key);
       if (i === undefined) {
         i = stops.stations.push(x.name) - 1;

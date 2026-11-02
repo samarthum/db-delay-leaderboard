@@ -8,6 +8,9 @@ the countries that publish per-train, per-stop delays:
   NL  Rijden de Treinen, "Train archive" (opendata.rijdendetreinen.nl/public/services/services-YYYY-MM.csv.gz):
       every service of the Dutch network with every stop, planned times and delays in minutes, incl. NS International's
       ICE Amsterdam - Frankfurt / Berlin. Licence CC BY 4.0 (Rijden de Treinen).
+  BE  Infrabel, "Monthly raw punctuality data files" (opendata.infrabel.be, dataset stiptheid-gegevens-maandelijksebestanden):
+      every passenger train at every measuring point, planned times and delays in seconds, incl. the ICE Frankfurt -
+      Brussels. Licence CC0.
 
   python scripts/abroad_history.py --cache DIR            # downloads what is missing into DIR
   python scripts/abroad_history.py --cache DIR --check    # gate: window, coverage, size (the job runs it)
@@ -35,6 +38,8 @@ import json
 import re
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -46,11 +51,19 @@ MIN_STOP_RUNS = 20  # as scripts/stops.py
 RDT = "https://opendata.rijdendetreinen.nl/public"
 # RdT service types -> the type DB uses for the same train.
 NL_TYPES = {"ICE": "ICE", "EuroCity": "EC", "Intercity": "IC", "Eurocity Direct": "ECD", "Nightjet": "NJ"}
+INFRABEL = "https://opendata.infrabel.be/api/explore/v2.1/catalog/datasets/stiptheid-gegevens-maandelijksebestanden/records"
 SOURCES = {
     "NL": {"name": "Rijden de Treinen", "url": "https://www.rijdendetreinen.nl/en/open-data", "licence": "CC BY 4.0"},
+    "BE": {"name": "Infrabel", "url": "https://opendata.infrabel.be/explore/dataset/stiptheid-gegevens-maandelijksebestanden/", "licence": "CC0"},
 }
+# Infrabel names points in Dutch capitals; the site spells stations as the other sources do (lib/tripStops.cjs).
+BE_NAMES = {"BRUSSEL-ZUID": "Bruxelles Midi", "BRUSSEL-NOORD": "Bruxelles Nord", "BRUSSEL-CENTRAAL": "Bruxelles Central",
+            "LIEGE-GUILLEMINS": "Liège-Guillemins", "LEUVEN": "Leuven", "WELKENRAEDT": "Welkenraedt", "EUPEN": "Eupen",
+            "VERVIERS-CENTRAL": "Verviers-Central", "ANTWERPEN-CENTRAAL": "Antwerpen Centraal", "MECHELEN": "Mechelen",
+            "BRUSSELS AIRPORT - ZAVENTEM": "Brussels Airport"}
 # Gate (--check)
-MIN_TRAINS = {"NL": 20}
+MIN_TRAINS = {"NL": 20, "BE": 4}
+MAX_LAG_MONTHS = 2
 MAX_BYTES = 200_000
 
 
@@ -58,7 +71,8 @@ def log(msg):
     print(msg, file=sys.stderr, flush=True)
 
 
-def fetch(url, dest):
+def fetch(url, dest, missing_ok=False):
+    """Download once into the cache. missing_ok: a 404 (a month the source has not published yet) returns None."""
     if dest.exists() and dest.stat().st_size > 0:
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -72,6 +86,12 @@ def fetch(url, dest):
             tmp.rename(dest)
             log(f"downloaded {url} ({dest.stat().st_size / 1e6:.1f} MB)")
             return dest
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and missing_ok:
+                log(f"not published yet: {url}")
+                return None
+            log(f"retry {attempt + 1} {url}: {e}")
+            time.sleep(10 * (attempt + 1))
         except Exception as e:  # noqa: BLE001
             log(f"retry {attempt + 1} {url}: {e}")
             time.sleep(10 * (attempt + 1))
@@ -99,8 +119,13 @@ def sql_str(s):
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def compute_nl(con, cache, months, wanted, p):
-    files = [fetch(f"{RDT}/services/services-{m}.csv.gz", cache / f"rdt-services-{m}.csv.gz") for m in months]
+def compute_nl(con, cache, window, wanted, p):
+    """Returns (months used, rows). A window month RdT has not published yet is left out (and named in the file)."""
+    got = [(m, fetch(f"{RDT}/services/services-{m}.csv.gz", cache / f"rdt-services-{m}.csv.gz", missing_ok=True)) for m in window]
+    months = [m for m, f in got if f]
+    files = [f for _, f in got if f]
+    if not files:
+        raise SystemExit("NL: no services file for the window")
     st = nl_stations(cache)
     lo, hi, late = p["clampMinMinutes"], p["clampMaxMinutes"], p["lateMinutes"]
     types = ", ".join(f"({sql_str(k)}, {sql_str(v)})" for k, v in NL_TYPES.items())
@@ -139,8 +164,84 @@ def compute_nl(con, cache, months, wanted, p):
       count(*) filter (where coalesce(arr_t, '') <> '') has_arr
     from nl group by train, name order by train, name
     """).fetchall()
-    log(f"NL: {con.execute('select count(*) from nl').fetchone()[0]} stop rows, {len(rows)} train-stops")
-    return rows
+    log(f"NL: {con.execute('select count(*) from nl').fetchone()[0]} stop rows, {len(rows)} train-stops, months {months[0]}..{months[-1]}")
+    return months, rows
+
+
+def be_files(cache, window):
+    """Infrabel's monthly raw files for the window months it has published: [(month, path)]."""
+    q = urllib.parse.urlencode({"limit": 100, "where": f'mois >= "{window[0]}" and mois <= "{window[-1]}"'})
+    try:
+        req = urllib.request.Request(f"{INFRABEL}?{q}", headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            links = {x["mois"]: x["link_to_data"] for x in json.loads(r.read())["results"]}
+    except Exception as e:  # noqa: BLE001
+        cached = [(m, cache / f"infrabel-{m}.csv") for m in window if (cache / f"infrabel-{m}.csv").exists()]
+        if not cached:
+            raise
+        log(f"BE file list: {e}; using {len(cached)} cached files")
+        return cached
+    out = []
+    for m in window:
+        if m in links:
+            f = fetch(links[m], cache / f"infrabel-{m}.csv", missing_ok=True)
+            if f:
+                out.append((m, f))
+        else:
+            log(f"BE: {m} not published yet")
+    return out
+
+
+def compute_be(con, cache, window, wanted, p):
+    """Belgium, Infrabel raw punctuality: one row per train and measuring point, delays in seconds.
+
+    A stop is a point where the train is planned to wait (planned departure after planned arrival) or where it starts or
+    ends; points it passes (planned arrival = departure: Leuven, Hergenrath at the border) are not stops. Delays become
+    whole minutes, cut toward zero (59 s late counts as 0, 15:00 as 15; 30 s early as 0). Infrabel lists only trains that ran, so there is no
+    cancelled share for Belgium (null). Only ICE (no domestic train has that type in Belgium).
+    """
+    got = be_files(cache, window)
+    if not got:
+        raise SystemExit("BE: no Infrabel file for the window")
+    months = [m for m, _ in got]
+    lo, hi, late = p["clampMinMinutes"], p["clampMaxMinutes"], p["lateMinutes"]
+    con.execute("create or replace table bewant(name varchar)")
+    con.executemany("insert into bewant values (?)", [(w,) for w in sorted(wanted)])
+    names = ", ".join(f"({sql_str(k)}, {sql_str(v)})" for k, v in BE_NAMES.items())
+    src = "[" + ", ".join(sql_str(str(f)) for _, f in got) + "]"
+    con.execute(f"""
+    create or replace table be as
+    with raw as (
+      select make_date(cast(substr(DATDEP, 6, 4) as integer),
+          list_position(['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'], upper(substr(DATDEP, 3, 3))),
+          cast(substr(DATDEP, 1, 2) as integer)) sdate, 'ICE ' || TRAIN_NO train, PTCAR_LG_NM_NL pt,
+        nullif(PLANNED_TIME_ARR, '') pa, nullif(PLANNED_TIME_DEP, '') pd,
+        try_cast(DELAY_ARR as integer) da_s, try_cast(DELAY_DEP as integer) dd_s
+      from read_csv({src}, header=true, all_varchar=true)
+      where RELATION = 'ICE')
+    select sdate, train, coalesce(n.site, pt) name, pa, pd,
+      trunc(da_s / 60.0)::integer arr_d, trunc(dd_s / 60.0)::integer dep_d
+    from raw left join (values {names}) n(inf, site) on n.inf = pt
+    where train in (select name from bewant)
+      and strftime(sdate, '%Y-%m') in (select unnest([{", ".join(sql_str(m) for m in months)}]))
+      and (pa is null or pd is null or pd <> pa)
+    """)
+    rows = con.execute(f"""
+    select train, name, count(*) runs,
+      count(*) filter (where pa is not null and arr_d between {lo} and {hi}) am,
+      100.0 * count(*) filter (where pa is not null and arr_d between {lo} and {hi} and arr_d >= {late})
+        / nullif(count(*) filter (where pa is not null and arr_d between {lo} and {hi}), 0) al,
+      avg(arr_d) filter (where pa is not null and arr_d between {lo} and {hi}) aa,
+      count(*) filter (where pd is not null and dep_d between {lo} and {hi}) dm,
+      100.0 * count(*) filter (where pd is not null and dep_d between {lo} and {hi} and dep_d >= {late})
+        / nullif(count(*) filter (where pd is not null and dep_d between {lo} and {hi}), 0) dl,
+      avg(dep_d) filter (where pd is not null and dep_d between {lo} and {hi}) da,
+      null canc,
+      count(*) filter (where pa is not null) has_arr
+    from be group by train, name order by train, name
+    """).fetchall()
+    log(f"BE: {con.execute('select count(*) from be').fetchone()[0]} stop rows, {len(rows)} train-stops, months {months[0]}..{months[-1]}")
+    return months, rows
 
 
 def cell(cc, runs, am, al, aa, dm, dl, da, canc, has_arr):
@@ -149,7 +250,8 @@ def cell(cc, runs, am, al, aa, dm, dl, da, canc, has_arr):
     # Departure figures only where the train mostly starts at that stop (no planned arrival), as the German data has none.
     starts = has_arr * 2 < runs
     return [cc, runs, am, r1(al) if ok_a else None, r1(aa) if ok_a else None,
-            dm if starts else 0, r1(dl) if starts and ok_d else None, r1(da) if starts and ok_d else None, r1(canc)]
+            dm if starts else 0, r1(dl) if starts and ok_d else None, r1(da) if starts and ok_d else None,
+            None if canc is None else r1(canc)]
 
 
 def check(path, stats):
@@ -162,8 +264,13 @@ def check(path, stats):
         have = sum(1 for t in doc["trains"].values() if any(v[0] == cc for v in t.values()))
         if have < n:
             bad.append(f"{cc}: {have} trains, need {n}")
-        if cc in doc["sources"] and doc["sources"][cc]["months"] != w["months"]:
-            bad.append(f"{cc}: months {doc['sources'][cc]['months']}")
+        if cc not in doc["sources"]:
+            bad.append(f"{cc}: no source block")
+            continue
+        got = doc["sources"][cc]["months"]
+        # A source may lag by a month or two (published later than DB's data); never months outside the window.
+        if not set(got) <= set(w["months"]) or len(got) < len(w["months"]) - MAX_LAG_MONTHS or got != sorted(got):
+            bad.append(f"{cc}: months {got} vs window {w['months']}")
     size = Path(path).stat().st_size
     if size > MAX_BYTES:
         bad.append(f"{size} bytes > {MAX_BYTES}")
@@ -193,12 +300,15 @@ def main():
     con = duckdb.connect()
     con.execute("set memory_limit = '2GB'; set preserve_insertion_order = false")
     trains = {}
-    for train, name, *vals in compute_nl(con, cache, months, wanted, p):
-        trains.setdefault(train, {})[name] = cell("NL", *vals)
+    used = {}
+    for cc, compute in (("NL", compute_nl), ("BE", compute_be)):
+        used[cc], rows = compute(con, cache, months, wanted, p)
+        for train, name, *vals in rows:
+            trains.setdefault(train, {})[name] = cell(cc, *vals)
     doc = {"window": {k: w[k] for k in ("firstMonth", "lastMonth", "monthCount", "months")},
            "params": {"minStopRuns": MIN_STOP_RUNS, "lateMinutes": p["lateMinutes"], "clampMinMinutes": p["clampMinMinutes"],
                       "clampMaxMinutes": p["clampMaxMinutes"]},
-           "sources": {cc: {**s, "months": months} for cc, s in SOURCES.items()},
+           "sources": {cc: {**s, "months": used[cc]} for cc, s in SOURCES.items() if cc in used},
            "trains": {k: dict(sorted(v.items())) for k, v in sorted(trains.items())}}
     Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")) + "\n")
     log(f"wrote {a.out}: {len(trains)} trains, {sum(len(v) for v in trains.values())} stops abroad")

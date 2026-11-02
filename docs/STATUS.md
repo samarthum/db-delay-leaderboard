@@ -1,6 +1,6 @@
 # German Punctuality: status and hand-over
 
-Last updated: 1 November 2026. Start here if you (or an AI coding agent) are picking the project up on a new
+Last updated: 2 November 2026. Start here if you (or an AI coding agent) are picking the project up on a new
 machine. Read this, then `docs/ROADMAP.md`, `docs/RULES.md` and, before touching a topic, its file in `docs/notes/`.
 
 ## What it is
@@ -22,6 +22,7 @@ History from open data (11 months), live status from DB's own API, cross-border 
 | Search | Full-screen sheet on phones (starred trains and recent pages first); trains (number), routes ("8:14 Köln to Berlin" offers the train closest to that time first, then the route), stations (with "Where are you going from X?"); lands on the page when one exists; suggestion figures labelled "average delay" | `components/search/*`, `lib/routeSearch.ts`, `lib/searchCore.ts` |
 | Route pages (685) | Average delay, % 15+ and DB's 6-min rule, trains on the route with each train's average, live "next trains" board, share picture; opened with a time (`?t=08:14`) the closest trains come first with the nearest marked and its live state | `components/pages/RoutePage.tsx`, `scripts/routes.py` |
 | Train pages (50) + search result card (every other train) | Live box first: departure at the first and arrival at the last station with live times (delay, platform change, cancellation; "no delay reported" in grey, never "on time"), departure abroad for trains from abroad, where live times stop for trains ending abroad, "next run" outside the window; card says when a train has no live times or the feed is down. Then "How late it has run" (11 months, 12 after the October refresh), "Sundays, like today" (card), "latest month" (train page; card once the monthly refresh has written search field 17). "Getting on or off at another stop?": the train's own stops, pick on/off, lands on that route at the train's time. "The last 7 days" under it on both (every long-distance train, not only the 50): one mark per day at departure (first German stop) and arrival (last German stop), cancelled as ×, no run / incomplete days hollow, one sentence (arrival average, days 15+ late, cancellations), the as-of day; refreshed daily (below). Save star on both ("Save to home" in words on the card) | `UnitPage.tsx`, `search/SearchResult.tsx`, `LiveNow.tsx`, `LastWeek.tsx`, `scripts/last7.py` |
+| Cross-border trains (Nov 2026, PR #8) | Stops abroad on both sides of the border in route search ("Amsterdam to Düsseldorf", "Köln Bruxelles", "Amsterdam to Basel"; English/German/local spellings); picking a train opens its card/page with "Your trip": both chosen stops with today's live status (DB in Germany, Transitous abroad) and the train's usual delay at each stop (DB data in Germany, Rijden de Treinen in the Netherlands, Infrabel in Belgium, "No history abroad yet for <country>" elsewhere) | `scripts/foreign_stops.mjs`, `scripts/abroad_history.py`, `lib/tripStops.cjs`, `components/TripEnds.tsx`, `api/live.js` `tripNow()` |
 | Change trains | Pick arriving train, station, next train: how often that change worked; live: minutes to change by DB's forecast and history for days the arriving train was similarly late | `ChangeTrains.tsx`, `lib/changeTrains.ts`, `lib/liveChange.ts`, `scripts/connections.py` |
 | Rankings / Network / Recap / Method | Route and train rankings (avg delay or most often late), network map + month chart, yearly recap, method + credits | `components/pages/*` |
 | Compensation | Plain-language page: 3-zone ruler, calculator, claim in 3 steps, what counts, 20/60/100-min ladder, can DB say no, 1-in-17 dot grid, legal fine print in folds | `CompensationPage.tsx`, `CompCalc.tsx`, `Compensation.module.css` |
@@ -40,6 +41,9 @@ The live-feed collector service (`docs/notes/live-and-international.md`) is stop
 - Live lookups: 897 trains (`data/live-trains.json`), 96 stations (`data/live-stations.json`).
 - Trains from abroad: 134 real origins (`data/foreign-origins.json`), 109 matched in Transitous
   (`data/abroad-trips.json`); refreshed weekly (below).
+- Stops abroad: `data/foreign-stops.json` (Transitous; weekly, GitHub Actions `abroad.yml`). History at stops abroad:
+  `data/abroad-history.json` (NL Rijden de Treinen CC BY 4.0, BE Infrabel CC0; same window and rules as the German
+  stops; recomputed by the monthly job, recounted independently).
 
 ## Environment variables (Vercel, Production only; never commit values)
 | Name | Purpose |
@@ -74,6 +78,9 @@ wholesale (see RULES).
 | `e2e/next-run.mjs`, `e2e/abroad.mjs` | Next-run line; trains from abroad (cards, route search) | test server with live keys (`node --env-file=.env.local tests/tools/serve.mjs`) |
 | `e2e/live-now.mjs` | Live box + save/Your trains. Set `SOON=` and `IDLE=` train slugs for the current Berlin time | live keys |
 | `e2e/cx-live.mjs` | Change trains live, picks changes due in 10-120 min | live keys |
+| `e2e/cross-border.mjs` | The owner's six cross-border searches typed into the box (+ one in German), at 390 and 320 px: a list, then "Your trip" with both stops, live at both ends (MOCKED trip answers) and history at both ends; other live states; "no data abroad" | test server |
+| `unit/route-search.mjs` | Route search across the border on a synthetic index: aliases (Düsseldorf/Dusseldorf, Brüssel, Prag, Vienna, Cologne, Zurich), direction, foreign-to-German, German-to-foreign, abroad-to-abroad, label fallback, no-history flag | none |
+| `data/test_abroad_history.py`, `data/verify_abroad_history.py` | History abroad on synthetic RdT/Infrabel files; independent recount of every cell from the raw files | Python deps / `--cache` |
 | `e2e/abroad-live.mjs` | Departure abroad in the live box (`TRAINS="ICE 74,RJ 88"` running now) | live keys |
 | `tools/crawl-overflow.mjs` | Every sitemap page at 390 px: overflow + console errors | test server |
 | `data/verify_bins.py`, `data/verify_train_avg.py` | Independent recompute from raw Parquet (different query shape) | `GP_PARQUET` |
@@ -115,6 +122,11 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   before/after report `tests/data/compare_last_stop.py` in the job summary). Stop order everywhere: planned time, then
   stop number; a station listed twice at the same planned times counts once (Nov 2026; data-pipeline notes). Replaced `refresh.yml` (Nov 2026). Rules:
   `docs/notes/data-pipeline.md` ("Monthly refresh"); log: `docs/notes/monthly-log.md`.
+- Stops abroad weekly (GitHub Actions, `.github/workflows/abroad.yml`, Wednesday 05:17 UTC, also `workflow_dispatch`;
+  no keys): `scripts/foreign_stops.mjs` reads Transitous (light use, ~1,000 calls 1.5 s apart) and commits only
+  `data/foreign-stops.json` to `main` when it is the only change and did not shrink. On pull requests touching it: a
+  trial run committed to the PR branch (skipped when the trial data is newer than the script), the history abroad on
+  the committed window with its independent recount, and source probes (`tests/data/probe_abroad.py`).
 - Vercel builds on push (~2-10 min; ~10 min when all share cards redraw).
 
 ## Known gaps and caveats
@@ -123,7 +135,10 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   lists no long-distance trains (Passau, Flensburg, Mönchengladbach...) have none.
 - ~135 trains from abroad still lack their real origin (not running on the days the lookup ran, or renamed numbers);
   the weekly job fills them in over time.
-- History abroad is not measured: delays start at the first German stop (pages say so).
+- History abroad exists for the Netherlands and Belgium only (`docs/notes/live-and-international.md`); elsewhere stops
+  abroad say "No history abroad yet for <country>". A German stop where the train starts has no history figure (the
+  German data measures arrivals). Trains whose stops abroad Transitous did not list keep the old behaviour (first/last
+  German stop).
 - DB's feed sometimes lacks an arrival time; the site then shows no line rather than a guess. Late/cancelled states
   of the live box were tested with a mock, rarely seen with real data.
 - The Free-plan terms of the DB API Marketplace for a public site were never read in full.

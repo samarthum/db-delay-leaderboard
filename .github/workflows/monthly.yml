@@ -37,6 +37,8 @@ on:
       - tests/data/compare_last_stop.py
       - tests/data/monthly_fixture.py
       - tests/data/test_monthly.py
+      - scripts/abroad_history.py
+      - tests/data/verify_abroad_history.py
       - .github/workflows/monthly.yml
 
 permissions:
@@ -90,6 +92,16 @@ jobs:
           GP_PARQUET="$PQ" python tests/data/verify_bins.py
           python scripts/check_headline.py --data-dir "$PQ"
 
+      # Cross-border trains: their history at stops abroad for the same window (scripts/abroad_history.py, each country's
+      # own open data), recounted cell by cell without shared code; any difference stops the job before the commit.
+      - name: History abroad for the window, independent recount and gate
+        if: steps.plan.outputs.act == 'true' || github.event_name == 'pull_request'
+        run: |
+          python tests/data/test_abroad_history.py
+          python scripts/abroad_history.py --cache "$RUNNER_TEMP/abroad"
+          python tests/data/verify_abroad_history.py --cache "$RUNNER_TEMP/abroad"
+          python scripts/abroad_history.py --cache "$RUNNER_TEMP/abroad" --check
+
       # Pull requests only: the route-direction fix on the COMMITTED window (same months, so only the fix differs).
       - name: Route fix on the committed window (rows running the other way, figures they fed)
         if: github.event_name == 'pull_request' && !cancelled()
@@ -137,7 +149,7 @@ jobs:
             echo "Data unchanged."
             exit 0
           fi
-          files='stats|monthly|stations|stops|routes|connections|connection-pairs|connections-daypart|compensation'
+          files='stats|monthly|stations|stops|routes|connections|connection-pairs|connections-daypart|compensation|abroad-history'
           unexpected="$(echo "$changed" | grep -vE "^( M|\?\?| D) data/(($files)\.json|(trains|lines|search)/[^/]+\.json)$" || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected changes, not committing:"

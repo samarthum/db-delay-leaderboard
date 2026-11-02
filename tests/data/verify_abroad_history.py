@@ -23,6 +23,58 @@ def r1(x):
     return None if x is None else round(x, 1)
 
 
+MON = {m: i + 1 for i, m in enumerate("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split())}
+# Infrabel's Dutch capitals -> the site's spelling (the same table as the script's, written out again here).
+BE_SITE = {"BRUSSEL-ZUID": "Bruxelles Midi", "BRUSSEL-NOORD": "Bruxelles Nord", "BRUSSEL-CENTRAAL": "Bruxelles Central",
+           "LIEGE-GUILLEMINS": "Liège-Guillemins", "LEUVEN": "Leuven", "WELKENRAEDT": "Welkenraedt", "EUPEN": "Eupen",
+           "VERVIERS-CENTRAL": "Verviers-Central", "ANTWERPEN-CENTRAAL": "Antwerpen Centraal", "MECHELEN": "Mechelen",
+           "BRUSSELS AIRPORT - ZAVENTEM": "Brussels Airport"}
+
+
+def recount_be(doc, cache, trains, lo, hi, late, need):
+    """Belgium from Infrabel's raw files: a stop is a planned wait or an end of the run; seconds -> whole minutes toward zero."""
+    months = doc["sources"].get("BE", {}).get("months", [])
+    acc = {}
+    for m in months:
+        with open(cache / f"infrabel-{m}.csv", newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r["RELATION"] != "ICE":
+                    continue
+                train = "ICE " + r["TRAIN_NO"]
+                d = r["DATDEP"]
+                if train not in trains or f"{d[5:9]}-{MON[d[2:5].upper()]:02d}" != m:
+                    continue
+                pa, pd = r["PLANNED_TIME_ARR"], r["PLANNED_TIME_DEP"]
+                if pa and pd and pa == pd:
+                    continue  # passes without a stop
+                name = BE_SITE.get(r["PTCAR_LG_NM_NL"], r["PTCAR_LG_NM_NL"])
+                c = acc.setdefault((train, name), {"n": 0, "arr": [], "dep": [], "has_arr": 0})
+                c["n"] += 1
+                c["has_arr"] += bool(pa)
+                for kind, planned, delay in (("arr", pa, r["DELAY_ARR"]), ("dep", pd, r["DELAY_DEP"])):
+                    if not planned or delay.strip() == "":
+                        continue
+                    try:
+                        mins = int(int(delay) / 60)  # whole minutes toward zero
+                    except ValueError:
+                        continue
+                    if lo <= mins <= hi:
+                        c[kind].append(mins)
+    out = {}
+    for k, c in acc.items():
+        arr, dep, n = c["arr"], c["dep"], c["n"]
+        starts = c["has_arr"] * 2 < n
+        a_ok, d_ok = len(arr) >= need, len(dep) >= need
+        out[k] = ["BE", n, len(arr),
+                  r1(100.0 * sum(x >= late for x in arr) / len(arr)) if a_ok else None,
+                  r1(sum(arr) / len(arr)) if a_ok else None,
+                  len(dep) if starts else 0,
+                  r1(100.0 * sum(x >= late for x in dep) / len(dep)) if starts and d_ok else None,
+                  r1(sum(dep) / len(dep)) if starts and d_ok else None,
+                  None]
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", required=True)
@@ -48,7 +100,11 @@ def main():
     trains = {f"{t[0]} {t[1]}" for t in json.loads(Path(a.stops).read_text())["trains"]}
     # (train, station name) -> {run id: (stop id, row)}: the first row of a station within a run, by stop id.
     cells = {}
-    for m in months:
+    nl_months = doc["sources"]["NL"]["months"]
+    if not set(nl_months) <= set(months):
+        print(f"DIFF NL months {nl_months} outside the window {months}")
+        sys.exit(1)
+    for m in nl_months:
         # First pass: runs that call at a German station (cross-border runs only).
         german_runs = set()
         with gzip.open(cache / f"rdt-services-{m}.csv.gz", "rt", encoding="utf-8", newline="") as f:
@@ -101,7 +157,8 @@ def main():
                                  r1(100.0 * sum(d >= late for d in dep) / len(dep)) if starts and d_ok else None,
                                  r1(sum(dep) / len(dep)) if starts and d_ok else None,
                                  r1(100.0 * canc / n)]
-    got = {(t, s): v for t, sts in doc["trains"].items() for s, v in sts.items() if v[0] == "NL"}
+    expected.update(recount_be(doc, cache, trains, lo, hi, late, need))
+    got = {(t, s): v for t, sts in doc["trains"].items() for s, v in sts.items() if v[0] in ("NL", "BE")}
     for k in sorted(set(expected) | set(got)):
         e, g = expected.get(k), got.get(k)
         if e is None or g is None:
@@ -111,7 +168,9 @@ def main():
         if e != g:
             print(f"DIFF {k}: file {g} recount {e}")
             diffs += 1
-    print(f"verify abroad history: {len(expected)} cells recounted (NL, {len(months)} months), {diffs} differences")
+    be_months = doc["sources"].get("BE", {}).get("months", [])
+    print(f"verify abroad history: {len(expected)} cells recounted (NL {len(nl_months)} months {nl_months[0]}..{nl_months[-1]}, "
+          f"BE {len(be_months)} months), {diffs} differences")
     sys.exit(1 if diffs else 0)
 
 

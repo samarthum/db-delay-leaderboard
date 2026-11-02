@@ -39,9 +39,9 @@ try {
     ok(!(await p.locator('text=For example').isVisible().catch(() => false)), 'home: no For example row');
     ok(await p.locator('main a[href="/change/"]').count() === 0, 'home: no inline connection link');
     ok(await p.locator('header button[aria-label="Search"]').count() === 0, 'home: no header search icon');
-    const big = await p.locator('.fig .big').innerText(); ok(/^16\s*min$/.test(big.replace(/\s+/g,' ').trim()), 'home: big figure is average minutes: ' + big);
+    const big = await p.locator('.fig .big').innerText(); ok(/^\d+\s*min$/.test(big.replace(/\s+/g,' ').trim()), 'home: big figure is average minutes: ' + big); // the value moves with each data refresh
     ok(!/\d trips/.test(await p.locator('main table.bt').innerText()), 'home: no trip counts under route names');
-    const v1 = await p.locator('main table.bt td.v').first().innerText(); ok(/27\.1 min/.test(v1), 'home: first route by avg ' + v1.replace(/\s+/g,' '));
+    const v1 = await p.locator('main table.bt td.v').first().innerText(); ok(/^\d+\.\d min/.test(v1.trim()), 'home: first route by avg ' + v1.replace(/\s+/g,' '));
     // Home is built around "my train today": headline, then the box, then the network figure (Nov 2026 redesign).
     const fig = await p.locator('.fig .big').boundingBox(); const h1 = await p.locator('main h1').boundingBox(); const box = await p.locator('main input[type=search]').boundingBox();
     ok(h1.y < box.y && box.y < fig.y, 'home: headline, then search box, then network figure');

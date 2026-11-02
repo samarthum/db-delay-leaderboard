@@ -81,10 +81,29 @@ def main():
             w = csv.writer(f)
             w.writerow(HEAD)
             w.writerows(rs)
+    # Belgium (Infrabel layout): ICE 10 Frankfurt -> Bruxelles Midi, 30 runs a month. Liège is a stop (planned wait),
+    # Hergenrath a passing point (arrival = departure), Bruxelles Midi the end (no departure). Delays in seconds.
+    be_head = ["DATDEP", "CIRC_TYP", "TRAIN_NO", "RELATION", "TRAIN_SERV", "OP1_COD", "THOP1_COD", "PTCAR_NO", "PTCAR_LG_NM_NL", "LINE_NO_DEP",
+               "REAL_DATE_ARR", "REAL_TIME_ARR", "REAL_DATE_DEP", "REAL_TIME_DEP", "PLANNED_DATE_ARR", "PLANNED_TIME_ARR", "PLANNED_TIME_DEP",
+               "PLANNED_DATE_DEP", "DELAY_ARR", "DELAY_DEP", "RELATION_DIRECTION", "LINE_NO_ARR"]
+    mon = {"2026-01": "JAN2026", "2026-02": "FEB2026"}
+    for m in months:
+        with open(cache / f"infrabel-{m}.csv", "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(be_head)
+            for day in range(1, 31 if m == "2026-01" else 29):
+                d = f"{day:02d}{mon[m]}"
+                common = [d, "1", "10", "ICE", "SNCB/NMBS", "=", "="]
+                w.writerow(common + ["825", "HERGENRATH", "37", d, "", d, "", d, "16:28:00", "16:28:00", d, str(day * 60), str(day * 60), "ICE: FRANKFURT(MAIN) HBF -> BRUSSEL-ZUID", "37"])
+                # Liège: arrival delay = day * 59 s (floor -> day - 1 min for day >= 1), 15+ from day 16 on
+                w.writerow(common + ["726", "LIEGE-GUILLEMINS", "36", d, "", d, "", d, "16:50:00", "16:53:00", d, str(day * 59), str(day * 59), "", "36"])
+                w.writerow(common + ["1", "BRUSSEL-ZUID", "", d, "", "", "", d, "17:45:00", "", "", "-30", "", "", ""])
+                # an IC with a number DB also uses: not an ICE in Belgium, never counted
+                w.writerow([d, "1", "121", "IC 01", "SNCB/NMBS", "=", "=", "1", "BRUSSEL-ZUID", "", d, "", "", "", d, "09:00:00", "", "", "600", "", "", ""])
     stats = {"window": {"firstMonth": months[0], "lastMonth": months[-1], "monthCount": 2, "months": months},
              "params": {"clampMinMinutes": -10, "clampMaxMinutes": 600, "lateMinutes": 15}}
     (tmp / "stats.json").write_text(json.dumps(stats))
-    (tmp / "stops.json").write_text(json.dumps({"trains": [["ICE", "121", []], ["IC", "3000", []]]}))
+    (tmp / "stops.json").write_text(json.dumps({"trains": [["ICE", "121", []], ["IC", "3000", []], ["ICE", "10", []]]}))
     out = tmp / "abroad-history.json"
     py = sys.executable
     r = subprocess.run([py, str(ROOT / "scripts/abroad_history.py"), "--stats", str(tmp / "stats.json"), "--stops", str(tmp / "stops.json"),
@@ -107,6 +126,13 @@ def main():
     arr = [d % 6 for d in range(1, 26) if d not in (3, 5, 7)] * 2
     ok(ah == ["NL", 50, 44, 0.0, round(sum(arr) / 44, 1), 0, None, None, 4.0], f"Arnhem {ah}")
     ok(doc["sources"]["NL"]["months"] == months and doc["window"]["months"] == months, "window = site window")
+    be = doc["trains"].get("ICE 10", {})
+    ok(set(be) == {"Liège-Guillemins", "Bruxelles Midi"}, f"BE stops only (no passing point): {sorted(be)}")
+    lg = [d * 59 // 60 for d in range(1, 31)] + [d * 59 // 60 for d in range(1, 29)]
+    ok(be.get("Liège-Guillemins") == ["BE", 58, 58, round(100 * sum(x >= 15 for x in lg) / 58, 1), round(sum(lg) / 58, 1), 0, None, None, None],
+       f"Liège {be.get('Liège-Guillemins')}")
+    ok(be.get("Bruxelles Midi") == ["BE", 58, 58, 0.0, 0.0, 0, None, None, None], f"Bruxelles Midi (30 s early -> 0 min) {be.get('Bruxelles Midi')}")
+    ok("BE" in doc["sources"] and doc["sources"]["BE"]["licence"] == "CC0", "Infrabel credited")
     r = subprocess.run([py, str(ROOT / "tests/data/verify_abroad_history.py"), "--cache", str(cache), "--json", str(out), "--stats", str(tmp / "stats.json"), "--stops", str(tmp / "stops.json")],
                        capture_output=True, text=True)
     ok(r.returncode == 0 and "0 differences" in r.stdout, "verifier agrees: " + r.stdout[-500:])

@@ -18,6 +18,9 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
    latest month on the search card; deterministic next-run test (Nov 2026, PR #5): `docs/notes/monthly-log.md`.
 12. A run's last stop by planned time, not stop number, in the history, the 7-day block and every check; recompute
    mode for the monthly job (Nov 2026, PR #6): `docs/notes/monthly-log.md`.
+13. Cross-border trains: stops abroad in search both ways, live and history at the stops a visitor picks, history
+   abroad from the Netherlands (Rijden de Treinen) and Belgium (Infrabel) (Nov 2026, PR #8):
+   `docs/notes/live-and-international.md`.
 
 ## Next (owner picks the order)
 1. **Monthly report card.** A shareable monthly summary ("October: long-distance trains averaged 17 min late, worst
@@ -51,6 +54,14 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 - "Save to home" in words on train and route pages too (the card has it).
 - One rounding for a train's average (big figure whole minutes, lists one decimal today).
 - German placeholder with a route example once the box is wider, or a shorter wording that fits 320 px.
+
+## Cross-border follow-ups (Nov 2026)
+- History abroad for Switzerland from opentransportdata.swiss Ist-Daten (monthly archive ~1.3 GB, ~14 GB per window:
+  stream each zip in Actions and keep only the cross-border numbers; terms: cite opentransportdata.swiss). Austria:
+  find the download links of ÖBB's weekly train-run CSVs on data.oebb.at (licence to check).
+- A German stop where the train starts (München for RJ to Wien, Frankfurt for ICE to Amsterdam) has no history figure:
+  add departure figures for starting stops to `scripts/stops.py` (pipeline change, verifier and gate too).
+- Stops abroad of trains not running in the two days after the weekly run are missing until a later run sees them.
 
 ## Smaller ideas and open decisions
 - Delete or redirect `/more/` (unlinked).

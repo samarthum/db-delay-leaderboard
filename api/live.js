@@ -347,10 +347,12 @@ async function trainNow(name) {
 // Timetables API; any other stop from the train's whole trip in Transitous, found at the train's German anchor stop
 // (two calls, shared by every stop of the trip, cached 45 s). The run: the one whose departure at `on` is between 3 h
 // ahead and 90 min after its planned arrival at `off`, today's, yesterday's or tomorrow's.
-const { fold, canonical, tripStops } = require("../lib/tripStops.cjs");
+const { fold, stationKey, canonical, tripStops } = require("../lib/tripStops.cjs");
 const STOPS = require("../data/stops.json");
 const FOREIGN = (() => {
   try {
+    // FOREIGN_STOPS_FILE: tests only (tests/unit/live-trip.mjs); the deployed function reads the committed file.
+    if (process.env.FOREIGN_STOPS_FILE) return JSON.parse(require("fs").readFileSync(process.env.FOREIGN_STOPS_FILE, "utf8"));
     return require("../data/foreign-stops.json");
   } catch {
     return { stations: {}, trains: {} };
@@ -439,7 +441,7 @@ async function dbEnd(st, train, kind, plannedMin) {
 /** One end from the Transitous trip. */
 function tripEnd(places, name, kind) {
   if (!places) return null;
-  const p = places.find((x) => fold(x.name) === fold(name));
+  const p = places.find((x) => stationKey(x.name) === stationKey(name));
   if (!p) return null;
   const sched = kind === "dp" ? p.sd : p.sa;
   if (!sched) return null;
@@ -452,8 +454,8 @@ function tripEnd(places, name, kind) {
 async function tripNow(train, onName, offName) {
   const stops = tripStops(STOPS, FOREIGN, train);
   if (!stops) return { error: "unknown" };
-  const a = stops.findIndex((s) => fold(s.name) === fold(onName) && s.dep !== null);
-  const b = stops.findIndex((s, i) => i > a && fold(s.name) === fold(offName) && s.arr !== null);
+  const a = stops.findIndex((s) => stationKey(s.name) === stationKey(onName) && s.dep !== null);
+  const b = stops.findIndex((s, i) => i > a && stationKey(s.name) === stationKey(offName) && s.arr !== null);
   if (a < 0 || b < 0) return { error: "stops" };
   const A = stops[a];
   const B = stops[b];

@@ -99,6 +99,10 @@ redeploy. The variable is inlined at build time, so a redeploy is required.
   `config/eva_to_station_name.json`, MIT).
 - Live status: Deutsche Bahn AG, Timetables API, CC BY 4.0. Abroad: [Transitous](https://transitous.org/sources/)
   (open data of each country's railways, OpenStreetMap ODbL), used under its non-commercial, open-source usage policy.
+- Stops abroad of cross-border trains: [Transitous](https://transitous.org/sources/) timetables (same policy).
+- History at stops abroad: Netherlands [Rijden de Treinen](https://www.rijdendetreinen.nl/en/open-data) train
+  archive, CC BY 4.0; Belgium [Infrabel](https://opendata.infrabel.be/explore/dataset/stiptheid-gegevens-maandelijksebestanden/)
+  monthly raw punctuality files, CC0.
 - Station coordinates: [Trainline stations](https://github.com/trainline-eu/stations) (ODbL).
 - Map outline: [Natural Earth](https://www.naturalearthdata.com) (public domain), simplified by `scripts/germany_outline.py`.
 - Fonts: Barlow, Barlow Condensed and Roboto Mono (SIL OFL, licences in `scripts/fonts/`).
@@ -108,4 +112,5 @@ Not affiliated with Deutsche Bahn.
 ## Licence
 
 Code: MIT (see `LICENSE`). The data files in `data/` are derived from the sources under Attribution and keep
-their licences: train data CC BY 4.0 / ODbL, DB Timetables API CC BY 4.0, Transitous (see https://transitous.org/sources/).
+their licences: train data CC BY 4.0 / ODbL, DB Timetables API CC BY 4.0, Transitous (see https://transitous.org/sources/),
+`data/abroad-history.json` CC BY 4.0 (Rijden de Treinen) and CC0 (Infrabel).
