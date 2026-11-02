@@ -1235,6 +1235,12 @@ ul.plain li {
   font-size: 13px;
   color: var(--muted);
 }
+/* Trip block (components/TripEnds.tsx): the usual delay at that stop, under its live status. */
+.ln-hist {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
 .livenow[data-state="cancelled"] .ln-status {
   color: var(--late);
 }

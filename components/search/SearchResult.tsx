@@ -12,6 +12,7 @@ import { Arrow } from "../Arrow";
 import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { Figure } from "../Figure";
 import { LiveNow } from "../LiveNow";
+import { TripOrLive } from "../TripEnds";
 import { SaveButton } from "../SaveButton";
 import { OwnStops } from "../OwnStops";
 import { LastWeek } from "../LastWeek";
@@ -180,7 +181,13 @@ export function SearchResult({
         <p className={styles.lineNote}>{t("res.fromBorder", { origin: shortStation(foreignOrigin(name)!.origin), border: shortStation(foreignOrigin(name)!.border) })}</p>
       ) : null}
       {abroadEnd ? <p className={styles.fineNote}>{t("res.toBorder", { dest: shortStation(unit.dest) })}</p> : null}
-      {unit.kind === 0 ? <LiveNow train={name} lang={lang} quiet dest={abroadEnd ? shortStation(unit.dest) : undefined} origin={foreignOrigin(name) ? undefined : shortStation(unit.origin)} /> : null}
+      {unit.kind === 0 ? (
+        <TripOrLive
+          train={name}
+          lang={lang}
+          fallback={<LiveNow train={name} lang={lang} quiet dest={abroadEnd ? shortStation(unit.dest) : undefined} origin={foreignOrigin(name) ? undefined : shortStation(unit.origin)} />}
+        />
+      ) : null}
       {unit.kind === 0 ? <OwnStops train={name} lang={lang} /> : null}
       {unit.kind === 0 ? <LastWeek train={name} lang={lang} /> : null}
 

@@ -17,6 +17,8 @@ import { makeT, type Key } from "@/lib/t";
 import { VoiceSession, prefetchToken, voiceConfigured, voiceSupported } from "@/lib/voice";
 import { interpretSpoken } from "@/lib/spoken";
 import { unitHref } from "@/lib/site";
+import { tripFromUrl, tripQuery, type TripParams } from "@/lib/trip";
+import { countryName } from "../TripEnds";
 import { Arrow } from "../Arrow";
 import { SearchResult, kindLabel, routeText } from "./SearchResult";
 import { VoicePanel, type VoiceView } from "./VoicePanel";
@@ -54,6 +56,8 @@ interface Applied {
   s: string | null;
   /** True when q is a route ("Köln to Berlin"): the page lists trains between the two places. */
   r: boolean;
+  /** A train picked from a route list: the stops of that trip (lib/trip.ts), so its card shows both of them. */
+  trip?: TripParams | null;
 }
 
 /** A route suggestion in the dropdown. */
@@ -83,7 +87,7 @@ type Item = Suggestion | AtItem | RouteItem | DestItem;
 
 function readUrl(): Applied {
   const p = new URLSearchParams(window.location.search);
-  return { q: (p.get("q") ?? "").trim(), u: p.get("u"), s: p.get("s"), r: p.get("r") === "1" };
+  return { q: (p.get("q") ?? "").trim(), u: p.get("u"), s: p.get("s"), r: p.get("r") === "1", trip: tripFromUrl(window.location.search) };
 }
 
 function urlFor(a: Applied, path?: string): string {
@@ -92,6 +96,10 @@ function urlFor(a: Applied, path?: string): string {
   if (a.q && a.u) p.set("u", a.u);
   if (a.s) p.set("s", a.s);
   if (a.q && a.r) p.set("r", "1");
+  if (a.q && a.trip && !a.r) {
+    p.set("on", a.trip.on);
+    p.set("off", a.trip.off);
+  }
   const s = p.toString();
   return path ? `${path}${s ? `?${s}` : ""}` : `${window.location.pathname}${s ? `?${s}` : ""}${window.location.hash}`;
 }
@@ -419,14 +427,14 @@ export function Search({
     }
   }
 
-  function ask(q: string, u: string | null = null, asRoute = false) {
+  function ask(q: string, u: string | null = null, asRoute = false, trip: TripParams | null = null) {
     window.clearTimeout(timer.current);
     setText(q);
     setOpen(false);
     if (asRoute) return openRoute(q);
     const st = ta ? findStation(ta, q) : null;
     if (st && !/\d/.test(q) && u === null) commit({ q: st.name, u: null, s: st.name, r: false }, "push");
-    else commit({ q, u, s: null, r: false }, "push");
+    else commit({ q, u, s: null, r: false, trip }, "push");
   }
   askRef.current = ask;
 
@@ -523,7 +531,7 @@ export function Search({
   // A train or line that resolves to one page opens that page, like a route does: the visitor lands on the destination, not on a copy of it.
   const shown = ready && ready.matches.length > 0 ? (ready.matches.length === 1 ? ready.matches[0] : pickByKey(ready.matches, applied.u)) : null;
   // A corrected type ("ICEE 1541" -> ICE) stays here with its note: a silent jump would hide that the visitor typed something else.
-  const pageHref = shown?.slug && !ready?.typeNote ? unitHref({ category: shown.kind === 0 ? "longDistance" : "regional", slug: shown.slug }, lang) : null;
+  const pageHref = shown?.slug && !ready?.typeNote ? unitHref({ category: shown.kind === 0 ? "longDistance" : "regional", slug: shown.slug }, lang) + tripQuery(applied.trip) : null;
   useEffect(() => {
     if (pageHref) softGo(router, pageHref, "replace");
   }, [pageHref, router]);
@@ -704,7 +712,7 @@ function RouteView({
   idx: StopsIndex;
   q: string;
   lang: Lang;
-  ask: (q: string, u?: string | null, asRoute?: boolean) => void;
+  ask: (q: string, u?: string | null, asRoute?: boolean, trip?: TripParams | null) => void;
 }) {
   const t = makeT(lang);
   const diag = useMemo(() => diagnoseRoute(idx, q), [idx, q]);
@@ -783,7 +791,13 @@ function RouteView({
         <>
           <div className={styles.rows}>
             {shown.map((h) => (
-              <RouteRow key={`${h.type}${h.num}`} hit={h} lang={lang} top={to} onPick={() => ask(`${h.type} ${h.num}`)} />
+              <RouteRow
+                key={`${h.type}${h.num}`}
+                hit={h}
+                lang={lang}
+                top={to}
+                onPick={() => ask(`${h.type} ${h.num}`, null, false, h.fromAbroad || h.abroad ? null : { on: h.fromName, off: h.toName })}
+              />
             ))}
           </div>
           {hits.length > 8 && !all ? (
@@ -792,6 +806,9 @@ function RouteView({
             </button>
           ) : null}
           <p className={styles.fine}>{t(abroad ? "rt.border" : query.fromForeign?.length ? "rt.fromBorder" : "rt.measuredAt")}</p>
+          {hits.some((h) => h.fromCc || h.toCc) ? (
+            <p className={styles.fine}>{t("rt.abroadTimes", { sources: (idx.raw.sources ?? []).map((cc) => t(cc === "NL" ? "trip.srcNL" : cc === "BE" ? "trip.srcBE" : "cc.other")).join("; ") || "–" })}</p>
+          ) : null}
           <p className={styles.fine}>{t("rt.times")}</p>
         </>
       )}
@@ -812,7 +829,11 @@ function RouteRow({ hit, lang, top, onPick }: { hit: RouteHit; lang: Lang; top: 
           {hit.fromAbroad ? `${shortStation(hit.fromName)} ` : ""}{clock(hit.dep)} → {hit.arr === null ? "" : clock(hit.arr)}
           {place}
         </span>
-        {hit.late === null ? (
+        {hit.noHistory ? (
+          <span className={styles.optStat} style={{ color: "var(--muted)" }} aria-label={t("rt.noHistAria", { country: countryName(hit.toCc ?? "", t), to: hit.toName })}>
+            {t("rt.noHist")}
+          </span>
+        ) : hit.late === null ? (
           <span className={styles.optStat} style={{ color: "var(--muted)" }}>
             {t("rt.few")}
           </span>

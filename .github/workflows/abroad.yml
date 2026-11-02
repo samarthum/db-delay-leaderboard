@@ -26,7 +26,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: abroad-${{ github.event_name }}
+  # Scheduled runs one at a time; each pull request push runs on its own (the trial commits rebase onto each other).
+  group: abroad-${{ github.event_name == 'pull_request' && github.run_id || 'main' }}
   cancel-in-progress: false
 
 jobs:

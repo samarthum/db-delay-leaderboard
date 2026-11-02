@@ -46,6 +46,20 @@ export const TRAIN = {
   disabled: () => ({ ok: false, error: 'disabled' }),
 };
 
+/** ?train=&on=&off= (the stops a visitor picked, api/live.js tripNow()). `on`/`off` live ends, src db or transitous. */
+const end = (o) => ({ pt: stamp(30), late: 0, live: true, canc: false, plat: null, platChanged: false, src: 'transitous', ...o });
+export const TRIP = {
+  // Leaves abroad in 30 min, 4 late (Transitous); arrives in Germany 12 late (DB, platform 9).
+  late: (train) => ({ ok: true, train, run: { asOf: stamp(0), pd: stamp(30), pa: stamp(170), abroad: true, on: end({ pt: stamp(30), late: 4 }), off: end({ pt: stamp(170), late: 12, src: 'db', plat: '9' }) }, plan: {} }),
+  // No delay reported at either end.
+  onTime: (train) => ({ ok: true, train, run: { asOf: stamp(0), pd: stamp(20), pa: stamp(150), abroad: true, on: end({ pt: stamp(20) }), off: end({ pt: stamp(150), src: 'db' }) }, plan: {} }),
+  // The stop abroad has no live data (feed without real time); the German end is cancelled.
+  mixed: (train) => ({ ok: true, train, run: { asOf: stamp(0), pd: stamp(20), pa: stamp(150), abroad: true, on: end({ pt: stamp(20), live: false, late: null }), off: end({ pt: stamp(150), src: 'db', canc: true, late: null }) }, plan: {} }),
+  // Not running in the live window.
+  none: (train) => ({ ok: true, train, run: null, plan: {} }),
+  disabled: () => ({ ok: false, error: 'disabled' }),
+};
+
 /** ?from=&to= route board. */
 export function board(from = 'Köln Hbf', to = 'Berlin Hbf') {
   return {
@@ -63,14 +77,15 @@ export function board(from = 'Köln Hbf', to = 'Berlin Hbf') {
  * { 'ICE 1541': 'late', ... } with '*' as the fallback. Route boards always get board(). `now` (ms): build the stamps
  * from this instant instead of the real clock (pair it with the page's clock.setFixedTime(now)).
  */
-export async function mockLive(target, scenario = 'late', { now = null } = {}) {
+export async function mockLive(target, scenario = 'late', { now = null, trip = 'late' } = {}) {
   await target.route('**/api/live/**', (r) => {
     const u = new URL(r.request().url());
     const train = u.searchParams.get('train');
     let body;
     NOW = now;
     try {
-      if (train !== null) {
+      if (train !== null && u.searchParams.has('on')) body = TRIP[trip](train);
+      else if (train !== null) {
         const key = typeof scenario === 'string' ? scenario : (scenario[train] ?? scenario['*'] ?? 'unknown');
         body = TRAIN[key](train);
       } else if (u.searchParams.get('from')) body = board(u.searchParams.get('from'), u.searchParams.get('to'));

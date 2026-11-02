@@ -20,6 +20,7 @@ import { ShareButton } from "../ShareButton";
 import { Columns, StopLine } from "../charts";
 import { RememberPage, StickyTitle } from "../PageTools";
 import { LiveNow } from "../LiveNow";
+import { TripOrLive } from "../TripEnds";
 import { OwnStops } from "../OwnStops";
 import { LastWeek } from "../LastWeek";
 import { foreignOrigin, shownOrigin } from "@/lib/origins";
@@ -178,7 +179,13 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
               {tr("res.toBorder", { dest: shortStation(t.dest) })}
             </p>
           ) : null}
-          {!isLine && hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} dest={endsAbroad ? shortStation(t.dest) : undefined} origin={foreignOrigin(t.name) ? undefined : shortStation(t.origin)} /> : null}
+          {!isLine ? (
+            <TripOrLive
+              train={t.name}
+              lang={lang}
+              fallback={hasLiveTrain(t.name) ? <LiveNow train={t.name} lang={lang} dest={endsAbroad ? shortStation(t.dest) : undefined} origin={foreignOrigin(t.name) ? undefined : shortStation(t.origin)} /> : null}
+            />
+          ) : null}
           {!isLine ? <OwnStops train={t.name} lang={lang} /> : null}
           {!isLine ? <LastWeek train={t.name} lang={lang} /> : null}
 
