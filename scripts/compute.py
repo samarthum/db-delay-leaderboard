@@ -79,8 +79,9 @@ LINE_NAME = r"regexp_replace(line_number, '^([A-Z]+)\s*', '\1 ')"
 STOP_ORDER = ("(epoch(coalesce(coalesce(arrival_planned_time, departure_planned_time), timestamp '2999-01-01'))::bigint"
               " * 100000 + train_line_station_num)")
 # A station listed twice in a run at the same planned times (ICE 504: Berlin Hbf as stop 10 and 100) is one stop: keep
-# the row with the lowest stop number. Applied to the raw rows before anything is counted or ordered.
-ONE_ROW_PER_STOP = (f"qualify row_number() over (partition by {RUN_KEY}, eva, arrival_planned_time, departure_planned_time"
+# the row with the lowest stop number. By station NAME, as everywhere else in the pipeline: the copy often carries the
+# other id of the same station (Berlin Hbf tief / oben). Applied to the raw rows before anything is counted or ordered.
+ONE_ROW_PER_STOP = (f"qualify row_number() over (partition by {RUN_KEY}, station_name, arrival_planned_time, departure_planned_time"
                     " order by train_line_station_num) = 1")
 
 

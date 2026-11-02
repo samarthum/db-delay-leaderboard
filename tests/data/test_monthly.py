@@ -63,9 +63,9 @@ def ride_delays(pq_dir, months, units):
             continue
         low = {}
         for r in rs:
-            k = (r["eva"], r["arrival_planned_time"], r["departure_planned_time"])
+            k = (r["station_name"], r["arrival_planned_time"], r["departure_planned_time"])
             low[k] = min(low.get(k, 10 ** 9), r["train_line_station_num"])
-        kept = [r for r in rs if low[(r["eva"], r["arrival_planned_time"], r["departure_planned_time"])] == r["train_line_station_num"]]
+        kept = [r for r in rs if low[(r["station_name"], r["arrival_planned_time"], r["departure_planned_time"])] == r["train_line_station_num"]]
 
         def measurable(r):
             return not (r["arrival_is_canceled"] or r["departure_is_canceled"]) and r["arrival_planned_time"] and r["arrival_change_time"]

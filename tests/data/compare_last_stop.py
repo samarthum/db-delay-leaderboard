@@ -54,7 +54,7 @@ def run_level(a, stats):
     src = "[" + ", ".join(f"'{Path(a.parquet) / f'data-{m}.parquet'}'" for m in months) + "]"
     con = duckdb.connect()
     con.execute(f"set memory_limit = '{a.memory_limit}'; set preserve_insertion_order = false")
-    # Every stop row with `low`: the lowest stop number of its (ride, station, planned times) group. The old rule reads all
+    # Every stop row with `low`: the lowest stop number of its (ride, station name, planned times) group. The old rule reads all
     # rows by stop number; the new rule reads rows with seq = low by (planned time, stop number).
     con.execute(f"""
     create table runs as
@@ -63,7 +63,7 @@ def run_level(a, stats):
       arg_max({{'d': ad, 'seq': seq, 'name': name}}, seq) filter (where m) op,
       arg_max({{'d': ad, 'seq': seq, 'name': name}}, epoch(ap)::bigint * 100000 + seq) filter (where m and seq = low) np
     from (
-      select *, min(seq) over (partition by ride, eva, ap, dp) low,
+      select *, min(seq) over (partition by ride, name, ap, dp) low,
         not canc and ap is not null and ad is not null m
       from (
         select {PREFIX} ride, case when train_type in {ld} then 'longDistance' else 'regional' end cat,
@@ -146,7 +146,7 @@ def run_level(a, stats):
         for row in con.execute(f"""
                 select {PREFIX} ride, train_line_station_num, station_name, arrival_planned_time, departure_planned_time,
                   arrival_change_time, arrival_is_canceled or departure_is_canceled,
-                  min(train_line_station_num) over (partition by {PREFIX}, eva, arrival_planned_time, departure_planned_time)
+                  min(train_line_station_num) over (partition by {PREFIX}, station_name, arrival_planned_time, departure_planned_time)
                 from read_parquet({src}) where {PREFIX} in ({ids})
                 order by coalesce(arrival_planned_time, departure_planned_time), train_line_station_num""").fetchall():
             raw.setdefault(row[0], []).append(row[1:])

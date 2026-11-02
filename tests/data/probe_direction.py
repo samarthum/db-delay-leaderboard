@@ -54,11 +54,11 @@ def main():
     g = con.execute("""
     select count(*), count(*) filter (where nc > 1), count(*) filter (where nac > 1 or ndc > 1), sum(n - 1),
       count(*) filter (where hi >= 100)
-    from (select ride, eva, ap, dp, count(*) n, count(distinct canc) nc, count(distinct ac) nac, count(distinct dc) ndc,
+    from (select ride, name, ap, dp, count(*) n, count(distinct canc) nc, count(distinct ac) nac, count(distinct dc) ndc,
             max(seq) hi
           from s group by 1, 2, 3, 4 having count(*) > 1)""").fetchone()
     print(f"rows without any planned time: {notime:,}")
-    print(f"stations listed twice at the same planned times: {g[0]:,} groups in {g[3] or 0:,} extra rows "
+    print(f"stations (by name) listed twice at the same planned times: {g[0]:,} groups in {g[3] or 0:,} extra rows "
           f"({g[4]:,} with a copy numbered 100+); copies disagree on cancelled: {g[1]:,}, on the changed time: {g[2]:,}")
     for pa, pb in PAIRS:
         na = con.execute("select name from s where name like ? group by name order by count(*) desc limit 1", [pa]).fetchone()

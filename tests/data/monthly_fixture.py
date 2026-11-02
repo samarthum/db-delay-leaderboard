@@ -19,8 +19,8 @@ What it holds, so every scope rule of the pipeline is exercised:
   (Hamburg -> Berlin) is diverted on Mondays via Uelzen (stop 100) and Stendal Hbf (stop 101), both planned BEFORE Berlin
   Hbf (stop 3); ICE 702 (Berlin -> Hamburg) lists Hannover Hbf twice on Tuesdays (stop 2 and stop 100, same planned
   times, the copy 7 minutes later); ICE 705 lists its last stop Berlin Hbf twice on Thursdays (stop 3 and stop 100, same
-  planned times, the copy 20 minutes later). "Last stop by stop number" measures these runs at Stendal, Hannover and the
-  copy; the rule (planned time, then stop number; a station listed twice at the same planned times is one stop, the
+  planned times, the copy 20 minutes later and under Berlin Hbf's other station id). "Last stop by stop number" measures
+  these runs at Stendal, Hannover and the copy; the rule (planned time, then stop number; a station listed twice at the same planned times is one stop, the
   lowest number) measures them at Berlin, Hamburg and Berlin's stop 3.
 - Cancelled stops, whole cancelled runs, delays outside -10..600 (not measured), a replacement train (excluded), a train
   ending abroad (Amsterdam Centraal label), runs starting late on the last day of a month (belong to that month).
@@ -42,6 +42,7 @@ CORRIDOR_B = ["Hamburg Hbf", "Hannover Hbf", "Berlin Hauptbahnhof"]
 HOPS_B = [80, 100]
 CORRIDOR_C = ["Hannover Hbf", "Köln Hbf"]  # crosses B at Hannover and A at Köln: trains that part ways (change trains)
 HOPS_C = [160]
+BERLIN_TIEF = 8098160  # ICE 705's copy of Berlin Hbf carries the other station id (tief / oben), same name
 DETOUR = ["Uelzen", "Stendal Hbf"]  # ICE 703's Monday diversion stops (rows numbered 100, 101)
 EVA = {name: 8000100 + i for i, name in enumerate(dict.fromkeys(CORRIDOR_A + CORRIDOR_B + CORRIDOR_C + DETOUR))}
 REGIONAL_STATIONS = [f"Halt {i:04d}" for i in range(1100)]
@@ -70,7 +71,8 @@ def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_
     """Append the stop rows of one ride starting at `start` (datetime).
 
     extra: [(station, minutes after start, stop number)] rows appended after the planned list (a diversion), 3 min late.
-    dup: (index, stop number, minutes later) lists the stop at `index` again under another stop number, same planned times.
+    dup: (index, stop number, minutes later, station id or None) lists the stop at `index` again under another stop number,
+    same planned times (and name; ICE 705's copy has Berlin Hbf's other station id).
     """
     times, t = [], start
     for i in range(len(names)):
@@ -107,10 +109,10 @@ def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_
                      "arrival_is_canceled": cancel_all, "departure_planned_time": t + timedelta(minutes=2),
                      "departure_change_time": t + timedelta(minutes=5), "departure_is_canceled": cancel_all})
     if dup is not None:
-        i, seq, later = dup
+        i, seq, later, eva = dup
         r = rows[first + i]
         shift = lambda x: x + timedelta(minutes=later) if x else None
-        rows.append({**r, "id": f"{trip}-{stamp}-{seq}", "train_line_station_num": seq,
+        rows.append({**r, "id": f"{trip}-{stamp}-{seq}", "train_line_station_num": seq, "eva": str(eva or r["eva"]),
                      "arrival_change_time": shift(r["arrival_change_time"]), "departure_change_time": shift(r["departure_change_time"])})
 
 
@@ -142,7 +144,7 @@ def month_rows(month, rng):
                 trip += 1
                 wd = day.weekday()
                 extra = [("Uelzen", 40, 100), ("Stendal Hbf", 140, 101)] if num == "703" and wd == 0 else ()
-                dup = (1, 100, 7) if num == "702" and wd == 1 else (2, 100, 20) if num == "705" and wd == 3 else None
+                dup = (1, 100, 7, None) if num == "702" and wd == 1 else (2, 100, 20, BERLIN_TIEF) if num == "705" and wd == 3 else None
                 ride(rows, rng, trip, tt, num, None, CORRIDOR_B if east else CORRIDOR_B[::-1],
                      HOPS_B if east else HOPS_B[::-1], dep, cancel_all=rng.random() < 0.02, extra=extra, dup=dup)
         # Corridor C, both ways, 30 trains each way (ICE 900-959).

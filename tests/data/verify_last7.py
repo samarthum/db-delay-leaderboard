@@ -216,12 +216,12 @@ def main():
     mine = {}
     for ride, ss in by_ride.items():
         ss = [s for s in ss if not s["repl"]]
-        # A station listed twice at the same planned times is one stop: keep its lowest stop number.
+        # A station (by name) listed twice at the same planned times is one stop: keep its lowest stop number.
         lowest = {}
         for x in ss:
-            k = (x["eva"], x["pa"], x["pd"])
+            k = (x["name"], x["pa"], x["pd"])
             lowest[k] = min(lowest.get(k, x["seq"]), x["seq"])
-        ss = [x for x in ss if lowest[(x["eva"], x["pa"], x["pd"])] == x["seq"]]
+        ss = [x for x in ss if lowest[(x["name"], x["pa"], x["pd"])] == x["seq"]]
         if not ss:
             continue
         timed = [s for s in ss if (s["cd"] or s["ca"]) is not None]

@@ -120,16 +120,16 @@ def main():
 
     # ------------------------------------------------------------ long-distance stop rows and rides
     # One row per stop: a station listed twice in a ride at the same planned times (ICE 504: Berlin Hbf as stop 10 and
-    # 100) keeps its lowest stop number. (ride, stop number) is unique in the files (the id is ride-number).
+    # 100, often under Berlin Hbf's other station id) keeps its lowest stop number, by station name. (ride, stop number) is unique in the files (the id is ride-number).
     con.execute(f"""
     create table ld as
-    select * exclude (eva_raw) from (
-      select {PREFIX} ride, train_type tt, train_number num, train_line_station_num seq, eva eva_raw,
+    select * from (
+      select {PREFIX} ride, train_type tt, train_number num, train_line_station_num seq,
         try_cast(eva as integer) eva, station_name name, arrival_is_canceled ca, departure_is_canceled cd,
         final_destination_station dest, arrival_planned_time ap, departure_planned_time dp, arrival_change_time ac,
         departure_change_time dc, date_diff('minute', arrival_planned_time, arrival_change_time) ad
       from read_parquet({src}) where not is_replacement_train and train_type in {ld})
-    qualify seq = min(seq) over (partition by ride, eva_raw, ap, dp)""")
+    qualify seq = min(seq) over (partition by ride, name, ap, dp)""")
     dups = con.execute("select count(*) from (select ride, seq from ld group by 1, 2 having count(*) > 1)").fetchone()[0]
     if dups:
         rep.fail("stop rows", f"{dups} (ride, stop number) pairs used twice: the duplicate-stop rule assumes none")
@@ -154,15 +154,15 @@ def main():
     # Same stop rules; the first station is the earliest by a text key "planned time + stop number" (no time sorts last).
     con.execute(f"""
     create table rg_rows as
-    select * exclude (eva_raw) from (
+    select * from (
       select {PREFIX} ride, regexp_replace(line_number, '^([A-Z]+)\\s*', '\\1 ') line, train_number num,
-        train_line_station_num seq, eva eva_raw, try_cast(eva as integer) eva,
+        train_line_station_num seq, station_name sname, try_cast(eva as integer) eva,
         arrival_is_canceled or departure_is_canceled canc, arrival_planned_time ap, departure_planned_time dp,
         date_diff('minute', arrival_planned_time, arrival_change_time) ad
       from read_parquet({src})
       where not is_replacement_train and train_type not in {ld} and train_type <> 'Bus'
         and regexp_extract(coalesce(line_number, ''), '^([A-Z]+)[0-9]', 1) in {prefixes})
-    qualify seq = min(seq) over (partition by ride, eva_raw, ap, dp)""")
+    qualify seq = min(seq) over (partition by ride, sname, ap, dp)""")
     con.execute(f"""
     create table rg_ride as
     with meas as (select * from rg_rows where not canc and ap is not null and ad is not null),

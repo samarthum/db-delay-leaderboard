@@ -42,10 +42,10 @@ for a, st in cases:
                runs as (select r, min(coalesce(departure_planned_time, arrival_planned_time)) st0 from raw group by r
                         having strftime(min(coalesce(departure_planned_time, arrival_planned_time)), '%Y-%m') in (select unnest({months}))),
                two as (select raw.* from raw join runs using (r) where (train_type=? and train_number=?) or (train_type=? and train_number=?)),
-               -- a station listed twice at the same planned times is one stop (the lowest stop number)
-               one as (select two.* from two join (select r, eva, arrival_planned_time, departure_planned_time, min(train_line_station_num) n
+               -- a station (by name) listed twice at the same planned times is one stop (the lowest stop number)
+               one as (select two.* from two join (select r, station_name, arrival_planned_time, departure_planned_time, min(train_line_station_num) n
                                                    from two group by all) k
-                       on k.r = two.r and k.n = two.train_line_station_num and k.eva is not distinct from two.eva
+                       on k.r = two.r and k.n = two.train_line_station_num and k.station_name is not distinct from two.station_name
                        and k.arrival_planned_time is not distinct from two.arrival_planned_time
                        and k.departure_planned_time is not distinct from two.departure_planned_time),
                -- neighbours in order of planned time, then stop number (rows numbered 100+ sit mid-route)

@@ -56,13 +56,13 @@ def monthly_rides(path, lo, hi, old_rule=False):
     rows = con.execute(f"""
     with s0 as (
       select regexp_extract(id, '^(.*-\\d{{10}})-\\d+$', 1) ride, train_line_station_num seq,
-        train_type tt, train_number num, eva,
+        train_type tt, train_number num, eva, station_name name,
         arrival_planned_time ap, arrival_change_time ac, departure_planned_time dp, departure_change_time dc,
         arrival_is_canceled xa, departure_is_canceled xd
       from read_parquet(?) where train_type in ({types}) and not is_replacement_train),
     -- a station listed twice at the same planned times is one stop: the lowest stop number (skipped for the old rule)
-    s as (select s0.* from s0 left join (select ride, eva, ap, dp, min(seq) low from s0 group by all) k
-          on k.ride = s0.ride and k.eva is not distinct from s0.eva and k.ap is not distinct from s0.ap
+    s as (select s0.* from s0 left join (select ride, name, ap, dp, min(seq) low from s0 group by all) k
+          on k.ride = s0.ride and k.name is not distinct from s0.name and k.ap is not distinct from s0.ap
           and k.dp is not distinct from s0.dp
           where {"true" if old_rule else "s0.seq = k.low"}),
     starts as (select ride, any_value(tt) tt, any_value(num) num, min(coalesce(dp, ap)) t0 from s where ride <> ''

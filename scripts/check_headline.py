@@ -36,7 +36,7 @@ def main():
     con.execute("set memory_limit = '3GB'")
     got = {r[0]: r[1:] for r in con.execute(f"""
     with raw as (
-      select regexp_extract(id, '^(.*-\\d{{10}})-\\d+$', 1) trip, train_line_station_num pos, eva,
+      select regexp_extract(id, '^(.*-\\d{{10}})-\\d+$', 1) trip, train_line_station_num pos, station_name,
         case when train_type in ({long_types}) then 'longDistance'
              when train_type <> 'Bus' and regexp_matches(coalesce(line_number, ''), '^({prefixes})[0-9]') then 'regional'
         end kind,
@@ -45,13 +45,13 @@ def main():
         arrival_planned_time arr, date_diff('minute', arrival_planned_time, arrival_change_time) late
       from read_parquet({files!r})
       where not is_replacement_train),
-    -- one row per (trip, station, planned times): the whole row with the lowest stop number (a struct, as arg_min()
+    -- one row per (trip, station name, planned times): the whole row with the lowest stop number (a struct, as arg_min()
     -- skips NULL values and separate columns could come from different rows)
     stops as (
       select trip, pos, x.kind, x.dropped, planned, arr, x.late from (
         select trip, min(pos) pos, arg_min({{'kind': kind, 'dropped': dropped, 'late': late}}, pos) x,
           any_value(planned) planned, arr
-        from raw group by trip, eva, arr, dep)),
+        from raw group by trip, station_name, arr, dep)),
     trips as (
       select trip, any_value(kind) kind, min(planned) start, bool_and(dropped) cancelled from stops
       where kind is not null group by trip),

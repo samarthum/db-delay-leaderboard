@@ -366,7 +366,7 @@ def compute_runs(plan, fchg, days, missing):
       select *, coalesce(dep_change, arr_change) is not null has_time,
         epoch(coalesce(arr_plan, dep_plan, timestamp '2999-01-01'))::bigint * 100000 + seq ord
       from stops where {in_scope}
-      qualify row_number() over (partition by ride, eva, arr_plan, dep_plan order by seq) = 1)
+      qualify row_number() over (partition by ride, station, arr_plan, dep_plan order by seq) = 1)
     group by ride
     having start_plan >= ? and start_plan < ?
     """, [lo, hi])
