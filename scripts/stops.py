@@ -42,6 +42,9 @@ from pathlib import Path
 import duckdb
 
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
+# Stop order and duplicate stops: the same rule as compute.py (planned time, then stop number; a station listed twice at
+# the same planned times is one stop).
+from compute import ONE_ROW_PER_STOP, STOP_ORDER  # noqa: E402
 FILE_RE = re.compile(r"(?:^|/)data-(\d{4}-\d{2})\.parquet$")
 MIN_UNIT_RUNS = 3  # a train needs this many measured runs to appear in route search; below MIN_STOP_RUNS it has no percentage
 MIN_STOP_RUNS = 20  # measured arrivals a stop needs before its late share and average are shown
@@ -113,27 +116,28 @@ def main():
     con.execute(f"""
     create table s as
     select * from (
-      select {RUN_KEY} run, train_type tt, train_number num, train_line_station_num seq,
+      select {RUN_KEY} run, train_type tt, train_number num, {STOP_ORDER} ord,
         try_cast(eva as integer) eva, station_name name,
         arrival_is_canceled or departure_is_canceled canc, final_destination_station dest,
         arrival_planned_time arr_plan, departure_planned_time dep_plan,
         date_diff('minute', arrival_planned_time, arrival_change_time) d,
         min(coalesce(departure_planned_time, arrival_planned_time)) over (partition by {RUN_KEY}) start
       from read_parquet({sql_list(sources)})
-      where not is_replacement_train and train_type in ({ld}))
+      where not is_replacement_train and train_type in ({ld})
+      {ONE_ROW_PER_STOP})
     where eva is not null and strftime(start, '%Y-%m') in (select unnest({sql_list(window['months'])}))
     """)
     log(f"stops: {con.execute('select count(*) from s').fetchone()[0]} rows in {time.time() - t0:.1f}s")
 
     # Stations are merged by name: "Berlin Hauptbahnhof" has a tief and an oben station id.
 
-    # Units with enough measured runs, judged the way compute.py judges them: the delay at the last stop that
-    # was not cancelled and has a planned arrival.
+    # Units with enough measured runs, judged the way compute.py judges them: the delay at the last stop (by planned
+    # time) that was not cancelled and has a planned arrival.
     con.execute(f"""
     create table units as
     select tt, num from (
       select run, any_value(tt) tt, any_value(num) num,
-        arg_max(d, seq) filter (where not canc and arr_plan is not null and d is not null) fin
+        arg_max(d, ord) filter (where not canc and arr_plan is not null and d is not null) fin
       from s group by run)
     group by tt, num
     having count(*) filter (where fin between {lo} and {hi}) >= {MIN_UNIT_RUNS}
@@ -176,7 +180,7 @@ def main():
     labels = {}
     for tt, num, dest, last, n in con.execute("""
         select tt, num, dest, mode(last) last, count(*) n from (
-          select run, any_value(tt) tt, any_value(num) num, any_value(dest) dest, arg_max(name, seq) last
+          select run, any_value(tt) tt, any_value(num) num, any_value(dest) dest, arg_max(name, ord) last
           from s group by run) where dest is not null group by tt, num, dest""").fetchall():
         labels.setdefault((tt, num), []).append((n, dest, last))
     foreign_of = {}

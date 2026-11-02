@@ -37,6 +37,9 @@ from pathlib import Path
 import duckdb
 
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
+# Stop order and duplicate stops: the same rule as compute.py (planned time, then stop number; a station listed twice at
+# the same planned times is one stop).
+from compute import ONE_ROW_PER_STOP, STOP_ORDER  # noqa: E402
 MAJOR_RUNS = 2000  # a station needs this many runs in the window to be an end of a route page
 MIN_MINUTES = 35  # shorter than this is a hop (Berlin Südkreuz -> Hbf), not a city pair
 MIN_TRIPS = 4000  # measured arrivals at B
@@ -123,7 +126,8 @@ def main():
         date_diff('minute', arrival_planned_time, arrival_change_time) d,
         min(coalesce(departure_planned_time, arrival_planned_time)) over (partition by {RUN_KEY}) start
       from read_parquet({srcs})
-      where not is_replacement_train and train_type in ({ld}))
+      where not is_replacement_train and train_type in ({ld})
+      {ONE_ROW_PER_STOP})
     where strftime(start, '%Y-%m') in (select unnest({months}))
     """)
     log(f"stop rows: {con.execute('select count(*) from s').fetchone()[0]} in {time.time() - t0:.1f}s")

@@ -3,7 +3,9 @@
 
 Writes data/stats.json, data/monthly.json, data/stations.json, data/trains/<slug>.json and
 data/lines/<slug>.json (shapes in lib/types.ts). A run is one ride of one train; its delay is the
-arrival delay at the last non-cancelled stop with a planned arrival (as in the reference query year.py).
+arrival delay at its last stop (by planned time) that was not cancelled and has a planned arrival. Stops are ordered by
+planned time, then stop number, because rows numbered 100 and up are appended after the planned list (diversions,
+stations listed twice); a station listed twice at the same planned times is one stop (STOP_ORDER, ONE_ROW_PER_STOP).
 Long-distance trains are ranked per train number, regional trains per line ("RE 19").
 
   python scripts/compute.py                       # download the latest months from Hugging Face, then compute
@@ -69,6 +71,17 @@ BAND_BINS = [("under 6", None, 6), ("6-15", 6, 15), ("15-60", 15, 60), ("60+", 6
 
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
 LINE_NAME = r"regexp_replace(line_number, '^([A-Z]+)\s*', '\1 ')"
+# Stop order within a run (Nov 2026): planned time (arrival, else departure), then stop number; a row without any
+# planned time sorts last (the monthly files hold none). NOT the stop number alone: rows numbered 100 and up are appended
+# after the planned list, so "last stop by number" was a mid-route stop in ~4% of long-distance runs (ICE 953 diverted
+# via Magdeburg 100 / Stendal 101 before Berlin Hbf 8; ICE 504 listing Berlin Hbf as stop 10 and again as 100). A number,
+# so arg_min()/arg_max() can use it: seconds since 1970 times 100000 plus the stop number.
+STOP_ORDER = ("(epoch(coalesce(coalesce(arrival_planned_time, departure_planned_time), timestamp '2999-01-01'))::bigint"
+              " * 100000 + train_line_station_num)")
+# A station listed twice in a run at the same planned times (ICE 504: Berlin Hbf as stop 10 and 100) is one stop: keep
+# the row with the lowest stop number. Applied to the raw rows before anything is counted or ordered.
+ONE_ROW_PER_STOP = (f"qualify row_number() over (partition by {RUN_KEY}, eva, arrival_planned_time, departure_planned_time"
+                    " order by train_line_station_num) = 1")
 
 
 def log(msg):
@@ -218,22 +231,23 @@ def build_runs(con, sources, p):
     -- min(), not any_value(): a regional train can change its line or number on the way (RB 15 -> RB 1), and
     -- any_value() picked either at random, so lines differed by a few rides between two runs on the same data.
     select run, cat, min(tt) tt, min(num) num, min(line) line,
-      arg_min(station_name, seq) origin, arg_max(dest, seq) dest,
+      arg_min(station_name, ord) origin, arg_max(dest, ord) dest,
       min(coalesce(dep_plan, arr_plan)) start_plan, min(dep_plan) first_dep,
       bool_and(canc) all_canc, bool_or(canc) any_canc,
-      arg_max({{'delay': arr_delay, 'plan': arr_plan}}, seq)
+      arg_max({{'delay': arr_delay, 'plan': arr_plan}}, ord)
         filter (where not canc and arr_plan is not null and arr_delay is not null) fin,
-      list(eva order by seq) filter (where eva is not null) evas
+      list(eva order by ord) filter (where eva is not null) evas
     from (
       select {RUN_KEY} run,
         case when train_type in {sql_in(p['longDistanceTypes'])} then 'longDistance' else 'regional' end cat,
-        train_type tt, train_number num, {LINE_NAME} line, train_line_station_num seq,
+        train_type tt, train_number num, {LINE_NAME} line, {STOP_ORDER} ord,
         try_cast(eva as integer) eva, station_name, final_destination_station dest,
         arrival_is_canceled or departure_is_canceled canc,
         arrival_planned_time arr_plan, departure_planned_time dep_plan,
         date_diff('minute', arrival_planned_time, arrival_change_time) arr_delay
       from read_parquet({sql_list(sources)})
-      where {in_scope(p)})
+      where {in_scope(p)}
+      {ONE_ROW_PER_STOP})
     group by run, cat
     """)
     log(f"runs: {con.execute('select count(*) from runs').fetchone()[0]} in {time.time() - t0:.1f}s")
@@ -465,18 +479,20 @@ def summary(t, rank_min, rank_pct):
 
 
 def build_detail_stops(con, sources, p):
-    """Stop rows of the selected units' runs only (a second pass over the Parquet files)."""
+    """Stop rows of the selected units' runs only (a second pass over the Parquet files). `seq` is the stop order
+    (STOP_ORDER: planned time, then stop number), not the raw stop number."""
     t0 = time.time()
     con.execute(f"""
     create table stops as
     select * from (
-      select {RUN_KEY} run, train_line_station_num seq, try_cast(eva as integer) eva,
+      select {RUN_KEY} run, {STOP_ORDER} seq, try_cast(eva as integer) eva,
         arrival_is_canceled or departure_is_canceled canc, arrival_planned_time arr_plan,
         date_diff('minute', arrival_planned_time, arrival_change_time) arr_delay,
         date_diff('minute', departure_planned_time, departure_change_time) dep_delay
       from read_parquet({sql_list(sources)})
       where {in_scope(p)} and (train_type || ' ' || train_number in (select unit from sel)
-                               or {LINE_NAME} in (select line from sel where line is not null)))
+                               or {LINE_NAME} in (select line from sel where line is not null))
+      {ONE_ROW_PER_STOP})
     where run in (select run from r join sel using (unit))
     """)
     log(f"detail stops: {con.execute('select count(*) from stops').fetchone()[0]} rows in {time.time() - t0:.1f}s")

@@ -41,7 +41,9 @@ def main():
              "' \\((Westf|Breisgau|Saale|Oder)\\)', '', 'g'), '^Frankfurt Flughafen Fernbahnhof$', 'Frankfurt Flughafen')")
     rows = con.execute(rf"""
     with s as (
-      select train_type tt, train_number num, regexp_extract(id, '^(.*-\d{{10}})-\d+$', 1) run, train_line_station_num seq,
+      select train_type tt, train_number num, regexp_extract(id, '^(.*-\d{{10}})-\d+$', 1) run,
+             -- stop order: planned time, then stop number (rows numbered 100+ sit mid-route), as in compute.py
+             epoch(coalesce(arrival_planned_time, departure_planned_time))::bigint * 100000 + train_line_station_num seq,
              ls.eva, ls.site name, departure_planned_time dp, arrival_planned_time ap
       from read_parquet([{src}]) p join ls on ls.site = {SHORT}
       where train_type in ({types}) and not is_replacement_train),

@@ -1,6 +1,7 @@
 """Independent recompute of the late-bin split for a few (A, station, B) pairs from raw Parquet.
 Different query shape from scripts/connections.py: per-run self join on one station, Python binning.
-Same rules: A not cancelled, B planned 2..60 min after A, actual change = B actual dep - A actual arr, ok@2/@6 need B not cancelled,
+Same rules: stops in order of planned time, then stop number (a station listed twice at the same planned times is one
+stop); A not cancelled, B planned 2..60 min after A, actual change = B actual dep - A actual arr, ok@2/@6 need B not cancelled,
 only A's planned arrival time = the listed 't', B's gap = listed gap, months of data/stats.json window."""
 import os, sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -40,9 +41,18 @@ for a, st in cases:
                          and train_type in ('ICE','IC','EC','ECE','RJ','RJX','FLX','TGV','WB')),
                runs as (select r, min(coalesce(departure_planned_time, arrival_planned_time)) st0 from raw group by r
                         having strftime(min(coalesce(departure_planned_time, arrival_planned_time)), '%Y-%m') in (select unnest({months}))),
-               seq as (select raw.*, lag(station_name) over (partition by raw.r order by train_line_station_num) prv,
-                              lead(station_name) over (partition by raw.r order by train_line_station_num) nxt from raw join runs using (r)
-                       where (train_type=? and train_number=?) or (train_type=? and train_number=?)),
+               two as (select raw.* from raw join runs using (r) where (train_type=? and train_number=?) or (train_type=? and train_number=?)),
+               -- a station listed twice at the same planned times is one stop (the lowest stop number)
+               one as (select two.* from two join (select r, eva, arrival_planned_time, departure_planned_time, min(train_line_station_num) n
+                                                   from two group by all) k
+                       on k.r = two.r and k.n = two.train_line_station_num and k.eva is not distinct from two.eva
+                       and k.arrival_planned_time is not distinct from two.arrival_planned_time
+                       and k.departure_planned_time is not distinct from two.departure_planned_time),
+               -- neighbours in order of planned time, then stop number (rows numbered 100+ sit mid-route)
+               seq as (select one.*,
+                         lag(station_name) over (partition by r order by coalesce(arrival_planned_time, departure_planned_time), train_line_station_num) prv,
+                         lead(station_name) over (partition by r order by coalesce(arrival_planned_time, departure_planned_time), train_line_station_num) nxt
+                       from one),
                A as (select distinct r, arrival_planned_time ap, arrival_change_time aa, prv, nxt from seq
                      where train_type=? and train_number=? and station_name=? and arrival_planned_time is not null
                        and arrival_change_time is not null and not arrival_is_canceled

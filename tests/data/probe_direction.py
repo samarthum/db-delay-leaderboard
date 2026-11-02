@@ -31,7 +31,8 @@ def main():
     con.execute("set memory_limit = '6GB'")
     con.execute(f"""
     create table s as select * from (
-      select {PREFIX} ride, train_type || ' ' || train_number tr, train_line_station_num seq, station_name name,
+      select {PREFIX} ride, train_type || ' ' || train_number tr, train_line_station_num seq, station_name name, eva,
+        arrival_is_canceled or departure_is_canceled canc, arrival_change_time ac, departure_change_time dc,
         arrival_planned_time ap, departure_planned_time dp, coalesce(departure_planned_time, arrival_planned_time) t0,
         min(coalesce(departure_planned_time, arrival_planned_time)) over (partition by {PREFIX}) start
       from read_parquet({src}) where not is_replacement_train and train_type in {ld})
@@ -47,6 +48,18 @@ def main():
           f"({100 * bad[0] / n:.2f}%), fully reversed: {bad[1]:,}")
     dup = con.execute("select count(*) from (select ride, seq from s group by 1, 2 having count(*) > 1)").fetchone()[0]
     print(f"(ride, stop number) used twice: {dup:,}")
+    # The last-stop rule's assumptions (Nov 2026): every row has a planned time; a station listed twice at the same
+    # planned times is one stop (lowest stop number kept): how often do such copies disagree on cancellation or change?
+    notime = con.execute("select count(*) from s where ap is null and dp is null").fetchone()[0]
+    g = con.execute("""
+    select count(*), count(*) filter (where nc > 1), count(*) filter (where nac > 1 or ndc > 1), sum(n - 1),
+      count(*) filter (where hi >= 100)
+    from (select ride, eva, ap, dp, count(*) n, count(distinct canc) nc, count(distinct ac) nac, count(distinct dc) ndc,
+            max(seq) hi
+          from s group by 1, 2, 3, 4 having count(*) > 1)""").fetchone()
+    print(f"rows without any planned time: {notime:,}")
+    print(f"stations listed twice at the same planned times: {g[0]:,} groups in {g[3] or 0:,} extra rows "
+          f"({g[4]:,} with a copy numbered 100+); copies disagree on cancelled: {g[1]:,}, on the changed time: {g[2]:,}")
     for pa, pb in PAIRS:
         na = con.execute("select name from s where name like ? group by name order by count(*) desc limit 1", [pa]).fetchone()
         nb = con.execute("select name from s where name like ? group by name order by count(*) desc limit 1", [pb]).fetchone()

@@ -13,7 +13,7 @@ import { fold } from "./typeahead";
 export type PairB = [string, number, number, number, number, string, number, number, number, number, number, [number, number, number], number[]?];
 
 export interface PairStation {
-  /** Stop number along the route: orders the stations the way the train calls at them. */
+  /** Position along the route (by planned time): orders the stations the way the train calls at them. */
   i: number;
   /** The arriving train at this station: [days, median min late, 90th percentile min late, % 6+ min late, % 15+ min late]. */
   a: [number, number, number, number, number];

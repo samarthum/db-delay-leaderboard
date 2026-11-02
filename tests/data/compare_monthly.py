@@ -4,8 +4,8 @@
 The history comes from piebro's monthly processed files (`monthly_processed_data/data-YYYY-MM.parquet`), which piebro
 builds from the same raw answers last7.py reads. This script runs last7.py's own per-run logic (extract +
 compute_runs) on the raw files of a past week, reads the same week's rides from the monthly file with a separate query
-(first stop with a planned departure, last stop with a planned arrival, by stop number; compute.py's types; no
-replacement trains), and compares per ride: departure delay at the first stop, arrival delay at the last stop
+(first stop with a planned departure, last stop with a planned arrival, by planned time then stop number, a station
+listed twice at the same planned times counted once; compute.py's types; no replacement trains), and compares per ride: departure delay at the first stop, arrival delay at the last stop
 ("x" when that stop is cancelled), and which station each end is.
 
   python tests/data/compare_monthly.py --first 2026-09-08 [--days 7] --cache DIR [--min-exact 0.98]
@@ -16,6 +16,10 @@ so the only honest differences are raw files repaired or re-uploaded after piebr
 latest change record of a stop falling outside the folders read here (one extra day either side keeps that near 0).
 A real rule difference is far bigger: counting stops without a change record as unmeasured, or the old "missing
 hours" rule, changes tens of percent of the cells.
+
+Since Nov 2026 both sides pick the ends by planned time, then stop number (the site's rule, compute.py): piebro's files
+hold the stop rows, not a rule, so the monthly side here applies the same rule with its own query. `--stop-number-rule`
+reports how many ends the old "by stop number" rule would put elsewhere (rows numbered 100+, duplicate stations).
 """
 import argparse
 import re
@@ -43,23 +47,30 @@ def monthly_remote(month):
     sys.exit(f"no monthly file for {month}")
 
 
-def monthly_rides(path, lo, hi):
-    """{ride: (unit, start, dep, arr)} from the monthly file; dep/arr = (eva, delay, cancelled) or None."""
+def monthly_rides(path, lo, hi, old_rule=False):
+    """{ride: (unit, start, dep, arr)} from the monthly file; dep/arr = (eva, delay, cancelled) or None.
+
+    old_rule: the ends by stop number alone, no duplicate stops dropped (the rule before Nov 2026; for the report)."""
     types = ", ".join(repr(t) for t in last7.LONG_DISTANCE)
     con = duckdb.connect()
     rows = con.execute(f"""
-    with s as (
+    with s0 as (
       select regexp_extract(id, '^(.*-\\d{{10}})-\\d+$', 1) ride, train_line_station_num seq,
         train_type tt, train_number num, eva,
         arrival_planned_time ap, arrival_change_time ac, departure_planned_time dp, departure_change_time dc,
         arrival_is_canceled xa, departure_is_canceled xd
       from read_parquet(?) where train_type in ({types}) and not is_replacement_train),
+    -- a station listed twice at the same planned times is one stop: the lowest stop number (skipped for the old rule)
+    s as (select s0.* from s0 left join (select ride, eva, ap, dp, min(seq) low from s0 group by all) k
+          on k.ride = s0.ride and k.eva is not distinct from s0.eva and k.ap is not distinct from s0.ap
+          and k.dp is not distinct from s0.dp
+          where {"true" if old_rule else "s0.seq = k.low"}),
     starts as (select ride, any_value(tt) tt, any_value(num) num, min(coalesce(dp, ap)) t0 from s where ride <> ''
                group by ride having t0 >= ? and t0 < ?),
     d as (select ride, eva, date_diff('minute', dp, dc) delay, xd canc from s where dp is not null
-          qualify row_number() over (partition by ride order by seq) = 1),
+          qualify row_number() over (partition by ride order by {"seq" if old_rule else "coalesce(ap, dp), seq"}) = 1),
     a as (select ride, eva, date_diff('minute', ap, ac) delay, xa canc from s where ap is not null
-          qualify row_number() over (partition by ride order by seq desc) = 1)
+          qualify row_number() over (partition by ride order by {"seq desc" if old_rule else "ap desc, seq desc"}) = 1)
     select starts.ride, tt, num, t0, d.eva, d.delay, d.canc, a.eva, a.delay, a.canc
     from starts left join d using (ride) left join a using (ride)
     """, [str(path), lo, hi]).fetchall()
@@ -113,6 +124,8 @@ def main():
     lo = datetime.combine(days[0], datetime.min.time())
     hi = datetime.combine(days[-1] + timedelta(days=1), datetime.min.time())
     theirs = monthly_rides(monthly, lo, hi)
+    by_number = monthly_rides(monthly, lo, hi, old_rule=True)
+    moved = sum(1 for ride, v in theirs.items() for i in (2, 3) if ride in by_number and by_number[ride][i] != v[i])
     last7.log("fetch runs: " + ", ".join(f"{r:%d %H:%M}" for r in last7.fetch_runs(snaps)))
 
     both = sorted(set(ours) & set(theirs))
@@ -153,6 +166,8 @@ def main():
     print(f"exact: {exact} ({100 * exact / max(total, 1):.2f}%), within 1 min: {within1} ({100 * within1 / max(total, 1):.2f}%), "
           f"mismatched: {total - exact}")
     print(f"same end station: {station_same} of {station_cells}")
+    print(f"ends the old rule (by stop number alone) would measure differently in the monthly file: {moved} of "
+          f"{2 * len(theirs)}")
     print(f"measured runs per day ('?' left out): "
           f"{[sum(1 for r in published if r['day'] == d) for d in days]}")
     for m in mismatches[:25]:

@@ -2,7 +2,9 @@
 """Recompute the home page headline from the Parquet files with a separate query and compare it with data/stats.json.
 
 The query shares no code with compute.py: it picks each run's last measured stop with a window function
-instead of an aggregate, and selects trains with its own filters. Exits 1 when a number differs by more
+instead of an aggregate, and selects trains with its own filters. Same rule: stops in order of planned time (then stop
+number; rows numbered 100+ sit mid-route), a station listed twice at the same planned times counted once (the row with
+the lowest stop number), here by grouping instead of compute.py's window. Exits 1 when a number differs by more
 than the tolerance.
 
   python scripts/check_headline.py --data-dir DIR
@@ -33,23 +35,30 @@ def main():
     con = duckdb.connect()
     con.execute("set memory_limit = '3GB'")
     got = {r[0]: r[1:] for r in con.execute(f"""
-    with stops as (
-      select regexp_extract(id, '^(.*-\\d{{10}})-\\d+$', 1) trip, train_line_station_num pos,
+    with raw as (
+      select regexp_extract(id, '^(.*-\\d{{10}})-\\d+$', 1) trip, train_line_station_num pos, eva,
         case when train_type in ({long_types}) then 'longDistance'
              when train_type <> 'Bus' and regexp_matches(coalesce(line_number, ''), '^({prefixes})[0-9]') then 'regional'
         end kind,
         arrival_is_canceled or departure_is_canceled dropped,
-        coalesce(departure_planned_time, arrival_planned_time) planned,
+        coalesce(departure_planned_time, arrival_planned_time) planned, departure_planned_time dep,
         arrival_planned_time arr, date_diff('minute', arrival_planned_time, arrival_change_time) late
       from read_parquet({files!r})
       where not is_replacement_train),
+    -- one row per (trip, station, planned times): the whole row with the lowest stop number (a struct, as arg_min()
+    -- skips NULL values and separate columns could come from different rows)
+    stops as (
+      select trip, pos, x.kind, x.dropped, planned, arr, x.late from (
+        select trip, min(pos) pos, arg_min({{'kind': kind, 'dropped': dropped, 'late': late}}, pos) x,
+          any_value(planned) planned, arr
+        from raw group by trip, eva, arr, dep)),
     trips as (
       select trip, any_value(kind) kind, min(planned) start, bool_and(dropped) cancelled from stops
       where kind is not null group by trip),
     last_stop as (
       select trip, late from stops
       where kind is not null and not dropped and arr is not null and late is not null
-      qualify row_number() over (partition by trip order by pos desc) = 1)
+      qualify row_number() over (partition by trip order by arr desc, pos desc) = 1)
     select kind, avg(late) filter (where late between {lo} and {hi}),
       100 * avg((late >= 15)::int) filter (where late between {lo} and {hi}),
       100 * avg(cancelled::int), count(*) filter (where late between {lo} and {hi})

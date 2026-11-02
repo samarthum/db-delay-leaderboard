@@ -15,6 +15,13 @@ What it holds, so every scope rule of the pipeline is exercised:
 - ICE 517 (Düsseldorf -> München) has its stop numbers REVERSED every Wednesday: the source's numbering runs against the
   direction of travel. A stop-number rule puts it on München -> Düsseldorf routes ("15:15 -> 11:20"); a planned-time
   rule does not. This is the Nov 2026 route-direction bug.
+- Stop rows numbered 100 and up, appended after the planned list as in the source (Nov 2026 last-stop fix): ICE 703
+  (Hamburg -> Berlin) is diverted on Mondays via Uelzen (stop 100) and Stendal Hbf (stop 101), both planned BEFORE Berlin
+  Hbf (stop 3); ICE 702 (Berlin -> Hamburg) lists Hannover Hbf twice on Tuesdays (stop 2 and stop 100, same planned
+  times, the copy 7 minutes later); ICE 705 lists its last stop Berlin Hbf twice on Thursdays (stop 3 and stop 100, same
+  planned times, the copy 20 minutes later). "Last stop by stop number" measures these runs at Stendal, Hannover and the
+  copy; the rule (planned time, then stop number; a station listed twice at the same planned times is one stop, the
+  lowest number) measures them at Berlin, Hamburg and Berlin's stop 3.
 - Cancelled stops, whole cancelled runs, delays outside -10..600 (not measured), a replacement train (excluded), a train
   ending abroad (Amsterdam Centraal label), runs starting late on the last day of a month (belong to that month).
 - ~110 regional lines (RE 1-110) over 1,100 stations so every month has >= 1,000 stations (compute.py's full-month rule);
@@ -35,7 +42,8 @@ CORRIDOR_B = ["Hamburg Hbf", "Hannover Hbf", "Berlin Hauptbahnhof"]
 HOPS_B = [80, 100]
 CORRIDOR_C = ["Hannover Hbf", "Köln Hbf"]  # crosses B at Hannover and A at Köln: trains that part ways (change trains)
 HOPS_C = [160]
-EVA = {name: 8000100 + i for i, name in enumerate(dict.fromkeys(CORRIDOR_A + CORRIDOR_B + CORRIDOR_C))}
+DETOUR = ["Uelzen", "Stendal Hbf"]  # ICE 703's Monday diversion stops (rows numbered 100, 101)
+EVA = {name: 8000100 + i for i, name in enumerate(dict.fromkeys(CORRIDOR_A + CORRIDOR_B + CORRIDOR_C + DETOUR))}
 REGIONAL_STATIONS = [f"Halt {i:04d}" for i in range(1100)]
 for i, name in enumerate(REGIONAL_STATIONS):
     EVA[name] = 8100000 + i
@@ -58,8 +66,12 @@ def delay(rng):
 
 
 def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_seq=False, replacement=False,
-         cancel_all=False, cancel_at=None, line2=None, num2=None):
-    """Append the stop rows of one ride starting at `start` (datetime)."""
+         cancel_all=False, cancel_at=None, line2=None, num2=None, extra=(), dup=None):
+    """Append the stop rows of one ride starting at `start` (datetime).
+
+    extra: [(station, minutes after start, stop number)] rows appended after the planned list (a diversion), 3 min late.
+    dup: (index, stop number, minutes later) lists the stop at `index` again under another stop number, same planned times.
+    """
     times, t = [], start
     for i in range(len(names)):
         times.append(t)
@@ -68,6 +80,7 @@ def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_
     stamp = start.strftime("%y%m%d%H%M")
     late = 0
     n = len(names)
+    first = len(rows)
     for i, (name, t) in enumerate(zip(names, times)):
         seq = (n - i) if reverse_seq else (i + 1)
         late = max(late + rng.randint(-2, 3), 0) if i else 0
@@ -87,6 +100,18 @@ def ride(rows, rng, trip, tt, num, line, names, hops, start, dest=None, reverse_
             "departure_is_canceled": canc and dep is not None,
             "is_replacement_train": replacement,
         })
+    for name, minutes, seq in extra:
+        t = start + timedelta(minutes=minutes)
+        rows.append({**rows[first], "id": f"{trip}-{stamp}-{seq}", "train_line_station_num": seq, "eva": str(EVA[name]),
+                     "station_name": name, "arrival_planned_time": t, "arrival_change_time": t + timedelta(minutes=3),
+                     "arrival_is_canceled": cancel_all, "departure_planned_time": t + timedelta(minutes=2),
+                     "departure_change_time": t + timedelta(minutes=5), "departure_is_canceled": cancel_all})
+    if dup is not None:
+        i, seq, later = dup
+        r = rows[first + i]
+        shift = lambda x: x + timedelta(minutes=later) if x else None
+        rows.append({**r, "id": f"{trip}-{stamp}-{seq}", "train_line_station_num": seq,
+                     "arrival_change_time": shift(r["arrival_change_time"]), "departure_change_time": shift(r["departure_change_time"])})
 
 
 def month_rows(month, rng):
@@ -115,8 +140,11 @@ def month_rows(month, rng):
                 tt = "IC" if k % 5 == 0 else "ICE"
                 num = str(701 + 2 * k) if east else str(700 + 2 * k)
                 trip += 1
+                wd = day.weekday()
+                extra = [("Uelzen", 40, 100), ("Stendal Hbf", 140, 101)] if num == "703" and wd == 0 else ()
+                dup = (1, 100, 7) if num == "702" and wd == 1 else (2, 100, 20) if num == "705" and wd == 3 else None
                 ride(rows, rng, trip, tt, num, None, CORRIDOR_B if east else CORRIDOR_B[::-1],
-                     HOPS_B if east else HOPS_B[::-1], dep, cancel_all=rng.random() < 0.02)
+                     HOPS_B if east else HOPS_B[::-1], dep, cancel_all=rng.random() < 0.02, extra=extra, dup=dup)
         # Corridor C, both ways, 30 trains each way (ICE 900-959).
         for k in range(30):
             dep = day + timedelta(hours=6, minutes=7 + k * 29)

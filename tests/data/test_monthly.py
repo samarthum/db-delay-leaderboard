@@ -10,6 +10,9 @@
    verify_monthly.py catches planted errors (a backward route row, a changed search month, a train page count, a
    regional train number's month).
 5. the route fix: ICE 517's reversed stop numbers give no backward row (the pre-fix rule would list it backwards).
+6. the last-stop fix: rows numbered 100+ (ICE 703's diversion, ICE 702's and ICE 705's station listed twice) do not move
+   where a run is measured; a third, plain-Python implementation of the rule agrees with the search records, and the old
+   "last stop by stop number" rule would not.
 """
 import json
 import os
@@ -37,6 +40,44 @@ def ok(cond, msg):
 def run(*cmd, env=None):
     r = subprocess.run([PY, *map(str, cmd)], cwd=ROOT, capture_output=True, text=True, env={**os.environ, **(env or {})})
     return r.returncode, r.stdout + r.stderr
+
+
+def ride_delays(pq_dir, months, units):
+    """{unit: (new-rule delays, old-rule delays)} of the measured runs, in plain Python (no DuckDB).
+
+    New rule: drop a row when the same ride lists the same station at the same planned times under a lower stop number;
+    the delay is at the measurable stop (not cancelled, planned arrival, delay known) with the latest planned arrival,
+    then the highest stop number. Old rule: the measurable stop with the highest stop number, no duplicates dropped.
+    """
+    import pyarrow.parquet as pq_
+    rides = {}
+    for m in months:
+        for r in pq_.read_table(Path(pq_dir) / f"data-{m}.parquet").to_pylist():
+            unit = f"{r['train_type']} {r['train_number']}"
+            if unit in units and not r["is_replacement_train"]:
+                rides.setdefault((unit, r["id"].rsplit("-", 1)[0]), []).append(r)
+    out = {u: ([], []) for u in units}
+    for (unit, _), rs in rides.items():
+        start = min(r["departure_planned_time"] or r["arrival_planned_time"] for r in rs)
+        if start.strftime("%Y-%m") not in months:
+            continue
+        low = {}
+        for r in rs:
+            k = (r["eva"], r["arrival_planned_time"], r["departure_planned_time"])
+            low[k] = min(low.get(k, 10 ** 9), r["train_line_station_num"])
+        kept = [r for r in rs if low[(r["eva"], r["arrival_planned_time"], r["departure_planned_time"])] == r["train_line_station_num"]]
+
+        def measurable(r):
+            return not (r["arrival_is_canceled"] or r["departure_is_canceled"]) and r["arrival_planned_time"] and r["arrival_change_time"]
+        for rule, rows_, key in ((0, kept, lambda r: (r["arrival_planned_time"], r["train_line_station_num"])),
+                                 (1, rs, lambda r: r["train_line_station_num"])):
+            cand = [r for r in rows_ if measurable(r)]
+            if cand:
+                r = max(cand, key=key)
+                d = int((r["arrival_change_time"] - r["arrival_planned_time"]).total_seconds() // 60)
+                if -10 <= d <= 600:
+                    out[unit][rule].append(d)
+    return out
 
 
 def edit(path, fn):
@@ -82,6 +123,12 @@ def main():
             code, out = run("scripts/monthly.py", "plan", "--today", today, "--stats", stats / "stats.json", "--listing", listing)
             ok(code == 0 and want in out, f"plan {today}, published up to {published[-1]}, window ends "
                f"{json.loads((stats / 'stats.json').read_text())['window']['lastMonth']}: {want}")
+        listing.write_text(json.dumps(["2026-08", "2026-09", "2026-10"]))
+        code, out = run("scripts/monthly.py", "plan", "--today", "2026-11-02", "--stats", old / "stats.json", "--listing", listing, "--recompute")
+        ok(code == 0 and all(x in out for x in ("act=true", "expect=recompute", "until=2026-09", "recompute=true")),
+           "plan --recompute: acts on the committed window (until 2026-09) even with October out")
+        code, out = run("scripts/monthly.py", "plan", "--today", "2026-11-02", "--stats", old / "stats.json", "--listing", listing)
+        ok("recompute=false" in out and "expect=advance" in out, "plan without --recompute: a normal refresh")
 
         # 3. gate
         code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", new)
@@ -90,6 +137,10 @@ def main():
         ok(code == 1 and "FAIL window end moved forward" in out, "gate refuses a window that did not move")
         code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", old, "--expect", "same")
         ok(code == 0, "gate --expect same passes a recompute of the same window")
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", old, "--expect", "recompute")
+        ok(code == 0 and "runs per month unchanged" in out, "gate --expect recompute passes the same window")
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", new, "--expect", "recompute")
+        ok(code == 1 and "FAIL window unchanged" in out, "gate --expect recompute refuses a window that moved")
 
         def mutated(label, fn):
             m = tmp / label
@@ -99,6 +150,17 @@ def main():
             fn(m)
             return m
 
+        def recompute_bad(d):
+            def f(doc):
+                doc["series"]["longDistance"][0]["runs"] += 1
+                doc["series"]["regional"][1]["avgDelayMin"] += 2.5
+            edit(d / "monthly.json", f)
+        m = tmp / "recompute-bad"
+        shutil.copytree(old, m)
+        recompute_bad(m)
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", m, "--expect", "recompute")
+        ok(code == 1 and "FAIL longDistance: runs per month unchanged" in out and "FAIL regional: monthly average moved" in out,
+           "gate --expect recompute refuses a lost run and a month moving 2.5 min")
         m = mutated("nofield", lambda d: edit(d / "routes.json", lambda doc: [r.pop("late6") for r in doc["routes"]]))
         code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", m)
         ok(code == 1 and "routes.json: no field vanished" in out and "late6" in out, "gate refuses a vanished field (routes late6)")
@@ -159,6 +221,32 @@ def main():
         ok(recent and [m_[0] for m_ in recent[0][17]] == ["2026-08", "2026-09", "2026-10"], "search: ICE 517 has its last 3 months")
         lines = [r for p in (new / "search").glob("s-*.json") for r in json.loads(p.read_text()) if r[2] == 1]
         ok(lines and all(len(r[17]) <= 1 for r in lines), "search: regional lines keep only the latest month")
+
+        # 6. the last-stop fix (rows numbered 100+)
+        months = json.loads((new / "stats.json").read_text())["window"]["months"]
+        units = ["ICE 703", "ICE 702", "ICE 705"]
+        mine = ride_delays(pq, months, units)
+        recs = {f"{r[0]} {r[1]}": r for p in (new / "search").glob("s-*.json") for r in json.loads(p.read_text()) if r[2] == 0}
+        for u in units:
+            new_d, old_d = mine[u]
+            avg_new, avg_old = sum(new_d) / len(new_d), sum(old_d) / len(old_d)
+            rec = recs[u]
+            ok(rec[4] == len(new_d) and abs(rec[5] - avg_new) <= 0.05,
+               f"{u}: search record {rec[4]} runs, avg {rec[5]} = plain-Python rule {len(new_d)}, {avg_new:.2f}")
+            ok(abs(avg_old - avg_new) > 0.05, f"{u}: the stop-number rule would differ (avg {avg_old:.2f})")
+        stops = json.loads((new / "stops.json").read_text())
+        t702 = next(t for t in stops["trains"] if t[:2] == ["ICE", "702"])
+        counts = {stops["stations"][x[0]]: x[3] for x in t702[2]}
+        ok(counts.get("Hannover Hbf") == counts.get("Hamburg Hbf"), f"stops.json ICE 702: Hannover counted once per run {counts}")
+        old703 = ride_delays(pq, months, ["ICE 703"])["ICE 703"][1]
+
+        def old_rule_703(d):
+            for p in sorted((d / "search").glob("s-*.json")):
+                edit(p, lambda doc: [r.__setitem__(5, round(sum(old703) / len(old703), 1)) for r in doc if r[2] == 0 and r[:2] == ["ICE", "703"]])
+        m = mutated("oldrule", old_rule_703)
+        code, out = run("tests/data/verify_monthly.py", "--parquet", pq, "--data", m)
+        ok(code == 1 and "DIFF search kind 0" in out and "ICE 703 avg" in out,
+           "verify_monthly catches ICE 703's average measured at its highest stop number (Stendal on Mondays)")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f"{passed} passed, {failed} failed")

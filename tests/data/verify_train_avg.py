@@ -25,7 +25,7 @@ for slug, tt, num, a, b in cases:
                from read_parquet([{src}]) where train_type='{tt}' and train_number='{num}' and not is_replacement_train),
     A as (select * from x where n='{a}' and dp is not null),
     B as (select * from x where n='{b}')
-    select count(*), avg(B.d) from A join B on A.tt=B.tt and A.num=B.num and B.seq > A.seq
+    select count(*), avg(B.d) from A join B on A.tt=B.tt and A.num=B.num and coalesce(B.ap, B.dp) > A.dp
       and date_diff('hour', A.dp, B.ap) between 0 and 12
     where not B.c and B.ap is not null and B.d between -10 and 600"""
     n, avg = con.execute(q).fetchone()

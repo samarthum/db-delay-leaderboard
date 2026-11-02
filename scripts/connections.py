@@ -22,7 +22,7 @@ connecting train for a late one, and that only happens for real connections, so 
 
 Output: data/connections.json        { window, params, stations: [{ name, runs, gaps: [[gap, n, cancelled, ok@0, ok@2, ok@4, ok@6, ok@8]] }] }
         data/connection-pairs.json   { "ICE 1541": { "o": origin, "d": destination, "s": { "Hannover Hbf": {
-                                       "i": stop number along the route,
+                                       "i": position along the route (by planned time; most common over its runs),
                                        "a": [days, median min late, 90th percentile min late, % 6+ min late, % 15+ min late]  (the arriving train there),
                                        "b": [["ICE 845", planned gap, days, cancelled, departs (minutes), "to", ok@0, ok@2, ok@4, ok@6, ok@8,
                                               [days, median min late leaving, % 6+ min late leaving]], ...] } } } }
@@ -44,6 +44,9 @@ import duckdb
 WALK_FAST, WALK_SLOW = 2, 6  # the two walking times the page offers (lib/connections.ts)
 
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
+# Stop order and duplicate stops: the same rule as compute.py (planned time, then stop number; a station listed twice at
+# the same planned times is one stop).
+from compute import ONE_ROW_PER_STOP, STOP_ORDER  # noqa: E402
 MAJOR_RUNS = 2000  # runs in the window for a station to be offered
 MIN_GAP = 2  # planned change times below this are not a change
 MAX_GAP = 60
@@ -95,23 +98,27 @@ def main():
     con.execute(f"""
     create table s0 as
     select * from (
-      select {RUN_KEY} run, train_type tt, train_number num, train_line_station_num seq, station_name name,
+      select {RUN_KEY} run, train_type tt, train_number num, {STOP_ORDER} seq, station_name name,
         arrival_planned_time ap, arrival_change_time aa, arrival_is_canceled ac,
         departure_planned_time dp, departure_change_time da, departure_is_canceled dc, final_destination_station dest,
         min(coalesce(departure_planned_time, arrival_planned_time)) over (partition by {RUN_KEY}) start
       from read_parquet({srcs})
-      where not is_replacement_train and train_type in ({ld}))
+      where not is_replacement_train and train_type in ({ld})
+      {ONE_ROW_PER_STOP})
     where strftime(start, '%Y-%m') in (select unnest({months}))
     """)
+    # `seq` is the stop order (planned time, then stop number), not the raw stop number: rows numbered 100 and up sit
+    # mid-route (diversions, a station listed twice), so by number they were nobody's neighbours.
     # The stop before and after, to tell a real change from a train turning round or two trains going the same way.
-    con.execute("""create table s as select *, lag(name) over (partition by run order by seq) prv, lead(name) over (partition by run order by seq) nxt from s0""")
+    con.execute("""create table s as select *, lag(name) over (partition by run order by seq) prv, lead(name) over (partition by run order by seq) nxt,
+                   row_number() over (partition by run order by seq) pos from s0""")
     con.execute("drop table s0")
     con.execute(f"create table major as select name from s group by name having count(distinct run) >= {MAJOR_RUNS}")
     log(f"stop rows {con.execute('select count(*) from s').fetchone()[0]}, stations {con.execute('select count(*) from major').fetchone()[0]} in {time.time() - t0:.0f}s")
 
     # Arrivals and departures of the major stations. A departure 2..60 minutes after an arrival is in the same or the next
     # 64-minute bucket, so the join compares only neighbours instead of whole days.
-    con.execute("""create table a as select name, run, tt, num, seq, ap, aa, prv, nxt, cast(epoch(ap) / 3840 as bigint) bk from s
+    con.execute("""create table a as select name, run, tt, num, pos, ap, aa, prv, nxt, cast(epoch(ap) / 3840 as bigint) bk from s
                    where ap is not null and aa is not null and not ac and name in (select name from major)""")
     con.execute("""create table b as select name, run, tt, num, dp, da, dc, nxt, dest, cast(epoch(dp) / 3840 as bigint) bk from s
                    where dp is not null and da is not null and name in (select name from major)""")
@@ -184,7 +191,7 @@ def main():
 
     # The arriving train at each station (how late it really is there) and the ends of each train.
     asum = {}
-    for name, atr, n, seq, q50, q90, l6, l15 in con.execute("""select name, tt || ' ' || num, count(*), mode(seq),
+    for name, atr, n, seq, q50, q90, l6, l15 in con.execute("""select name, tt || ' ' || num, count(*), mode(pos),
         quantile_cont(date_diff('minute', ap, aa), 0.5), quantile_cont(date_diff('minute', ap, aa), 0.9),
         count(*) filter (where date_diff('minute', ap, aa) >= 6), count(*) filter (where date_diff('minute', ap, aa) >= 15)
         from a group by 1, 2""").fetchall():

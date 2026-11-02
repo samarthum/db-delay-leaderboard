@@ -113,7 +113,7 @@ def main():
                     continue
                 ar, dp = child(body, "ar"), child(body, "dp")
                 evas.add(eva)
-                plan[sid] = {"snap": snap, "name": names.get(eva) or html.unescape(xml_name or ""), "tt": tl.get("c"),
+                plan[sid] = {"snap": snap, "eva": eva, "name": names.get(eva) or html.unescape(xml_name or ""), "tt": tl.get("c"),
                              "num": tl.get("n"), "pa": ts(ar and ar.get("pt")), "pd": ts(dp and dp.get("pt"))}
     rides = {ride_of(s) for s in plan}
     named = re.compile(r'\bn="(?:' + "|".join(re.escape(n) for n in sorted(nums)) + r')"')
@@ -148,7 +148,7 @@ def main():
                     or (tl and tl.get("t") == "e") or (ref is not None and any(ref.get(k) is not None for k in "cntof"))
                 if not keep or (sid in chg and chg[sid]["snap"] >= snap):
                     continue
-                chg[sid] = {"snap": snap, "name": names.get(eva) or html.unescape(xml_name or ""), "tt": g(tl, "c"), "num": g(tl, "n"),
+                chg[sid] = {"snap": snap, "eva": eva, "name": names.get(eva) or html.unescape(xml_name or ""), "tt": g(tl, "c"), "num": g(tl, "n"),
                             "tl_t": g(tl, "t"), "ref": ref, "pa": ts(g(ar, "pt")), "pd": ts(g(dp, "pt")),
                             "ca": ts(g(ar, "ct")), "cd": ts(g(dp, "ct")), "clta": ts(g(ar, "clt")), "cltd": ts(g(dp, "clt")),
                             "csa": g(ar, "cs"), "csd": g(dp, "cs"), "psa": g(ar, "ps"), "psd": g(dp, "ps")}
@@ -199,7 +199,7 @@ def main():
                 return False
             return cs == "c" if cs is not None else clt is not None
 
-        stop = {"seq": int(sid.rsplit("-", 1)[1]), "name": (p or c)["name"], "pa": pa, "pd": pd, "ca": ca, "cd": cd,
+        stop = {"seq": int(sid.rsplit("-", 1)[1]), "eva": (p or c)["eva"], "name": (p or c)["name"], "pa": pa, "pd": pd, "ca": ca, "cd": cd,
                 "xa": cancelled(c and c["csa"], c and c["clta"]), "xd": cancelled(c and c["csd"], c and c["cltd"]),
                 "plan": p is not None, "extra": bool(c and "a" in (c["psa"], c["psd"])), "repl": repl,
                 "unit": f"{tt} {num}"}
@@ -216,6 +216,12 @@ def main():
     mine = {}
     for ride, ss in by_ride.items():
         ss = [s for s in ss if not s["repl"]]
+        # A station listed twice at the same planned times is one stop: keep its lowest stop number.
+        lowest = {}
+        for x in ss:
+            k = (x["eva"], x["pa"], x["pd"])
+            lowest[k] = min(lowest.get(k, x["seq"]), x["seq"])
+        ss = [x for x in ss if lowest[(x["eva"], x["pa"], x["pd"])] == x["seq"]]
         if not ss:
             continue
         timed = [s for s in ss if (s["cd"] or s["ca"]) is not None]
@@ -225,8 +231,9 @@ def main():
         t1 = max(s["pa"] or s["pd"] for s in timed)
         if not days[0] <= t0.date() <= days[-1]:
             continue
-        deps = sorted((s for s in timed if s["pd"]), key=lambda s: s["seq"])
-        arrs = sorted((s for s in timed if s["pa"]), key=lambda s: s["seq"])
+        # Ends in order of planned time (arrival, else departure), then stop number: numbers 100+ sit mid-route.
+        deps = sorted((s for s in timed if s["pd"]), key=lambda s: (s["pa"] or s["pd"], s["seq"]))
+        arrs = sorted((s for s in timed if s["pa"]), key=lambda s: (s["pa"], s["seq"]))
         # "?" only for a real hole at an END: a stop with no plan answer (not an extra stop) numbered before the first
         # departure or after the last arrival, or a plan hour no file holds within 2 h before t0 or after t1.
         holes = holes_by_ride.get(ride, [])

@@ -27,6 +27,9 @@ from pathlib import Path
 import duckdb
 
 RUN_KEY = r"hash(regexp_extract(id, '^(.*-\d{10})-\d+$', 1))"
+# Stop order and duplicate stops: the same rule as compute.py (planned time, then stop number; a station listed twice at
+# the same planned times is one stop).
+from compute import ONE_ROW_PER_STOP, STOP_ORDER  # noqa: E402
 
 
 def log(msg):
@@ -70,21 +73,22 @@ def main():
     con.execute(f"""
     create table s as
     select * from (
-      select {RUN_KEY} run, train_type tt, train_number num, train_line_station_num seq, station_name name,
+      select {RUN_KEY} run, train_type tt, train_number num, train_line_station_num seq, {STOP_ORDER} ord, station_name name,
         arrival_is_canceled or departure_is_canceled canc, arrival_planned_time arr_plan, departure_planned_time dep_plan,
         date_diff('minute', arrival_planned_time, arrival_change_time) d,
         min(coalesce(departure_planned_time, arrival_planned_time)) over (partition by {RUN_KEY}) start
       from read_parquet({srcs})
-      where not is_replacement_train and train_type in ({ld}))
+      where not is_replacement_train and train_type in ({ld})
+      {ONE_ROW_PER_STOP})
     where strftime(start, '%Y-%m') in (select unnest({months}))
     """)
     log(f"stop rows: {con.execute('select count(*) from s').fetchone()[0]} in {time.time() - t0:.1f}s")
 
-    # One row per run: its delay at the last stop that was not cancelled and has a planned arrival and a measured delay.
+    # One row per run: its delay at the last stop (by planned time, then stop number) that was not cancelled and has a planned arrival and a measured delay.
     con.execute(f"""
     create table r as
     select run, any_value(tt) tt, min(start) start_plan, bool_and(canc) all_canc,
-      arg_max(d, seq) filter (where not canc and arr_plan is not null and d is not null) delay
+      arg_max(d, ord) filter (where not canc and arr_plan is not null and d is not null) delay
     from s group by run
     """)
     q = f"""select count(*) runs, count(*) filter (where all_canc) cancelled,

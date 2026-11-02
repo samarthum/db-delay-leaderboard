@@ -12,8 +12,9 @@ monthly job does (scripts/parse_monthly_xml.py + create_monthly_data_release.py 
 latest snapshot per stop id, plan and change merged, a stop without a change record counts as its planned time), so a
 day here is measured exactly like a day of the site's 11-month history (tests/data/compare_monthly.py proves it on a
 September week), and then applies compute.py's scope rules (same train types, no replacement trains, a run belongs to
-the day of its scheduled start, delays outside -10..600 min are not measured). Known bias, the same as in the monthly
-history: a delay announced and over between two fetch runs further apart than the change list's reach (~6 h) is never
+the day of its scheduled start, delays outside -10..600 min are not measured; the first and last stop are picked by
+planned time, then stop number, and a station listed twice at the same planned times is one stop, as in compute.py).
+Known bias, the same as in the monthly history: a delay announced and over between two fetch runs further apart than the change list's reach (~6 h) is never
 seen, and the stop counts as its last forecast or planned time.
 
   python scripts/last7.py                       # list + download the needed raw files from Hugging Face
@@ -348,17 +349,24 @@ def compute_runs(plan, fchg, days, missing):
     select ride, min(seq) noplan_first, max(seq) noplan_last from stops
     where not has_plan and not additional and not replacement and ride <> '' group by ride
     """)
+    # The ends by planned time, then stop number (compute.py's rule since Nov 2026): rows numbered 100 and up are appended
+    # after the planned list (diversions, a station listed twice), so the highest number is not always the last stop. A
+    # station listed twice at the same planned times is one stop: the row with the lowest stop number.
     con.execute(f"""
     create table runs as
     select ride, any_value(tt) tt, any_value(num) num,
       min(coalesce(dep_plan, arr_plan)) filter (where has_time) start_plan,
       max(coalesce(arr_plan, dep_plan)) filter (where has_time) end_plan,
       bool_and(arr_canc or dep_canc) filter (where has_time) all_canc,
-      arg_min({{'station': station, 'eva': eva, 'delay': date_diff('minute', dep_plan, dep_change), 'canc': dep_canc, 'seq': seq}}, seq)
+      arg_min({{'station': station, 'eva': eva, 'delay': date_diff('minute', dep_plan, dep_change), 'canc': dep_canc, 'seq': seq}}, ord)
         filter (where has_time and dep_plan is not null) dep,
-      arg_max({{'station': station, 'eva': eva, 'delay': date_diff('minute', arr_plan, arr_change), 'canc': arr_canc, 'seq': seq}}, seq)
+      arg_max({{'station': station, 'eva': eva, 'delay': date_diff('minute', arr_plan, arr_change), 'canc': arr_canc, 'seq': seq}}, ord)
         filter (where has_time and arr_plan is not null) arr
-    from (select *, coalesce(dep_change, arr_change) is not null has_time from stops where {in_scope})
+    from (
+      select *, coalesce(dep_change, arr_change) is not null has_time,
+        epoch(coalesce(arr_plan, dep_plan, timestamp '2999-01-01'))::bigint * 100000 + seq ord
+      from stops where {in_scope}
+      qualify row_number() over (partition by ride, eva, arr_plan, dep_plan order by seq) = 1)
     group by ride
     having start_plan >= ? and start_plan < ?
     """, [lo, hi])

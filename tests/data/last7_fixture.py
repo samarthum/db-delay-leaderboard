@@ -9,11 +9,14 @@ raw_data/year=Y/month=M/day=D/date_<plan date>_hour_HH_HH.parquet by UTC fetch d
 The window is 24-30 Oct 2026 (it crosses the end of summer time on 25 Oct). Scenarios, and what scripts/last7.py must
 make of them, are in EXPECTED (built from the timetable below, not from the script's code):
   ICE 100  Köln -> Frankfurt -> München, daily; one day 22 min late; a diversion stop (ps="a") on day 6
-  IC 200   Hamburg -> Berlin; day 2 fully cancelled, day 4 last stop cancelled, day 5 first stop cancelled
+  IC 200   Hamburg -> Berlin; day 2 fully cancelled, day 4 last stop cancelled, day 5 first stop cancelled; day 6 a
+           diversion stop numbered 100 (Kleinstadt, 30 min late) planned BEFORE Berlin: the last stop is still Berlin
+           (planned time, then stop number), not the highest number
   ICE 300  Köln -> Berlin, only days 0-4
   ICE 400  Berlin 23:30 -> München 04:10 next day: belongs to its start day
   ICE 600  Frankfurt -> Hamburg; day 1 700 min late at the end (not measured), day 5 last stop cancelled, then
-           reinstated (cs="p"): not cancelled
+           reinstated (cs="p"): not cancelled; day 2 lists Hamburg twice (stop 4 and stop 100, same planned times, the
+           copy 20 min later): one stop, the lowest number, so 1 min
   EC 1216  München Ost -> München Hbf; on 25 Oct (day 1, the clock change) München Ost is in neither the plan nor
            the change data and München Hbf is 15 min early (not measured): the day has NO first stop, which the file
            must say (-1), not leave as "the usual first stop" (the first real dry run's one difference)
@@ -97,7 +100,11 @@ CANCELLED = {("IC 200", 2): "all", ("IC 200", 4): [1], ("IC 200", 5): [0]}
 REINSTATED = {("ICE 600", 5): [2]}
 # (train, day) -> stop indices that are in no plan and no change list at all (that run's data simply lacks them).
 ABSENT = {("EC 1216", 1): [0]}
-DIVERSION = {("ICE 100", 6): ("Hamburg Hbf", 150)}  # extra stop, minutes after start, seq between 1 and 2
+# Extra stops (ps="a", change data only): (station, minutes after start, stop number, delay). ICE 100's sits between
+# stops 1 and 2 by number; IC 200's is numbered 100 like the source's appended rows, but planned before the last stop.
+DIVERSION = {("ICE 100", 6): ("Hamburg Hbf", 150, 3, 10), ("IC 200", 6): ("Kleinstadt", 60, 100, 30)}
+# A stop listed again under another number, same planned times (in the plan too): (stop index, stop number, minutes later).
+DUPLICATE = {("ICE 600", 2): (2, 100, 20)}
 MISSED_RUN = datetime(2026, 10, 27, 15, 17)  # UTC
 LOST_PLAN_HOUR = datetime(2026, 10, 29, 4)  # Berlin
 
@@ -163,10 +170,15 @@ def stops():
                             "reinstated": seq in REINSTATED.get((unit, di), []), "extra": False, "repl": None,
                             "dest": route[-1][0]})
             if (unit, di) in DIVERSION:
-                name, off = DIVERSION[(unit, di)]
-                out.append({"id": f"{trip}-{st(t0)}-3", "eva": EVA[name], "tt": tt, "num": num,
-                            "arr": berlin(d, start, off), "dep": berlin(d, start, off + 2), "da": 10, "dd": 10,
+                name, off, seq, late = DIVERSION[(unit, di)]
+                out.append({"id": f"{trip}-{st(t0)}-{seq}", "eva": EVA[name], "tt": tt, "num": num,
+                            "arr": berlin(d, start, off), "dep": berlin(d, start, off + 2), "da": late, "dd": late,
                             "canc": False, "reinstated": False, "extra": True, "repl": None, "dest": route[-1][0]})
+            if (unit, di) in DUPLICATE:
+                i, seq, later = DUPLICATE[(unit, di)]
+                orig = next(x for x in out if x["id"] == f"{trip}-{st(t0)}-{i + 1 if i < 2 else i + 2}")
+                out.append({**orig, "id": f"{trip}-{st(t0)}-{seq}", "da": None if orig["da"] is None else orig["da"] + later,
+                            "dd": None if orig["dd"] is None else orig["dd"] + later})
     # A replacement train for ICE 100 on day 3, only in the change data.
     d = DAYS[3]
     for seq, (name, off) in enumerate([("Köln Hbf", 0), ("München Hbf", 280)]):

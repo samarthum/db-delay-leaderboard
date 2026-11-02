@@ -8,10 +8,18 @@ name: Monthly history refresh
 # Parquet with independent queries, run the sanity gate, and commit the data files to main (Vercel deploys).
 # Otherwise it is a no-op. Replaces refresh.yml, which re-ran compute.py alone and so would have published new
 # stats beside old routes. Details and decisions: docs/notes/data-pipeline.md ("Monthly refresh"), docs/notes/monthly-log.md.
+# `gh workflow run monthly.yml -f recompute=true` reruns the COMMITTED window instead (after a rule change, e.g. the Nov
+# 2026 last-stop fix): same checks, the gate allows the window not to move (same runs, figures may move a little), and
+# the before/after report goes into the job summary.
 on:
   schedule:
     - cron: "37 7 2-10 * *"
   workflow_dispatch:
+    inputs:
+      recompute:
+        description: "Recompute the committed window (a rule changed) instead of waiting for a new month"
+        type: boolean
+        default: false
   # A dry run on pull requests that change the pipeline: real data, same checks, artifact and summary, never committed.
   pull_request:
     paths:
@@ -26,6 +34,7 @@ on:
       - tests/data/verify_bins.py
       - tests/data/compare_routes.py
       - tests/data/probe_direction.py
+      - tests/data/compare_last_stop.py
       - tests/data/monthly_fixture.py
       - tests/data/test_monthly.py
       - .github/workflows/monthly.yml
@@ -59,7 +68,7 @@ jobs:
 
       - name: Is there a finished month to add?
         id: plan
-        run: python scripts/monthly.py plan
+        run: python scripts/monthly.py plan ${{ inputs.recompute && '--recompute' || '' }}
 
       # Pull requests always run (a dry run of the committed window when no new month is out).
       - name: Pipeline, gate and verifier on synthetic months (no network)
@@ -87,6 +96,12 @@ jobs:
         run: |
           python scripts/routes.py --data-dir "$PQ" --stats "$OLD/stats.json" --out "$RUNNER_TEMP/routes-same-window.json"
           python tests/data/compare_routes.py --old "$OLD/routes.json" --new "$RUNNER_TEMP/routes-same-window.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The last-stop fix (Nov 2026): both rules side by side on the committed window, and what changed in the files.
+      - name: Before/after of the last-stop rule (diagnostic)
+        if: (github.event_name == 'pull_request' || steps.plan.outputs.recompute == 'true') && !cancelled()
+        continue-on-error: true
+        run: python tests/data/compare_last_stop.py --parquet "$PQ" --old "$OLD" --new data | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Why the route figures move (stop numbers vs planned times; diagnostic)
         if: github.event_name == 'pull_request' && !cancelled()
@@ -133,7 +148,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A data
-          git commit -m "data: monthly refresh, window $window"
+          if [ "${{ steps.plan.outputs.recompute }}" = "true" ]; then
+            git commit -m "data: recompute window $window (rule change; see docs/notes/monthly-log.md)"
+          else
+            git commit -m "data: monthly refresh, window $window"
+          fi
           for i in 1 2 3 4; do
             git pull --rebase origin main && git push origin HEAD:main && exit 0
             sleep $((i * 10))

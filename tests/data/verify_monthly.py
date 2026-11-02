@@ -5,9 +5,12 @@
 Shares no code with scripts/compute.py, stops.py, routes.py, connections.py or compensation.py; reproduces their scope
 rules (docs/RULES.md, Data): a ride is the rows with the same "<trip>-<yyMMddHHmm>" id prefix, it belongs to the month of
 its scheduled start (earliest planned time) and counts only in window months; its delay is the arrival delay at its
-last stop (by stop number) that was not cancelled and has a planned arrival; a delay is measured when within the clamp;
+last stop (by planned time, then stop number: rows numbered 100+ sit mid-route) that was not cancelled and has a planned
+arrival; a station listed twice in a ride at the same planned times is one stop (the lowest stop number); a delay is
+measured when within the clamp;
 long-distance types from stats.json params; regional = a line prefix (RE, RB, ...) that is not a bus. Query shapes differ:
-last stops by window function instead of aggregate, regional line components by a separate union-find over ride edges,
+duplicate stops by "lowest stop number of the group" instead of row numbers, last stops by the latest planned arrival
+and then its highest stop number (two steps) instead of one sort key, first stations by a text key, regional line components by a separate union-find over ride edges,
 route pairs by planned time from per-station minima, the change-train ladder by a self-join per station.
 
 Checked (exactly; averages and shares within 0.05 of the unrounded recompute, i.e. the same after rounding):
@@ -116,42 +119,62 @@ def main():
     rep = Report()
 
     # ------------------------------------------------------------ long-distance stop rows and rides
+    # One row per stop: a station listed twice in a ride at the same planned times (ICE 504: Berlin Hbf as stop 10 and
+    # 100) keeps its lowest stop number. (ride, stop number) is unique in the files (the id is ride-number).
     con.execute(f"""
     create table ld as
-    select {PREFIX} ride, train_type tt, train_number num, train_line_station_num seq, try_cast(eva as integer) eva,
-      station_name name, arrival_is_canceled ca, departure_is_canceled cd, final_destination_station dest,
-      arrival_planned_time ap, departure_planned_time dp, arrival_change_time ac, departure_change_time dc,
-      date_diff('minute', arrival_planned_time, arrival_change_time) ad
-    from read_parquet({src}) where not is_replacement_train and train_type in {ld}""")
+    select * exclude (eva_raw) from (
+      select {PREFIX} ride, train_type tt, train_number num, train_line_station_num seq, eva eva_raw,
+        try_cast(eva as integer) eva, station_name name, arrival_is_canceled ca, departure_is_canceled cd,
+        final_destination_station dest, arrival_planned_time ap, departure_planned_time dp, arrival_change_time ac,
+        departure_change_time dc, date_diff('minute', arrival_planned_time, arrival_change_time) ad
+      from read_parquet({src}) where not is_replacement_train and train_type in {ld})
+    qualify seq = min(seq) over (partition by ride, eva_raw, ap, dp)""")
+    dups = con.execute("select count(*) from (select ride, seq from ld group by 1, 2 having count(*) > 1)").fetchone()[0]
+    if dups:
+        rep.fail("stop rows", f"{dups} (ride, stop number) pairs used twice: the duplicate-stop rule assumes none")
     con.execute("""
     create table ld_start as select ride, min(coalesce(dp, ap)) start, bool_and(ca or cd) all_canc,
       first(tt) tt, first(num) num from ld group by ride""")
+    con.execute("create temp view meas as select * from ld where not (ca or cd) and ap is not null and ad is not null")
     con.execute(f"""
     create table ld_ride as
     select s.ride, s.tt, s.num, s.tt || ' ' || s.num unit, s.start, strftime(s.start, '%Y-%m') as month, s.all_canc, f.ad delay,
       coalesce(f.ad between {lo} and {hi}, false) ok
     from ld_start s left join (
-      select ride, ad from ld where not (ca or cd) and ap is not null and ad is not null
-      qualify row_number() over (partition by ride order by seq desc) = 1) f using (ride)
+      -- the last measurable stop: the latest planned arrival, then the highest stop number there
+      select f.ride, arg_max(f.ad, f.seq) ad from meas f
+      join (select ride, max(ap) t from meas group by ride) m on m.ride = f.ride and f.ap = m.t
+      group by f.ride) f using (ride)
     where strftime(s.start, '%Y-%m') in {mlist}""")
     n_ld = con.execute("select count(*) from ld_ride").fetchone()[0]
     print(f"long-distance rides in the window: {n_ld:,}", flush=True)
 
     # ------------------------------------------------------------ regional rides, lines as components
+    # Same stop rules; the first station is the earliest by a text key "planned time + stop number" (no time sorts last).
     con.execute(f"""
-    create table rg_ride as
-    select ride, min(line) line, min(num) num, arg_min(eva, seq) first_eva, list(distinct eva) evas,
-      min(coalesce(dp, ap)) start, bool_and(canc) all_canc,
-      arg_max(ad, seq) filter (where not canc and ap is not null and ad is not null) delay
-    from (
+    create table rg_rows as
+    select * exclude (eva_raw) from (
       select {PREFIX} ride, regexp_replace(line_number, '^([A-Z]+)\\s*', '\\1 ') line, train_number num,
-        train_line_station_num seq, try_cast(eva as integer) eva, arrival_is_canceled or departure_is_canceled canc,
-        arrival_planned_time ap, departure_planned_time dp,
+        train_line_station_num seq, eva eva_raw, try_cast(eva as integer) eva,
+        arrival_is_canceled or departure_is_canceled canc, arrival_planned_time ap, departure_planned_time dp,
         date_diff('minute', arrival_planned_time, arrival_change_time) ad
       from read_parquet({src})
       where not is_replacement_train and train_type not in {ld} and train_type <> 'Bus'
         and regexp_extract(coalesce(line_number, ''), '^([A-Z]+)[0-9]', 1) in {prefixes})
+    qualify seq = min(seq) over (partition by ride, eva_raw, ap, dp)""")
+    con.execute(f"""
+    create table rg_ride as
+    with meas as (select * from rg_rows where not canc and ap is not null and ad is not null),
+    fin as (
+      select f.ride, arg_max(f.ad, f.seq) delay from meas f
+      join (select ride, max(ap) t from meas group by ride) m on m.ride = f.ride and f.ap = m.t group by f.ride)
+    select ride, min(line) line, min(num) num,
+      arg_min(eva, coalesce(strftime(coalesce(ap, dp), '%Y%m%d%H%M%S'), '99999999999999') || lpad(seq::varchar, 6, '0')) first_eva,
+      list(distinct eva) evas, min(coalesce(dp, ap)) start, bool_and(canc) all_canc, any_value(fin.delay) delay
+    from rg_rows left join fin using (ride)
     group by ride""")
+    con.execute("drop table rg_rows")
     # A line is a code plus the stations its rides connect (RE 19 runs in two regions): union-find over (line, station)
     # with an edge from each ride's first station id (arg_min skips rows without one) to every other station of the ride.
     parent = {}
@@ -467,8 +490,8 @@ def main():
     # Neighbouring stops of every window ride (to tell a real change from the same train turning round).
     con.execute("""
     create table cx as
-    select ld.*, x.tt || ' ' || x.num tr, lag(name) over (partition by ride order by seq) prv,
-      lead(name) over (partition by ride order by seq) nxt
+    select ld.*, x.tt || ' ' || x.num tr, lag(name) over (partition by ride order by coalesce(ap, dp), seq) prv,
+      lead(name) over (partition by ride order by coalesce(ap, dp), seq) nxt
     from ld join ld_ride x using (ride)""")
     walk = pc["walk"]
     okc = ", ".join(f"count(*) filter (where not bc and ch >= {w}) ok{w}" for w in walk)

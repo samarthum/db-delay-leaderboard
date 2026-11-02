@@ -2,13 +2,16 @@
 """Monthly history refresh: decide, run the pipeline, gate the result (.github/workflows/monthly.yml).
 
   python scripts/monthly.py plan [--today 2026-11-02]          # act=true|false: is there a finished month to add?
+  python scripts/monthly.py plan --recompute                    # act=true on the committed window (a rule change)
   python scripts/monthly.py run --data-dir DIR [--download]     # compute.py -> stops.py -> routes.py -> connections.py -> compensation.py
-  python scripts/monthly.py gate --old OLD_DATA_DIR [--expect advance|same]   # sanity gate + diff summary
+  python scripts/monthly.py gate --old OLD_DATA_DIR [--expect advance|same|recompute]   # sanity gate + diff summary
 
 piebro publishes monthly_processed_data/data-YYYY-MM.parquet a few days into the next month. The site's window is the
 latest PUBLISHED_MONTHS (12) published months that have full station coverage (compute.py), so adding a month moves the
 window's end forward by exactly one month (and its start too once 12 full months exist). `plan` says act=true only when
 the last finished month is published and data/stats.json does not cover it yet, so the daily check is a no-op otherwise.
+`plan --recompute` (workflow_dispatch input `recompute`) instead reruns the committed window, for a change of a rule (the
+Nov 2026 last-stop fix): the gate then expects the same window, the same runs per month, and figures that moved a little.
 
 Every data file of the history is rewritten for the new window by the current scripts; nothing is merged by hand. The
 RULES ("never overwrite committed data with a fresh compute wholesale") guard against a local window that differs from the
@@ -35,6 +38,10 @@ OUTPUT_DIRS = ["trains", "lines", "search"]
 # Dicts keyed by data (train names, slugs, stations), whose keys may come and go: their values' shapes are compared.
 MAPS = {"connection-pairs.json": [(), ("*", "s")], "connections-daypart.json": [(), ("*",), ("*", "*")],
         "compensation.json": [("routes",), ("types",)], "search/index.json": [("shards",), ("types",)]}
+# Recompute of the same window (a rule change): how far a month's network average and measured count may move. The
+# last-stop fix moves ~4% of long-distance runs' measuring stop; a month moving more than this is a bug, not a fix.
+RECOMPUTE_MAX_AVG_MOVE = 2.0  # minutes
+RECOMPUTE_MAX_MEASURED_MOVE = 0.05  # share
 # Size bounds: a new file must be within this factor of the committed one and under the absolute cap (bytes).
 SIZE_FACTOR = (0.7, 1.5)
 SIZE_CAP = {"routes.json": 3e6, "stops.json": 2e6, "connection-pairs.json": 7e6, "connections-daypart.json": 1e6,
@@ -80,6 +87,11 @@ def plan(args):
         import compute  # noqa: E402  (listing only; needs network)
         published = [m for m, _, _ in compute.list_remote()]
     newest = published[-1] if published else None
+    if args.recompute:
+        # A rule changed: rerun the committed window (a newly published month waits for the next scheduled run).
+        log(f"recompute of the committed window (ends {covered}); newest published: {newest}")
+        output(act="true", month=covered, covered=covered, expect="recompute", until=covered, recompute="true")
+        return
     if covered >= finished:
         act, why = False, f"data/stats.json already covers {finished} (window ends {covered})"
     elif finished not in published:
@@ -90,9 +102,10 @@ def plan(args):
     else:
         act, why = True, f"{finished} is published and data/stats.json ends {covered}"
     log(why)
-    # until: the newest month the run may use (a dry run without a new month recomputes the committed window).
-    output(act=str(act).lower(), month=finished, covered=covered, expect="advance" if act else "same",
-           until=finished if act else covered)
+    # until: the newest month the run may use (a dry run without a new month recomputes the committed window; a pull
+    # request may change a rule, so that dry run is gated like a recompute).
+    output(act=str(act).lower(), month=finished, covered=covered, expect="advance" if act else "recompute",
+           until=finished if act else covered, recompute="false")
 
 
 # ---------------------------------------------------------------- run
@@ -188,8 +201,22 @@ def gate(args):
     for cat in mn["series"]:
         old_by = {m["month"]: m for m in mo["series"].get(cat, [])}
         same = [m for m in mn["series"][cat] if m["month"] in old_by and bytes_o.get(m["month"]) == bytes_n.get(m["month"])]
-        diff = [m["month"] for m in same if m != old_by[m["month"]]]
-        check(not diff, f"{cat}: {len(same)} months both windows hold are unchanged" + (f" (differ: {diff})" if diff else ""))
+        if args.expect == "recompute":
+            # A rule changed, the source did not: every run is still there (a run's existence does not depend on where it
+            # is measured); averages and measured counts may move, a little.
+            runs_diff = [m["month"] for m in same if m["runs"] != old_by[m["month"]]["runs"]]
+            check(not runs_diff and len(same) == len(mn["series"][cat]),
+                  f"{cat}: runs per month unchanged in all {len(same)} months" + (f" (differ: {runs_diff})" if runs_diff else ""))
+            moves = [(abs((m["avgDelayMin"] or 0) - (old_by[m["month"]]["avgDelayMin"] or 0)), m["month"]) for m in same]
+            meas = [(abs(m["measured"] - old_by[m["month"]]["measured"]) / max(old_by[m["month"]]["measured"], 1), m["month"]) for m in same]
+            big, big_m = max(moves, default=(0, None))
+            mb, mb_m = max(meas, default=(0, None))
+            check(big <= RECOMPUTE_MAX_AVG_MOVE, f"{cat}: monthly average moved at most {big:.1f} min ({big_m}); limit {RECOMPUTE_MAX_AVG_MOVE}")
+            check(mb <= RECOMPUTE_MAX_MEASURED_MOVE, f"{cat}: measured runs per month moved at most {100 * mb:.2f}% ({mb_m}); "
+                  f"limit {100 * RECOMPUTE_MAX_MEASURED_MOVE:.0f}%")
+        else:
+            diff = [m["month"] for m in same if m != old_by[m["month"]]]
+            check(not diff, f"{cat}: {len(same)} months both windows hold are unchanged" + (f" (differ: {diff})" if diff else ""))
         runs = sorted(m["runs"] for m in mn["series"][cat][:-1]) or [mn["series"][cat][-1]["runs"]]
         med = runs[len(runs) // 2]
         last = mn["series"][cat][-1]
@@ -319,6 +346,7 @@ def main():
     p.add_argument("--today", help="YYYY-MM-DD (default: today, UTC)")
     p.add_argument("--stats", default=str(ROOT / "data" / "stats.json"))
     p.add_argument("--listing", help="JSON list of published months instead of asking Hugging Face (tests)")
+    p.add_argument("--recompute", action="store_true", help="act on the committed window (a rule changed)")
     p = sub.add_parser("run")
     p.add_argument("--data-dir", required=True, help="folder of data-YYYY-MM.parquet (the download cache with --download)")
     p.add_argument("--download", action="store_true", help="let compute.py download the latest published months into --data-dir")
@@ -329,7 +357,8 @@ def main():
     p = sub.add_parser("gate")
     p.add_argument("--old", required=True, help="copy of the data folder before the run")
     p.add_argument("--new", default=str(ROOT / "data"))
-    p.add_argument("--expect", choices=["advance", "same"], default="advance")
+    p.add_argument("--expect", choices=["advance", "same", "recompute"], default="advance",
+                   help="advance: one new month; same: nothing may change; recompute: same window and runs, figures may move")
     args = ap.parse_args()
     {"plan": plan, "run": run, "gate": gate}[args.cmd](args)
 
