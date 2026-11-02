@@ -20,7 +20,8 @@ Rules, the same as stops.py (per stop of a train):
   cancelled share of the train's runs at that stop whose arrival or departure there was cancelled
   departure figures the same on the departure, used only where a stop has no planned arrival (the train starts there)
   figures need MIN_STOP_RUNS measured runs, else null ("few trips"), as on the German stops
-Only stations of that country count (RdT also lists the German stops of these trains; those come from DB's data).
+Only runs that also call in Germany count (NS numbers some domestic Intercitys like DB's IC 2xxx), and only stations of
+that country (RdT also lists the German stops of these trains; those come from DB's data).
 Train names: RdT type + number ("ICE" 121 -> "ICE 121"); only numbers the site knows as long-distance trains are kept.
 
 Writes data/abroad-history.json:
@@ -119,6 +120,9 @@ def compute_nl(con, cache, months, wanted, p):
     select raw.* from raw join nlst using (code)
     where nlst.country = 'NL' and train in (select name from want)
       and strftime(cast(sdate as date), '%Y-%m') in (select unnest([{", ".join(sql_str(m) for m in months)}]))
+      -- a cross-border run: it also calls in Germany (NS numbers its domestic Intercitys like DB's IC 2xxx)
+      and run in (select r."Service:RDT-ID" from read_csv({src}, header=true, all_varchar=true, compression='gzip') r
+                  join nlst g on g.code = r."Stop:Station code" where g.country = 'D')
     qualify row_number() over (partition by run, name order by try_cast(sid as bigint)) = 1
     """)
     rows = con.execute(f"""

@@ -70,9 +70,10 @@ def main():
                 ah,
                 ("OBH", f"{date}T09:00:00+01:00", "50", "false", f"{date}T09:02:00+01:00", "50", "false")])
             sid += 1
+            # A domestic Intercity whose number DB also uses: never calls in Germany, so it must not count.
             rows[m] += run_rows(sid, date, "Intercity", "3000", [("UT", "", "", "", f"{date}T07:00:00+01:00", "9", "false"), ("HT", f"{date}T07:30:00+01:00", "99", "false", "", "", "")])
             sid += 1
-            rows[m] += run_rows(sid, date, "ICE", "9999", [("ASD", "", "", "", f"{date}T06:00:00+01:00", "30", "false"), ("UT", f"{date}T06:25:00+01:00", "30", "false", "", "", "")])
+            rows[m] += run_rows(sid, date, "ICE", "9999", [("ASD", "", "", "", f"{date}T06:00:00+01:00", "30", "false"), ("OBH", f"{date}T08:25:00+01:00", "30", "false", "", "", "")])
             sid += 1
     rows["2025-12"] += run_rows(sid, "2025-12-31", "ICE", "121", [("ASD", "", "", "", "2025-12-31T06:00:00+01:00", "99", "false"), ("UT", "2025-12-31T06:25:00+01:00", "99", "false", "", "", "")])
     for m, rs in rows.items():
@@ -93,7 +94,7 @@ def main():
     t = doc["trains"].get("ICE 121", {})
     ok(set(t) == {"Amsterdam Centraal", "Utrecht Centraal", "Arnhem Centraal"}, f"Dutch stops only: {sorted(t)}")
     ok("ICE 9999" not in doc["trains"], "unknown train left out")
-    ok("IC 3000" in doc["trains"], "domestic-looking but known number kept")
+    ok("IC 3000" not in doc["trains"], "domestic run with a DB number left out")
     u = t.get("Utrecht Centraal")
     # 50 runs, delays 0..24 twice; 15+ = 15..24 -> 10 per month = 20 of 50 = 40%; mean 12.0; no departure figures there.
     ok(u == ["NL", 50, 50, 40.0, 12.0, 0, None, None, 0.0], f"Utrecht {u}")
@@ -106,13 +107,13 @@ def main():
     arr = [d % 6 for d in range(1, 26) if d not in (3, 5, 7)] * 2
     ok(ah == ["NL", 50, 44, 0.0, round(sum(arr) / 44, 1), 0, None, None, 4.0], f"Arnhem {ah}")
     ok(doc["sources"]["NL"]["months"] == months and doc["window"]["months"] == months, "window = site window")
-    r = subprocess.run([py, str(ROOT / "tests/data/verify_abroad_history.py"), "--cache", str(cache), "--json", str(out), "--stats", str(tmp / "stats.json")],
+    r = subprocess.run([py, str(ROOT / "tests/data/verify_abroad_history.py"), "--cache", str(cache), "--json", str(out), "--stats", str(tmp / "stats.json"), "--stops", str(tmp / "stops.json")],
                        capture_output=True, text=True)
     ok(r.returncode == 0 and "0 differences" in r.stdout, "verifier agrees: " + r.stdout[-500:])
     doc["trains"]["ICE 121"]["Utrecht Centraal"][3] = 41.0
     bad = tmp / "bad.json"
     bad.write_text(json.dumps(doc))
-    r = subprocess.run([py, str(ROOT / "tests/data/verify_abroad_history.py"), "--cache", str(cache), "--json", str(bad), "--stats", str(tmp / "stats.json")],
+    r = subprocess.run([py, str(ROOT / "tests/data/verify_abroad_history.py"), "--cache", str(cache), "--json", str(bad), "--stats", str(tmp / "stats.json"), "--stops", str(tmp / "stops.json")],
                        capture_output=True, text=True)
     ok(r.returncode == 1 and "1 differences" in r.stdout, "planted error caught: " + r.stdout[-300:])
     print(f"abroad history: {checks - fails} of {checks} checks passed")

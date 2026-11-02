@@ -28,6 +28,7 @@ def main():
     ap.add_argument("--cache", required=True)
     ap.add_argument("--json", default="data/abroad-history.json")
     ap.add_argument("--stats", default="data/stats.json")
+    ap.add_argument("--stops", default="data/stops.json", help="the site's long-distance train numbers")
     a = ap.parse_args()
     doc = json.loads(Path(a.json).read_text())
     stats = json.loads(Path(a.stats).read_text())
@@ -43,12 +44,21 @@ def main():
     with open(station_files[-1], newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             country[r["code"]] = r["country"]
-    trains = set(doc["trains"])
+    # Every long-distance number the site knows, not only those in the file: a train the file misses is a difference.
+    trains = {f"{t[0]} {t[1]}" for t in json.loads(Path(a.stops).read_text())["trains"]}
     # (train, station name) -> {run id: (stop id, row)}: the first row of a station within a run, by stop id.
     cells = {}
     for m in months:
+        # First pass: runs that call at a German station (cross-border runs only).
+        german_runs = set()
         with gzip.open(cache / f"rdt-services-{m}.csv.gz", "rt", encoding="utf-8", newline="") as f:
             for r in csv.DictReader(f):
+                if country.get(r["Stop:Station code"]) == "D":
+                    german_runs.add(r["Service:RDT-ID"])
+        with gzip.open(cache / f"rdt-services-{m}.csv.gz", "rt", encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                if r["Service:RDT-ID"] not in german_runs:
+                    continue
                 t = TYPES.get(r["Service:Type"])
                 if not t:
                     continue

@@ -1,10 +1,82 @@
 // Copies the search index written by compute.py (data/search/) to public/search/, where the browser fetches it,
 // and builds the typeahead index (ta.json) from the long-distance and regional-line records.
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * Stops abroad (data/foreign-stops.json, Transitous) go into each train's stop list in running order, as stations of
+ * their own, with the train's history at that stop where the country publishes one (data/abroad-history.json): route
+ * search then matches "Amsterdam to Düsseldorf", "Düsseldorf to Amsterdam" and "Amsterdam to Basel" by planned time,
+ * like any German pair. Each stop gets the usual record, [station, dep, arr, runs, measured, late %, avg, cancelled %,
+ * minutes], plus for a stop where the train starts its departure figures [measured, late %, avg] (the German stops
+ * have arrival figures only). Adds to stops.json: `abroad` {station index: country}, `sources` [countries with history].
+ */
+function mergeAbroad(stops) {
+  let fs1 = { stations: {}, trains: {} };
+  let hist = { trains: {}, sources: {} };
+  try {
+    fs1 = JSON.parse(readFileSync(path.join(ROOT, "data", "foreign-stops.json"), "utf8"));
+  } catch {
+    console.log("stops abroad: data/foreign-stops.json not found, trains stop at the border");
+  }
+  try {
+    hist = JSON.parse(readFileSync(path.join(ROOT, "data", "abroad-history.json"), "utf8"));
+  } catch {
+    console.log("history abroad: data/abroad-history.json not found, stops abroad show no history");
+  }
+  const fold = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const index = new Map(stops.stations.map((n, i) => [fold(n), i]));
+  const abroad = {};
+  const mod = (m) => ((m % 1440) + 1440) % 1440;
+  let trains = 0;
+  let added = 0;
+  let withHist = 0;
+  for (const tr of stops.trains) {
+    const name = `${tr[0]} ${tr[1]}`;
+    const f = fs1.trains[name];
+    if (!f) continue;
+    const st = tr[2];
+    const a = st.find((s) => stops.stations[s[0]] === f.at);
+    if (!a) continue;
+    // The anchor's offset is measured at its arrival (stops.py: arrival, else departure); the offsets abroad count from
+    // its departure: add the planned stop there.
+    const dwell = a[1] !== null && a[2] !== null ? mod(a[1] - a[2]) : 0;
+    const base = a[8] + (dwell < 60 ? dwell : 0);
+    const h = new Map(Object.entries(hist.trains[name] || {}).map(([k, v]) => [fold(k), v]));
+    const here = new Set(st.map((s) => s[0]));
+    let n = 0;
+    for (const [sname, arr, dep] of f.s) {
+      const key = fold(sname);
+      let i = index.get(key);
+      if (i === undefined) {
+        i = stops.stations.push(sname) - 1;
+        index.set(key, i);
+      }
+      if (here.has(i)) continue;
+      const cc = fs1.stations[sname]?.[0] ?? null;
+      if (cc) abroad[i] = cc;
+      const v = h.get(key);
+      const rec = [i, dep === null ? null : mod(f.t + dep), arr === null ? null : mod(f.t + arr), v ? v[1] : 0, v ? v[2] : 0, v ? v[3] : null, v ? v[4] : null, v ? v[8] : 0, base + (arr ?? dep)];
+      if (v && v[5] > 0) rec.push([v[5], v[6], v[7]]);
+      if (v) withHist++;
+      st.push(rec);
+      here.add(i);
+      n++;
+    }
+    if (!n) continue;
+    st.sort((x, y) => x[8] - y[8]);
+    trains++;
+    added += n;
+  }
+  stops.abroad = abroad;
+  stops.sources = Object.keys(hist.sources || {}).sort();
+  stops.abroadWindow = hist.window ? { firstMonth: hist.window.firstMonth, lastMonth: hist.window.lastMonth } : null;
+  console.log(`stops abroad: ${added} stops on ${trains} trains (${withHist} with history from ${stops.sources.join(", ") || "no source"})`);
+}
 const FROM = path.join(ROOT, "data", "search");
 const TO = path.join(ROOT, "public", "search");
 
@@ -40,6 +112,7 @@ try {
     while (tr.length < 4) tr.push(null);
     tr[4] = i;
   }
+  mergeAbroad(stops);
   await fs.writeFile(path.join(TO, "stops.json"), JSON.stringify(stops));
   console.log(`stops: ${((await fs.stat(path.join(TO, "stops.json"))).size / 1e6).toFixed(2)} MB copied`);
 } catch {

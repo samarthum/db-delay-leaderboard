@@ -148,6 +148,19 @@ function candidates() {
 }
 
 const germanNames = new Set(stops.stations.map(fold));
+// One spelling per station across the site: DB's own label where our data already names the place (the destination
+// labels in stops.json, "Bruxelles Midi", "Praha hl.n."), else a fixed spelling for feeds that use another language.
+const LABELS = new Map((stops.foreign || []).map((n) => [fold(n), n]));
+const PRETTY = {
+  "Brussel-Zuid": "Bruxelles Midi", "Bruxelles-Midi": "Bruxelles Midi", "Brussels-Midi": "Bruxelles Midi", "Brussel-Noord": "Bruxelles Nord",
+  "Bruxelles-Nord": "Bruxelles Nord", "Bruxelles-Central": "Bruxelles Central", "Brussel-Centraal": "Bruxelles Central",
+  "Luik-Guillemins": "Liège-Guillemins", "Liege-Guillemins": "Liège-Guillemins", "Antwerpen-Centraal": "Antwerpen Centraal",
+  "Koebenhavn H": "København H", "Kobenhavn H": "København H", "Praha hlavni nadrazi": "Praha hl.n.", "Praha hl. n.": "Praha hl.n.",
+};
+export function canonical(name) {
+  const n = String(name).trim();
+  return PRETTY[n] || LABELS.get(fold(n)) || n;
+}
 const stations = { ...(old.stations || {}) };
 const trains = { ...(old.trains || {}) };
 const today = new Date().toISOString().slice(0, 10);
@@ -194,9 +207,10 @@ for (const c of LIMIT ? list.slice(0, LIMIT) : list) {
       const arr = p === places[0] ? null : off(p.scheduledArrival);
       const dep = p === places[places.length - 1] ? null : off(p.scheduledDeparture);
       if (arr === null && dep === null) continue;
-      abroad.push([p.name, arr, dep]);
-      // Keep the first id seen for a name, refreshed when the trip gives one again (ids change with feed versions).
-      stations[p.name] = [cc, p.stopId];
+      const name = canonical(p.name);
+      abroad.push([name, arr, dep]);
+      // The id the latest trip gave (ids change with feed versions).
+      stations[name] = [cc, p.stopId];
     }
     if (!abroad.length) { onlyGerman++; continue; }
     trains[c.name] = { at: c.anchor, t: c.t, seen: today, s: abroad };

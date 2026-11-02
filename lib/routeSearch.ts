@@ -7,8 +7,11 @@
  */
 import { fold, words } from "./typeahead";
 
-/** [station index, dep minutes, arr minutes, runs, measured, late %, avg min, cancelled %, minutes after the run's first stop] */
-export type RawStop = [number, number | null, number | null, number, number, number | null, number | null, number, number];
+/**
+ * [station index, dep minutes, arr minutes, runs, measured, late %, avg min, cancelled %, minutes after the run's first
+ * stop, departure figures where the train starts there (stops abroad only): [measured, late %, avg]]
+ */
+export type RawStop = [number, number | null, number | null, number, number, number | null, number | null, number, number, ([number, number | null, number | null] | undefined)?];
 /** [type, number, stops, index into `foreign` when the train ends abroad, index into `foreign` when it starts abroad] */
 export type RawTrain = [string, string, RawStop[], (number | null)?, (number | null)?];
 export interface StopsRaw {
@@ -18,6 +21,11 @@ export interface StopsRaw {
   /** Places abroad where long-distance trains end ("Amsterdam Centraal"): the source records no stops outside Germany. */
   foreign: string[];
   trains: RawTrain[];
+  /** Stations abroad (scripts/copy-search.mjs from data/foreign-stops.json): station index -> country ("NL"). */
+  abroad?: Record<string, string>;
+  /** Countries whose open data gives each train's delay at its stops there (data/abroad-history.json). */
+  sources?: string[];
+  abroadWindow?: { firstMonth: string; lastMonth: string } | null;
 }
 
 export interface StopsIndex {
@@ -28,6 +36,21 @@ export interface StopsIndex {
   foreignWords: string[][];
   /** Trains heading to each foreign place. */
   foreignWeight: number[];
+  /** For each `foreign` label, the station of the same name in `stations` (stops abroad), or -1. */
+  labelStation: number[];
+}
+
+const plain = (s: string) => fold(s).replace(/ /g, "");
+
+/** Country of a station abroad ("NL"), null for a German one. */
+export function countryOf(idx: StopsIndex, station: number): string | null {
+  return idx.raw.abroad?.[String(station)] ?? null;
+}
+
+/** Whether the train's figures at this station exist: German stations always, stations abroad when the country has a source. */
+export function hasHistory(idx: StopsIndex, station: number): boolean {
+  const cc = countryOf(idx, station);
+  return cc === null || (idx.raw.sources ?? []).includes(cc);
 }
 
 export function buildStops(raw: StopsRaw): StopsIndex {
@@ -39,7 +62,9 @@ export function buildStops(raw: StopsRaw): StopsIndex {
     if (t[3] !== undefined && t[3] !== null) foreignWeight[t[3]] += 1;
     if (t[4] !== undefined && t[4] !== null) foreignWeight[t[4]] += 1;
   }
-  return { raw: { ...raw, foreign }, stationWords: raw.stations.map((n) => words(fold(n))), weight, foreignWords: foreign.map((n) => words(fold(n))), foreignWeight };
+  const byName = new Map(raw.stations.map((n, i) => [plain(n), i]));
+  const labelStation = foreign.map((n) => byName.get(plain(n)) ?? -1);
+  return { raw: { ...raw, foreign }, stationWords: raw.stations.map((n) => words(fold(n))), weight, foreignWords: foreign.map((n) => words(fold(n))), foreignWeight, labelStation };
 }
 
 // ---------------------------------------------------------------- parsing
@@ -243,11 +268,15 @@ export function destinations(idx: StopsIndex, input: string, limit = 5): Destina
       if (q.length && !wordsMatch(q, idx.stationWords[st[0]])) continue;
       seen.add(st[0]);
     }
-    for (const s of seen) count.set(s, (count.get(s) ?? 0) + 1);
     const last = stops[stops.length - 1];
     if (fi !== undefined && fi !== null && stops.length - 1 > i && last[2] !== null && last[8] > stops[i][8] && (!q.length || wordsMatch(q, idx.foreignWords[fi]))) {
-      abroad.set(fi, (abroad.get(fi) ?? 0) + 1);
+      // The final destination abroad: one entry with the station of the same name when stops abroad exist for it.
+      const st = idx.labelStation[fi];
+      if (st >= 0) {
+        if (!fromSet.has(st)) seen.add(st);
+      } else abroad.set(fi, (abroad.get(fi) ?? 0) + 1);
     }
+    for (const s of seen) count.set(s, (count.get(s) ?? 0) + 1);
   }
   const byTrains = (x: [number, number], y: [number, number]) => y[1] - x[1];
   const de = [...count.entries()].sort(byTrains).map(([st, trains]) => ({ name: idx.raw.stations[st], trains }));
@@ -281,6 +310,11 @@ export interface RouteHit {
   abroad: boolean;
   /** The trip starts abroad: `dep` is the time at the first German stop (fromName). */
   fromAbroad?: boolean;
+  /** Country of the stop you board / get off when it is abroad ("NL"), else null. */
+  fromCc?: string | null;
+  toCc?: string | null;
+  /** The stop you get off is abroad in a country with no open delay data: `late` is null for that reason. */
+  noHistory?: boolean;
 }
 
 /** Minutes between two clock times, the short way round the clock. */
@@ -297,30 +331,31 @@ export function findTrains(idx: StopsIndex, q: RouteQuery): RouteHit[] {
   const fromAbroadSet = new Set(q.fromForeign ?? []);
   const hits: RouteHit[] = [];
   for (const [type, num, stops, fi, oi] of idx.raw.trains) {
-    let best: { i: number; j: number; score: number } | null = null;
-    // From abroad: board at the first German stop the data has.
-    const startAbroad = fromAbroadSet.size > 0 && oi !== undefined && oi !== null && fromAbroadSet.has(oi);
+    let best: { i: number; j: number; score: number; viaFrom: boolean; viaTo: boolean } | null = null;
+    // A train whose stops abroad are not in the data (not found in the timetables abroad) still has its real origin
+    // or final destination as a label: boarding there means boarding at the first German stop the data has, getting
+    // off there is measured at the last one.
+    const endSt = fi !== undefined && fi !== null ? idx.labelStation[fi] : -1;
+    const startSt = oi !== undefined && oi !== null ? idx.labelStation[oi] : -1;
+    const inline = (st: number) => st >= 0 && stops.some((s) => s[0] === st);
+    const viaFrom = (fromAbroadSet.size > 0 && oi !== undefined && oi !== null && fromAbroadSet.has(oi)) || (startSt >= 0 && fromSet.has(startSt) && !inline(startSt));
+    const viaTo = (fi !== undefined && fi !== null && abroadSet.has(fi)) || (endSt >= 0 && toSet.has(endSt) && !inline(endSt));
     for (let i = 0; i < stops.length; i++) {
-      if (startAbroad ? i !== 0 : !fromSet.has(stops[i][0]) || stops[i][1] === null) continue;
-      if (stops[i][1] === null) continue;
-      if (toSet.size > 0) {
-        for (let j = i + 1; j < stops.length; j++) {
-          if (!toSet.has(stops[j][0]) || stops[j][2] === null || stops[j][8] <= stops[i][8]) continue;
-          const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
-          if (!best || score > best.score) best = { i, j, score };
-        }
-      } else if (fi !== undefined && fi !== null && abroadSet.has(fi)) {
-        // The train ends abroad: the last recorded stop is its last one in Germany, and the only place we can measure.
-        const j = stops.length - 1;
-        if (j > i && stops[j][2] !== null && stops[j][8] > stops[i][8]) {
-          const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
-          if (!best || score > best.score) best = { i, j, score };
-        }
-      }
+      const boardHere = viaFrom ? i === 0 : fromSet.has(stops[i][0]);
+      if (!boardHere || stops[i][1] === null) continue;
+      const consider = (j: number, viaToHere: boolean) => {
+        if (j <= i || stops[j][2] === null || stops[j][8] <= stops[i][8]) return;
+        const score = idx.weight[stops[i][0]] + idx.weight[stops[j][0]];
+        if (!best || score > best.score) best = { i, j, score, viaFrom: viaFrom && i === 0, viaTo: viaToHere };
+      };
+      for (let j = i + 1; j < stops.length; j++) if (toSet.has(stops[j][0])) consider(j, false);
+      if (viaTo) consider(stops.length - 1, true);
     }
     if (!best) continue;
-    const a = stops[best.i];
-    const b = stops[best.j];
+    const found = best as { i: number; j: number; viaFrom: boolean; viaTo: boolean };
+    const a = stops[found.i];
+    const b = stops[found.j];
+    const toCc = found.viaTo ? null : countryOf(idx, b[0]);
     hits.push({
       type,
       num,
@@ -334,9 +369,12 @@ export function findTrains(idx: StopsIndex, q: RouteQuery): RouteHit[] {
       late: b[5],
       avg: b[6],
       cancelled: b[7],
-      hops: best.j - best.i,
-      abroad: toSet.size === 0,
-      fromAbroad: startAbroad,
+      hops: found.j - found.i,
+      abroad: found.viaTo,
+      fromAbroad: found.viaFrom,
+      fromCc: found.viaFrom ? null : countryOf(idx, a[0]),
+      toCc,
+      noHistory: !found.viaTo && !hasHistory(idx, b[0]),
     });
   }
   const t = q.time;
