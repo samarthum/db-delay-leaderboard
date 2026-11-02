@@ -9,6 +9,7 @@ import csv
 import gzip
 import io
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -170,6 +171,70 @@ def at():
     show("data.gv.at OEBB Puenktlichkeit", "https://www.data.gv.at/katalog/api/3/action/package_search?q=P%C3%BCnktlichkeit&rows=10", 5000)
 
 
+def text_around(url, words, width=300, n=8):
+    st, h, b = get(url)
+    t = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", b.decode("utf-8", "replace"))
+    hrefs = re.findall(r'href="([^"]+)"', t)
+    t = re.sub(r"<[^>]+>", " ", t)
+    t = re.sub(r"\s+", " ", t)
+    print(f"\n=== {url} -> {st}")
+    k = 0
+    for w in words:
+        for m in re.finditer(w, t, re.I):
+            print("  ..." + t[max(0, m.start() - width): m.end() + width] + "...")
+            k += 1
+            if k >= n:
+                return hrefs
+    return hrefs
+
+
+def round2():
+    text_around("https://www.rijdendetreinen.nl/en/open-data/train-archive", ["licen", "CC BY", "Creative"])
+    text_around("https://www.rijdendetreinen.nl/en/open-data", ["licen", "CC BY", "Creative", "attribut"])
+    base = "https://opendata.infrabel.be/api/explore/v2.1/catalog/datasets"
+    st, h, b = get(f"{base}/ruwe-gegevens-van-stiptheid-d-1")
+    try:
+        m = json.loads(b)["metas"]["default"]
+        print("INFRABEL D-1 description:", re.sub(r"<[^>]+>", " ", m.get("description") or "")[:3000])
+    except Exception as e:  # noqa: BLE001
+        print(e)
+    for q in ("ruwe", "raw", "brute", "maand"):
+        st, h, b = get(f"{base}?where=search(%22{q}%22)&limit=30&lang=en&select=dataset_id")
+        try:
+            print("infrabel", q, [d["dataset_id"] for d in json.loads(b)["results"]])
+        except Exception as e:  # noqa: BLE001
+            print(q, e)
+    hrefs = text_around("https://opendata.infrabel.be/explore/dataset/ruwe-gegevens-van-stiptheid-d-1/information/", ["maand", "month", "archive", "archief", "previous"])
+    print([x for x in hrefs if "csv" in x.lower() or "zip" in x.lower() or "blob" in x.lower()][:30])
+    for u in ("https://archive.opentransportdata.swiss/istdaten/2025/ist-daten-2025-11.zip",
+              "https://archive.opentransportdata.swiss/istdaten/2026/ist-daten-2026-09.zip",
+              "https://archive.opentransportdata.swiss/istdaten/"):
+        st, h, b = get(u, 300)
+        print("CH", u, st, h.get("Content-Length"), h.get("Content-Type"), b[:200])
+    hrefs = text_around("https://opentransportdata.swiss/en/ist-daten-archiv/", ["archive", "Archiv", "zip"])
+    print("CH links", [x for x in hrefs if "zip" in x or "archive" in x][:40])
+    hrefs = text_around("https://opentransportdata.swiss/de/ist-daten-archiv/", ["Archiv", "zip"])
+    print("CH links de", [x for x in hrefs if "zip" in x or "archive" in x][:40])
+    st, h, b = get("https://data.opentransportdata.swiss/api/3/action/package_search?q=istdaten&rows=5")
+    print("CKAN", st, b[:1500])
+    text_around("https://opentransportdata.swiss/en/terms-of-use/", ["attribution", "source", "free of charge"], 250, 6)
+    for u in ("https://www.mobilitaetsdaten.gv.at/", "https://www.mobilitaetsdaten.gv.at/de/datensaetze",
+              "https://data.oebb.at/de/datensaetze", "https://www.data.gv.at/suche/?searchterm=P%C3%BCnktlichkeit"):
+        hrefs = text_around(u, ["Pünktlich", "Verspät", "Ist-Daten", "Zugfahrt", "Echtzeit"], 200, 6)
+    api = "https://api.transitous.org/api"
+    st, h, b = get(f"{api}/v1/reverse-geocode?place=52.0898,5.1098&type=STOP")
+    print("reverse", st, b[:600])
+    time.sleep(1.5)
+    st, h, b = get(f"{api}/v1/geocode?type=STOP&text=Emmerich")
+    hits = json.loads(b)
+    print([(x["name"], x["id"], x.get("modes")) for x in hits[:5]])
+    sid = next(x["id"] for x in hits if "LONG_DISTANCE" in (x.get("modes") or []) or "HIGHSPEED_RAIL" in (x.get("modes") or []))
+    time.sleep(1.5)
+    st, h, b = get(f"{api}/v6/stoptimes?stopId={urllib.parse.quote(sid)}&n=500&window=86400&mode=HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL")
+    j = json.loads(b)
+    print("Emmerich board", st, len(j.get("stopTimes", [])), sorted({(s.get("displayName"), s.get("tripShortName"), s.get("source", "")[:12]) for s in j.get("stopTimes", [])})[:60])
+
+
 def other():
     show("CZ data.gov.cz", "https://data.gov.cz/api/v2/datasets?query=zpo%C5%BEd%C4%9Bn%C3%AD%20vlak%C5%AF", 3000)
     show("FR SNCF regularite", "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets?where=search(%22regularite%22)&limit=20", 4000)
@@ -181,5 +246,5 @@ if __name__ == "__main__":
     ap.add_argument("--part", required=True)
     part = ap.parse_args().part
     import urllib.parse  # noqa: E402,F401
-    {"gtfs": gtfs, "transitous": transitous, "rdt": rdt, "be": be, "ch": ch, "at": at, "other": other}[part]()
+    {"gtfs": gtfs, "transitous": transitous, "rdt": rdt, "be": be, "ch": ch, "at": at, "other": other, "round2": round2}[part]()
     sys.stdout.flush()
