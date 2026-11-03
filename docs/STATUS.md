@@ -1,6 +1,6 @@
 # German Punctuality: status and hand-over
 
-Last updated: 2 November 2026. Start here if you (or an AI coding agent) are picking the project up on a new
+Last updated: 3 November 2026. Start here if you (or an AI coding agent) are picking the project up on a new
 machine. Read this, then `docs/ROADMAP.md`, `docs/RULES.md` and, before touching a topic, its file in `docs/notes/`.
 
 ## What it is
@@ -20,7 +20,7 @@ History from open data (11 months), live status from DB's own API, cross-border 
 | --- | --- | --- |
 | Home | Built around "my train today" (redesign 1 Nov 2026, `docs/notes/home-redesign-log.md`): headline, one-line lead, the search box, then "Your trains" (starred) and "Looked up lately" with today's live departure and arrival (named stops), a starred route's next train, the usual delay read from current data; then the network average and the most delayed routes | `components/pages/HomePage.tsx`, `YourTrains.tsx` |
 | Search | Full-screen sheet on phones (starred trains and recent pages first); trains (number), routes ("8:14 Köln to Berlin" offers the train closest to that time first, then the route), stations (with "Where are you going from X?"); lands on the page when one exists; suggestion figures labelled "average delay" | `components/search/*`, `lib/routeSearch.ts`, `lib/searchCore.ts` |
-| Route pages (685) | Average delay, % 15+ and DB's 6-min rule, trains on the route with each train's average, live "next trains" board, share picture; opened with a time (`?t=08:14`) the closest trains come first with the nearest marked and its live state | `components/pages/RoutePage.tsx`, `scripts/routes.py` |
+| Route pages (687) | Average delay, % 15+ and DB's 6-min rule, trains on the route with each train's average, live "next trains" board, share picture; opened with a time (`?t=08:14`) the closest trains come first with the nearest marked and its live state | `components/pages/RoutePage.tsx`, `scripts/routes.py` |
 | Train pages (50) + search result card (every other train) | Live box first: departure at the first and arrival at the last station with live times (delay, platform change, cancellation; "no delay reported" in grey, never "on time"), departure abroad for trains from abroad, where live times stop for trains ending abroad, "next run" outside the window; card says when a train has no live times or the feed is down. Then "How late it has run" (11 months, 12 after the October refresh), "Sundays, like today" (card), "latest month" (train page; card once the monthly refresh has written search field 17). "Getting on or off at another stop?": the train's own stops, pick on/off, lands on that route at the train's time. "The last 7 days" under it on both (every long-distance train, not only the 50): one mark per day at departure (first German stop) and arrival (last German stop), cancelled as ×, no run / incomplete days hollow, one sentence (arrival average, days 15+ late, cancellations), the as-of day; refreshed daily (below). Save star on both ("Save to home" in words on the card) | `UnitPage.tsx`, `search/SearchResult.tsx`, `LiveNow.tsx`, `LastWeek.tsx`, `scripts/last7.py` |
 | Cross-border trains (Nov 2026, PR #8) | Stops abroad on both sides of the border in route search ("Amsterdam to Düsseldorf", "Köln Bruxelles", "Amsterdam to Basel"; English/German/local spellings); picking a train opens its card/page with "Your trip": both chosen stops with today's live status (DB in Germany, Transitous abroad) and the train's usual delay at each stop (DB data in Germany, Rijden de Treinen in the Netherlands, Infrabel in Belgium, "No history abroad yet for <country>" elsewhere) | `scripts/foreign_stops.mjs`, `scripts/abroad_history.py`, `lib/tripStops.cjs`, `components/TripEnds.tsx`, `api/live.js` `tripNow()` |
 | Change trains | Pick arriving train, station, next train: how often that change worked; live: minutes to change by DB's forecast and history for days the arriving train was similarly late | `ChangeTrains.tsx`, `lib/changeTrains.ts`, `lib/liveChange.ts`, `scripts/connections.py` |
@@ -37,7 +37,7 @@ The live-feed collector service (`docs/notes/live-and-international.md`) is stop
 
 ## Data at a glance (as committed)
 - History window: Nov 2025 - Sep 2026 (`data/stats.json`), source piebro/deutsche-bahn-data (CC BY 4.0), German
-  stations only. 685 route pages (76 ranked), 50 train pages, 44 line pages, 1,574 sitemap URLs.
+  stations only. 687 route pages (76 ranked), 50 train pages, 44 line pages, 1,574 sitemap URLs.
 - Live lookups: 897 trains (`data/live-trains.json`), 96 stations (`data/live-stations.json`).
 - Trains from abroad: 134 real origins (`data/foreign-origins.json`), 109 matched in Transitous
   (`data/abroad-trips.json`); refreshed weekly (below).

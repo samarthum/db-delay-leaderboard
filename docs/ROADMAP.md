@@ -74,3 +74,5 @@ Order agreed with the owner. Done items stay listed briefly so the history of de
 - Check the Free-plan terms of the DB API Marketplace for public use.
 - Rebuild the older test suites that were lost (live-unit with a DB mock, share-image size, voice) into `tests/`.
 - Custom domain (`NEXT_PUBLIC_SITE_URL`, see README).
+- GitHub Actions warn that the workflows' actions (checkout, setup-python, setup-node, upload-artifact) still run on
+  the deprecated Node 20: bump them to their Node 24 majors in `last7.yml`, `monthly.yml` and `abroad.yml`.
