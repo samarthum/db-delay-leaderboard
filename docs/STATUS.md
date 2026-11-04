@@ -35,6 +35,8 @@ Phone navigation: four tabs (Search, Change trains, Rankings, Network); top bar 
 
 Brand: the header mark is a flustered little train (ink only); the same train, hand-drawn at 16 px, is the favicon; the line train is also on every share card and the Android home-screen icon (web manifest per language). Sources and how to redraw the icons: `docs/notes/product-and-ui.md` (Brand mark).
 
+Search and answer engines (Nov 2026, `docs/notes/seo-aeo.md`): schema.org JSON-LD on every page (site-wide Organization + WebSite + Dataset on the home pages; WebPage + BreadcrumbList everywhere; FAQPage on the Method page), `/llms.txt` and `/llms-full.txt` generated from the data, `robots.txt` naming the search and AI crawlers, keyword-first titles ("ICE 1541 delays: ..." / "ICE 1541 Verspätung: ..."), `/more/` noindex.
+
 Switched OFF but built: voice search (ElevenLabs Scribe; `VOICE_ENABLED=1` turns it on; owner found it buggy).
 The live-feed collector service (`docs/notes/live-and-international.md`) is stopped.
 
@@ -97,6 +99,8 @@ wholesale (see RULES).
 | `e2e/skew.mjs` | Version skew: a tab on build A taps links, search suggestions, tabs, menu, recent list after `out/` is swapped for build B; a hung soft navigation ends as a full load. Builds twice (~2-3 min), leaves `out/` as a test build | none (own server on :4612) |
 | `e2e/last7.mjs` | "The last 7 days" (57 checks) on card + train page in every data state against MOCKED `/last7/` (`tests/fixtures/last7.mjs`) | test server |
 | `tools/last7-shots.mjs` | Screenshots of that block (390 / 320 DE / 1280, full / gaps / cancel ...) for reviews (`OUT=dir`) | test server |
+| `tools/seo-check.py` | SEO invariants over a built `out/` (`python3 -I tests/tools/seo-check.py out [--all]`): title, description, canonical, hreflang, one h1, JSON-LD parses and stays on-site, FAQ equals the visible questions, robots/llms files, every llms link built, sitemap host. `--all` runs the cheap checks on every sitemap page | built `out/` |
+| `e2e/seo.mjs` | The same page types at 390 and 1280 px, EN + DE: console, overflow, one parsed JSON-LD graph that does not render, the Method questions still open | test server |
 | `tools/secretscan.py` | Every blob in history for secrets; `--known .env.local` checks exact values | - |
 Also `npx tsc --noEmit` and `node scripts/check-dict.mjs` (EN/DE key + placeholder parity). Use `BASE=` to point
 e2e at production; `CHROMIUM=` to pick a browser binary.

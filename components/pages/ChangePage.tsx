@@ -6,6 +6,8 @@ import { makeT } from "@/lib/t";
 import { Arrow } from "../Arrow";
 import { ChangeTrains } from "../ChangeTrains";
 import { TypicalGuide } from "../TypicalGuide";
+import { PageLd } from "../PageLd";
+import { changeMetadata } from "@/lib/seo";
 
 /**
  * "Change trains": the question the way the trip is, train you arrive on, station, train you take next; the answer is
@@ -18,6 +20,7 @@ export function ChangePage({ lang }: { lang: Lang }) {
   const span = w ? spanLabel(w.firstMonth, w.lastMonth, lang) : "";
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "change")} meta={changeMetadata(lang)} name={t("conn.title")} />
       <h1 className="h1" style={{ marginTop: 20 }}>
         {t("conn.title")}
       </h1>

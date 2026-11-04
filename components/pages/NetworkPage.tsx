@@ -5,12 +5,15 @@ import { makeT } from "@/lib/t";
 import { Arrow } from "../Arrow";
 import { MonthlyChart } from "../MonthlyChart";
 import { StationMap } from "../StationMap";
+import { PageLd } from "../PageLd";
+import { networkMetadata } from "@/lib/seo";
 
 export function NetworkPage({ lang }: { lang: Lang }) {
   const t = makeT(lang);
   const stats = getStats();
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "network")} meta={networkMetadata(lang, getStations().stations.length)} name={t("network.title")} />
       <div style={{ maxWidth: 720 }}>
       <h1 className="h1" style={{ marginTop: 20 }}>
         {t("network.title")}

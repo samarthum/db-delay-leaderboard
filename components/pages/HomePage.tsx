@@ -9,6 +9,8 @@ import { YourTrains } from "../YourTrains";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { Search } from "../search/Search";
+import { PageLd, SiteLd } from "../PageLd";
+import { homeMetadata } from "@/lib/seo";
 
 /** Most often late routes: five on a phone, ten on a wide screen. A way in for a visitor with no train in mind. */
 function TopRoutes({ lang }: { lang: Lang }) {
@@ -57,6 +59,8 @@ export function HomePage({ lang }: { lang: Lang }) {
   );
   return (
     <main id="main" className="container page">
+      <SiteLd lang={lang} />
+      <PageLd lang={lang} path={route(lang, "home")} meta={homeMetadata(lang)} name={t("home.title")} />
       <Search lang={lang} idle={idle} figure={lead} title={t("home.title")} />
     </main>
   );

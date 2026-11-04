@@ -3,6 +3,7 @@
 Order agreed with the owner. Done items stay listed briefly so the history of decisions is clear.
 
 ## Done
+0. Search and answer-engine optimisation (Nov 2026): structured data, llms.txt, crawler rules, keyword-first titles (`docs/notes/seo-aeo.md`). Still the owner's steps: verify the domain in Google Search Console and Bing Webmaster Tools and submit the sitemap.
 1. Route pages + share cards; route-pair coverage fixed.
 2. "Will my connection work?" (Change trains), then live delay in it.
 3. Compensation page (three legal review rounds), then the plain-language redesign with calculator (1 Nov 2026).

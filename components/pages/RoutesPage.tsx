@@ -8,6 +8,8 @@ import { makeT } from "@/lib/t";
 import { Arrow } from "../Arrow";
 import { RouteList } from "../RouteList";
 import { ShareButton } from "../ShareButton";
+import { PageLd } from "../PageLd";
+import { routesMetadata } from "@/lib/seo";
 
 function RouteRows({ rows, lang, ranked }: { rows: RouteEntry[]; lang: Lang; ranked?: boolean; db?: boolean }) {
   return <RouteList rows={rows} lang={lang} rank={ranked} />;
@@ -28,6 +30,7 @@ export function RoutesPage({ lang }: { lang: Lang }) {
 
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "routes")} meta={routesMetadata(lang)} name={t("routes.title")} kind="CollectionPage" trail={[{ name: t("nav.ranking"), path: route(lang, "ranking") }]} />
       <Link href={route(lang, "ranking")} className="back" prefetch={false}>
         <Arrow back /> {t("rank.title")}
       </Link>

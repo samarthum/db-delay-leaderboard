@@ -18,6 +18,8 @@ import { NearTime, type NearRow } from "../NearTime";
 import { StopLine } from "../charts";
 import { TrainList, type TrainRow } from "../TrainList";
 import { RememberPage, StickyTitle } from "../PageTools";
+import { PageLd } from "../PageLd";
+import { routeMetadata } from "@/lib/seo";
 
 
 function trainHref(t: RouteTrain, slugs: Set<string>, lang: Lang): string | null {
@@ -87,6 +89,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
 
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "route", r.slug)} meta={routeMetadata(r, lang)} name={`${r.from} → ${r.to}`} trail={[{ name: t("nav.ranking"), path: route(lang, "ranking") }, { name: t("routes.title"), path: route(lang, "routes") }]} />
       <RememberPage lang={lang} item={{ href: route(lang, "route", r.slug), title: `${r.from} → ${r.to}`, sub: t("route.sub", { n: fmtInt(r.trains, lang), dur: fmtDuration(r.minutes, lang) }), value: t("list.avg", { x: fmt1(r.avg, lang) }) }} />
       <StickyTitle title={`${r.from} → ${r.to}`} value={t("list.avg", { x: fmt1(r.avg, lang) })} />
       <Link href={route(lang, "routes")} className="back" prefetch={false}>

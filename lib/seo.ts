@@ -39,6 +39,8 @@ function pageMetadata(p: {
   /** Full path of the image when it is not one of the month's cards (route pictures live elsewhere). */
   imagePath?: string;
   imageAlt: string;
+  /** Pages that stay reachable but should not appear in search results. */
+  noindex?: boolean;
 }): Metadata {
   const url = absoluteUrl(p.path);
   const other = otherLangPath(p.path);
@@ -53,6 +55,7 @@ function pageMetadata(p: {
   return {
     title: p.title,
     description: p.description,
+    ...(p.noindex ? { robots: { index: false, follow: true } } : {}),
     alternates: {
       canonical: url,
       languages: { en: absoluteUrl(en), de: absoluteUrl(de), "x-default": absoluteUrl(en) },
@@ -141,7 +144,8 @@ export function methodMetadata(lang: Lang): Metadata {
 export function unitMetadata(u: UnitSummary & { histogram?: { lo: number | null; share: number }[] }, lang: Lang, latePct: number): Metadata {
   const t = makeT(lang);
   const rank = rankSentence(u, lang);
-  const title = t("seo.unit.title", { name: u.name, pct: fmtShare1(latePct, lang) });
+  // Two regional lines can share a name (RE 1), so a line's title carries its route.
+  const title = u.category === "regional" ? t("seo.line.title", { name: u.name, route: routeOf(u), pct: fmtShare1(latePct, lang) }) : t("seo.unit.title", { name: u.name, pct: fmtShare1(latePct, lang) });
   return pageMetadata({
     lang,
     title,
@@ -258,6 +262,7 @@ export function moreMetadata(lang: Lang): Metadata {
     socialTitle: title,
     description: t("seo.more.desc"),
     path: route(lang, "more"),
+    noindex: true,
     image: "home",
     imageAlt: t("seo.home.alt", { pct: fmtShare1(networkLate().pct, lang), span: windowSpan(lang) }),
   });

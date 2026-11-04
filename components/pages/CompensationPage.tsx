@@ -7,6 +7,8 @@ import { RouteName } from "../Arrow";
 import { Columns } from "../charts";
 import { CompCalc } from "../CompCalc";
 import s from "../Compensation.module.css";
+import { PageLd } from "../PageLd";
+import { compensationMetadata } from "@/lib/seo";
 
 const TOP = 8;
 const CLAIM_URL = "https://www.bahn.de/service/informationen-buchung/fahrgastrechte";
@@ -61,6 +63,7 @@ export function CompensationPage({ lang }: { lang: Lang }) {
 
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "compensation")} meta={compensationMetadata(lang)} name={t("comp2.title")} />
       <div className={s.page}>
         <h1 className={s.h1}>{t("comp2.title")}</h1>
         <p className={s.sub}>{t("comp2.sub")}</p>

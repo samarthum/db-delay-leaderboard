@@ -59,7 +59,7 @@ export const routes = {
   "routes.card.title": "Most delayed routes",
   "routes.card.sub": "Average minutes late on arrival, {n} busiest routes",
   "routes.card.best": "Most on time",
-  "seo.route.title": "{from} → {to}: {pct} of trips arrive 15+ min late",
+  "seo.route.title": "{from} → {to} train delays: {pct} of trips 15+ min late",
   "seo.route.desc": "How often long-distance trains from {from} to {to} arrive 15+ min late: {pct} of {n} measured trips, {pct6} by Deutsche Bahn's own 6-minute rule. {span}.",
   "seo.route.alt": "{from} to {to}: {pct} of long-distance trips arrive 15+ min late. {span}.",
   "seo.routes.title": "Germany's most delayed long-distance routes",

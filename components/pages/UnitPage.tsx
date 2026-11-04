@@ -26,6 +26,8 @@ import { LastWeek } from "../LastWeek";
 import { foreignOrigin, shownOrigin } from "@/lib/origins";
 import { SaveButton } from "../SaveButton";
 import { categoryCopy, unitKind } from "../pageFormat";
+import { PageLd } from "../PageLd";
+import { unitMetadata } from "@/lib/seo";
 
 function shareOf(bins: HistBin[], from: number): number {
   return bins.filter((b) => b.lo !== null && b.lo >= from).reduce((s, b) => s + b.share, 0);
@@ -141,6 +143,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
 
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={unitHref(t, lang)} meta={unitMetadata(t, lang, latePct)} name={t.name} trail={[{ name: tr("nav.ranking"), path: route(lang, "ranking") }]} />
       <RememberPage lang={lang} item={{ href: unitHref(t, lang), title: t.name, sub: `${shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} → ${shortStation(t.dest)}`, value: tr("list.avg", { x: fmt1(t.minutes.avg, lang) }), live: !isLine && hasLiveTrain(t.name) ? t.name : undefined }} />
       <StickyTitle title={t.name} value={tr("list.avg", { x: fmt1(t.minutes.avg, lang) })} />
       <BackLink lang={lang} />

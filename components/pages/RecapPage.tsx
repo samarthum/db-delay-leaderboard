@@ -8,6 +8,8 @@ import { Arrow } from "../Arrow";
 import { Figure } from "../Figure";
 import { Rich } from "../Rich";
 import { ShareButton } from "../ShareButton";
+import { PageLd } from "../PageLd";
+import { recapMetadata } from "@/lib/seo";
 
 export function RecapPage({ stats, lang }: { stats: Stats; lang: Lang }) {
   const t = makeT(lang);
@@ -19,6 +21,7 @@ export function RecapPage({ stats, lang }: { stats: Stats; lang: Lang }) {
 
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "recap")} meta={recapMetadata(lang)} name={t("recap.title")} />
       <p className="basis" style={{ marginTop: 18, fontWeight: 600, color: "var(--ink-2)", fontSize: 15 }}>
         {t("recap.kicker", { span, n: w.monthCount })}
       </p>

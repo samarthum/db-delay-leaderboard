@@ -10,6 +10,8 @@ import { Arrow, RouteName } from "../Arrow";
 import { RouteText } from "../RouteText";
 import { Tabs } from "../Tabs";
 import { RouteRanking } from "../RouteRanking";
+import { PageLd } from "../PageLd";
+import { rankingMetadata } from "@/lib/seo";
 
 function UnitTable({ list, lang, category }: { list: UnitSummary[]; lang: Lang; category: Category }) {
   const t = makeT(lang);
@@ -71,6 +73,7 @@ export function RankingPage({ lang }: { lang: Lang }) {
 
   return (
     <main id="main" className="container page">
+      <PageLd lang={lang} path={route(lang, "ranking")} meta={rankingMetadata(lang)} name={t("rank.title")} kind="CollectionPage" />
       <div style={{ maxWidth: 720 }}>
       <h1 className="h1" style={{ marginTop: 20 }}>
         {t("rank.title")}
