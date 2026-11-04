@@ -2,7 +2,7 @@ import type { shell } from "../en/shell";
 
 export const shellDe: Record<keyof typeof shell, string> = {
   skip: "Zum Inhalt springen",
-  brand: "German Punctuality",
+  brand: "Zugmonitor",
   "nav.label": "Hauptmenü",
   "nav.search": "Suche",
   "nav.change": "Umsteigen",
@@ -27,7 +27,7 @@ export const shellDe: Record<keyof typeof shell, string> = {
   "footer.updated": "Daten wöchentlich aktualisiert · Stand: {date}",
   "footer.recap": "Jahresrückblick",
   "share.x": "Auf X teilen",
-  "share.copied": "Kopiert! Der Link liegt in deiner Zwischenablage.",
+  "share.copied": "Link kopiert.",
   "share.copyThis": "Kopiere diesen Link: {url}",
   "back.search": "Suche",
   "rule.ours": "Unsere Zählung",

@@ -15,7 +15,7 @@ import time
 import urllib.request
 import zipfile
 
-UA = "german-punctuality/1.0 (+https://german-punctuality.vercel.app)"
+UA = "zugmonitor/1.0 (+https://zugmonitor.de)"
 
 
 def get(url, n=None, timeout=60):

@@ -15,7 +15,7 @@ import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const API = "https://api.transitous.org/api";
-const UA = "german-punctuality/1.0 (+https://german-punctuality.vercel.app)";
+const UA = "zugmonitor/1.0 (+https://zugmonitor.de)";
 const origins = JSON.parse(fs.readFileSync(path.join(ROOT, "data/foreign-origins.json"), "utf8"));
 const stopsFile = JSON.parse(fs.readFileSync(path.join(ROOT, "data/stops.json"), "utf8"));
 // The live API computes the run from data/live-trains.json (usual departure at the first German stop), so the gap is

@@ -154,7 +154,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             <h1 className="h1">{t.name}</h1>
             <div className="acts">
               <SaveButton lang={lang} item={{ kind: "train", href: unitHref(t, lang), title: t.name, sub: `${shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} → ${shortStation(t.dest)}`, avg: t.minutes.avg, live: !isLine && hasLiveTrain(t.name) ? t.name : undefined }} />
-              <ShareButton look="icon" lang={lang} title={`${t.name} · German Punctuality`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
+              <ShareButton look="icon" lang={lang} title={`${t.name} · Zugmonitor`} text={shareText} url={url} label={tr(isLine ? "unit.shareLine" : "unit.shareTrain")} image={portraitPath(w.lastMonth, slug, lang)} filename={slug} />
             </div>
           </div>
           <p className="lead" style={{ marginTop: 8, fontSize: 16 }}>

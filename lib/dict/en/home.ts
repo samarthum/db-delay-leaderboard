@@ -1,5 +1,5 @@
 export const home = {
-  "home.title": "How late is your train, really?",
+  "home.title": "How late is your train?",
   "home.sub": "Type a train, a line, a station or a route like Köln to Berlin. See how often the trains arrive 15+ minutes late.",
   "home.label": "Train, line, station or route",
   "home.placeholder": "Köln to Berlin, ICE 1541",

@@ -238,7 +238,7 @@ export function SearchResult({
       <Weekdays unit={unit} lang={lang} today={today} />
 
       <div className="actions">
-        <ShareButton lang={lang} title={`${name} · German Punctuality`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")} image={unit.slug ? portraitPath(win.lastMonth, unit.slug, lang) : line?.slug ? portraitPath(win.lastMonth, line.slug, lang) : undefined} filename={unit.slug ?? line?.slug ?? "german-punctuality"} />
+        <ShareButton lang={lang} title={`${name} · Zugmonitor`} text={shareText} url={shareUrl(unit, lang)} label={t("res.shareLabel")} image={unit.slug ? portraitPath(win.lastMonth, unit.slug, lang) : line?.slug ? portraitPath(win.lastMonth, line.slug, lang) : undefined} filename={unit.slug ?? line?.slug ?? "german-punctuality"} />
         {fullHref ? (
           <Link className="tl" href={fullHref} prefetch={false}>
             {unit.kind === 0 ? t("res.fullTrain") : t("res.fullLine")} <Arrow />

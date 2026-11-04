@@ -13,7 +13,7 @@ export const method = {
   "method.early.neg": "more than {n} min early",
   "method.early.pos": "less than {n} min late",
   "method.q.pct": "What does % of trip mean?",
-  "method.a.pct": "The delay divided by the planned trip time. 20 min late on a 2 hour trip is +17%. Trips planned for less than {min} min don't count for %, so very short hops can't give silly numbers.",
+  "method.a.pct": "The delay divided by the planned trip time. 20 min late on a 2 hour trip is +17%. Trips planned for less than {min} min are left out of the %, so very short trips can't distort it.",
   "method.q.listed": "Which trains and lines are in the ranking?",
   "method.a.listed1": "Long-distance trains are listed by train number. Each needs at least {min} measured trips. That is {pool} of {units} train numbers.",
   "method.a.listed2": "Regional trains are listed by line, like RE 19, because that is the name on the platform. A line counts every trip in both directions and needs at least {minLine} measured trips. That is {poolReg} of {unitsReg} lines. Some regions reuse the same line number, so a line is its number plus the stations it serves{twins}.",

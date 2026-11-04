@@ -37,7 +37,7 @@ export const connDe = {
   "conn.page.title": "Umsteigen",
   "conn.page.sub": "Wie oft ein Umstieg zwischen zwei Fernzügen geklappt hat, nach Bahnhof und geplanter Umstiegszeit.",
   "conn.page.next": "Wie pünktlich ist ein bestimmter Zug? Such ihn auf der Suchseite.",
-  "cx.sub": "Gib den Zug an, mit dem du ankommst, und den Zug, den du als Nächstes nimmst. Wir zeigen dir anhand der tatsächlichen Zeiten beider Züge, wie oft dieser Umstieg wirklich geklappt hat.",
+  "cx.sub": "Gib an, mit welchem Zug du ankommst und welchen Anschlusszug du nimmst. Wir zeigen dir anhand der tatsächlichen Zeiten beider Züge, wie oft dieser Umstieg geklappt hat.",
   "cx.q1": "Mit welchem Zug kommst du an?",
   "cx.ph": "Zugnummer, z. B. 1541",
   "cx.none": "Keinen Fernzug „{q}“ mit ausgewerteten Umstiegen gefunden. Probier es mit der Zugnummer, z. B. ICE 1541.",

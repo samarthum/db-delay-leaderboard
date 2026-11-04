@@ -1,12 +1,12 @@
-# German Punctuality
+# Zugmonitor
 
 > Picking this up? Read [docs/STATUS.md](docs/STATUS.md) (live features, build, tests, env), [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/RULES.md](docs/RULES.md).
 
 A mobile-first static site that shows how late Deutsche Bahn trains are and ranks the most delayed
 long-distance trains and regional lines over the last ~12 months.
 
-The repo is called `db-delay-leaderboard`. The site is branded **German Punctuality** and is meant to live
-at `germanpunctuality.com`.
+The repo is called `db-delay-leaderboard`. The site is branded **Zugmonitor** and lives at
+`https://zugmonitor.de` (formerly "German Punctuality" on `german-punctuality.vercel.app`).
 
 - A headline from the last three months: the average delay of a long-distance and a regional trip, and how the trips split by lateness.
 - A monthly chart, with a long-distance/regional switch.
@@ -85,12 +85,11 @@ the static site.
 ## Switching domains
 
 The site URL lives in one place, `lib/site.ts`, and is read from `NEXT_PUBLIC_SITE_URL` (default
-`https://german-punctuality.vercel.app`). Canonical URLs, Open Graph and Twitter image URLs, the sitemap and
+`https://zugmonitor.de`). Canonical URLs, Open Graph and Twitter image URLs, the sitemap and
 `robots.txt` all derive from it.
 
-To move to `germanpunctuality.com`: add the domain to the Vercel project, set
-`NEXT_PUBLIC_SITE_URL=https://germanpunctuality.com` in Project Settings → Environment Variables, and
-redeploy. The variable is inlined at build time, so a redeploy is required.
+To use another domain: add it to the Vercel project, set `NEXT_PUBLIC_SITE_URL=https://<domain>` in Project
+Settings → Environment Variables, and redeploy. The variable is inlined at build time, so a redeploy is required.
 
 ## Attribution
 

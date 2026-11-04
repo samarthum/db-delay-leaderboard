@@ -94,7 +94,7 @@ function h(type, props, ...children) {
 /** A flex box: satori needs display:flex on anything with more than one child. */
 const d = (style, ...kids) => h("div", { style: { display: "flex", ...style } }, ...kids);
 
-const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://german-punctuality.vercel.app").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://zugmonitor.de").replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
 // ---------------------------------------------------------------- building blocks
 
@@ -139,7 +139,7 @@ function watermark(size = 34) {
   return d(
     { alignItems: "center", fontFamily: COND, fontWeight: 800, fontSize: size, color: C.ink },
     h("img", { src: MARK_SRC, width: Math.round(mh * MARK_RATIO), height: mh, style: { marginRight: 12 } }),
-    "German Punctuality",
+    "Zugmonitor",
   );
 }
 

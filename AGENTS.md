@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# German Punctuality: start here
+# Zugmonitor: start here
 
 Read these before changing anything:
 1. `docs/STATUS.md`: what is live, how to build, run and test, environment variables, automation, known gaps.

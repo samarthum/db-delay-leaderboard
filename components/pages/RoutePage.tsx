@@ -108,7 +108,7 @@ export function RoutePage({ r, lang }: { r: RouteEntry; lang: Lang }) {
                 </Link>
               ) : null}
               <SaveButton lang={lang} item={{ kind: "route", href: route(lang, "route", r.slug), title: `${r.from} → ${r.to}`, sub: t("route.sub", { n: fmtInt(r.trains, lang), dur: fmtDuration(r.minutes, lang) }), avg: r.avg }} />
-              <ShareButton look="icon" lang={lang} title={`${r.from} → ${r.to} · German Punctuality`} text={shareText} url={url} label={t("route.share")} image={routeImagePath(w.lastMonth, `${r.slug}-portrait`, lang)} filename={r.slug} />
+              <ShareButton look="icon" lang={lang} title={`${r.from} → ${r.to} · Zugmonitor`} text={shareText} url={url} label={t("route.share")} image={routeImagePath(w.lastMonth, `${r.slug}-portrait`, lang)} filename={r.slug} />
             </div>
           </div>
           <p className="lead" style={{ marginTop: 6, fontSize: 16 }}>

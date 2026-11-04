@@ -89,7 +89,7 @@ async function upstream(path) {
   if (calls.length >= CALLS_PER_MINUTE) throw new Error("busy");
   calls.push(now);
   const r = await fetch(BASE + path, {
-    headers: { "DB-Client-Id": process.env.DB_CLIENT_ID, "DB-Api-Key": process.env.DB_API_KEY, Accept: "application/xml", "User-Agent": "german-punctuality.vercel.app" },
+    headers: { "DB-Client-Id": process.env.DB_CLIENT_ID, "DB-Api-Key": process.env.DB_API_KEY, Accept: "application/xml", "User-Agent": "zugmonitor.de" },
     signal: AbortSignal.timeout(4000),
   });
   if (r.status === 429) {
@@ -259,7 +259,7 @@ async function abroadNow(name, borderStart) {
     if (tCalls.length >= TRANSITOUS_PER_MINUTE) throw new Error("busy");
     tCalls.push(now);
     const r = await fetch(`${TRANSITOUS}/v6/stoptimes?stopId=${encodeURIComponent(stopId)}&time=${iso}&window=3600&n=60&mode=HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL`, {
-      headers: { "User-Agent": "german-punctuality/1.0 (+https://german-punctuality.vercel.app)", Accept: "application/json" },
+      headers: { "User-Agent": "zugmonitor/1.0 (+https://zugmonitor.de)", Accept: "application/json" },
       signal: AbortSignal.timeout(4000),
     });
     if (!r.ok) throw new Error(`transitous ${r.status}`);
@@ -367,7 +367,7 @@ function transitousGet(path) {
   if (tCalls.length >= TRANSITOUS_PER_MINUTE) return Promise.reject(new Error("busy"));
   tCalls.push(now);
   return fetch(`${TRANSITOUS}${path}`, {
-    headers: { "User-Agent": "german-punctuality/1.0 (+https://german-punctuality.vercel.app)", Accept: "application/json" },
+    headers: { "User-Agent": "zugmonitor/1.0 (+https://zugmonitor.de)", Accept: "application/json" },
     signal: AbortSignal.timeout(4000),
   }).then((r) => {
     if (!r.ok) throw new Error(`transitous ${r.status}`);

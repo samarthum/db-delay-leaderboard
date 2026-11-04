@@ -1,9 +1,9 @@
 import type { seo } from "../en/seo";
 
 export const seoDe: Record<keyof typeof seo, string> = {
-  "seo.home.title": "German Punctuality: Wie pünktlich ist dein Zug wirklich?",
-  "seo.home.desc": "{pct} der Fernzüge kommen mindestens 15 Min. zu spät an. Suche Zug, Linie oder Bahnhof. {trips} Fahrten, {span}.",
-  "seo.app.desc": "Wie pünktlich ist dein Zug wirklich? Suche Zug, Linie oder Bahnhof.",
+  "seo.home.title": "Zugmonitor: Verspätungen live und im Rückblick",
+  "seo.home.desc": "Wie viel Verspätung hat dein Zug heute laut Deutscher Bahn, und wie viel hatte er früher? {pct} der Fahrten im Fernverkehr kommen mindestens 15 Min. zu spät an ({span}).",
+  "seo.app.desc": "Wie viel Verspätung dein Zug heute laut Deutscher Bahn hat und wie viel er früher hatte.",
   "seo.home.alt": "{pct} der Fernverkehrsfahrten in Deutschland kommen mindestens 15 Minuten zu spät an, {span}.",
   "seo.ranking.title": "Die unpünktlichsten Züge und Linien",
   "seo.ranking.desc": "Deutschlands unpünktlichste Fernzüge und Regionallinien, geordnet nach durchschnittlicher Verspätung. {span}.",

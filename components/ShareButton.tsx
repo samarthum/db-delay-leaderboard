@@ -25,7 +25,7 @@ interface ShareButtonProps {
  * One Share button. On a phone it opens the share sheet with the picture attached; elsewhere it shares the link, or
  * copies it and says so ("Link copied."), or shows the link to copy by hand.
  */
-export function ShareButton({ title, text, url, label, lang = "en", image, filename = "german-punctuality", look = "button" }: ShareButtonProps) {
+export function ShareButton({ title, text, url, label, lang = "en", image, filename = "zugmonitor", look = "button" }: ShareButtonProps) {
   const [status, setStatus] = useState("");
   const t = makeT(lang);
 

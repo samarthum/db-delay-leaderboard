@@ -29,7 +29,7 @@ import { createRequire } from "node:module";
 const shared = createRequire(import.meta.url)("../lib/tripStops.cjs");
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const API = process.env.TRANSITOUS_API || "https://api.transitous.org/api";
-const UA = "german-punctuality/1.0 (+https://german-punctuality.vercel.app)";
+const UA = "zugmonitor/1.0 (+https://zugmonitor.de)";
 const RAIL = ["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"];
 const OUT = process.env.OUT || path.join(ROOT, "data/foreign-stops.json");
 const LIMIT = Number(process.env.LIMIT || 0); // for a quick trial: only the first N trains

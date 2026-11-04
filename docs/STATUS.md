@@ -1,13 +1,16 @@
-# German Punctuality: status and hand-over
+# Zugmonitor: status and hand-over
 
 Last updated: 3 November 2026. Start here if you (or an AI coding agent) are picking the project up on a new
 machine. Read this, then `docs/ROADMAP.md`, `docs/RULES.md` and, before touching a topic, its file in `docs/notes/`.
 
 ## What it is
-"How late is your train, really?" A mobile-first site about Deutsche Bahn long-distance delays, in English and German.
+Zugmonitor (formerly German Punctuality): the place to check your train. A mobile-first site with today's delay as
+Deutsche Bahn reports it and how late each train has run before, in English and German.
 History from open data (11 months), live status from DB's own API, cross-border trains via Transitous.
 
 - Live: https://german-punctuality.vercel.app (Vercel project `german-punctuality`, deploys every push to `main`).
+  Canonical domain from the rebrand on: https://zugmonitor.de (apex; www redirects to it). Canonical URLs, the
+  sitemap and share cards use it as soon as the rebrand is on `main`, so the domain must resolve before that push.
 - Repo: https://github.com/samarthum/db-delay-leaderboard (public, MIT; data keeps its source licences, see README).
 - Stack: Next.js 16 static export (`out/`), React 19, TypeScript; two Vercel Functions in `api/` (`live.js`,
   `scribe-token.js`); data built offline with Python + DuckDB from monthly Parquet files; share images drawn at build

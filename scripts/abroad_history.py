@@ -46,7 +46,7 @@ from pathlib import Path
 import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
-UA = "german-punctuality/1.0 (+https://german-punctuality.vercel.app)"
+UA = "zugmonitor/1.0 (+https://zugmonitor.de)"
 MIN_STOP_RUNS = 20  # as scripts/stops.py
 RDT = "https://opendata.rijdendetreinen.nl/public"
 # RdT service types -> the type DB uses for the same train.

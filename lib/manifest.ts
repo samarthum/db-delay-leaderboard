@@ -21,7 +21,7 @@ export function webManifest(lang: Lang): MetadataRoute.Manifest {
   return {
     id: home,
     name: SITE_NAME,
-    short_name: "Punctuality",
+    short_name: "Zugmonitor",
     description: t("seo.app.desc"),
     lang: lang === "de" ? "de-DE" : "en-GB",
     dir: "ltr",

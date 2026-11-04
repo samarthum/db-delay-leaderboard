@@ -38,7 +38,7 @@ async function plan(eva, day, hour) {
   const wait = last + 1250 - Date.now(); // 48 calls a minute, under the free plan's 60
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   last = Date.now();
-  const r = await fetch(`${BASE}/plan/${k}`, { headers: { "DB-Client-Id": process.env.DB_CLIENT_ID, "DB-Api-Key": process.env.DB_API_KEY, Accept: "application/xml", "User-Agent": "german-punctuality.vercel.app" } });
+  const r = await fetch(`${BASE}/plan/${k}`, { headers: { "DB-Client-Id": process.env.DB_CLIENT_ID, "DB-Api-Key": process.env.DB_API_KEY, Accept: "application/xml", "User-Agent": "zugmonitor.de" } });
   const x = r.ok ? await r.text() : "";
   cache.set(k, x);
   return x;

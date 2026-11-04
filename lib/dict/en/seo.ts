@@ -1,7 +1,7 @@
 export const seo = {
-  "seo.home.title": "German Punctuality: how late is your train, really?",
-  "seo.home.desc": "{pct} of long-distance trains arrive 15+ min late. Look up a train, line or station. {trips} trips, {span}.",
-  "seo.app.desc": "How late is your train, really? Look up a train, line or station.",
+  "seo.home.title": "Zugmonitor: train delays, live and in the past",
+  "seo.home.desc": "How late is your train today, as Deutsche Bahn reports it, and how late has it run before? {pct} of long-distance trips arrive 15+ min late ({span}).",
+  "seo.app.desc": "How late your train is today, as Deutsche Bahn reports it, and how late it has run before.",
   "seo.home.alt": "{pct} of long-distance trips in Germany arrive 15 minutes or more late, {span}.",
   "seo.ranking.title": "The most delayed trains and lines",
   "seo.ranking.desc": "Germany's most delayed long-distance trains and regional lines, ranked by average delay. {span}.",

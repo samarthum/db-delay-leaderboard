@@ -15,7 +15,7 @@ export const methodDe: Record<keyof typeof method, string> = {
   "method.early.neg": "mehr als {n} Min. zu früh",
   "method.early.pos": "weniger als {n} Min. zu spät",
   "method.q.pct": "Was bedeutet „% der Fahrzeit“?",
-  "method.a.pct": "Die Verspätung geteilt durch die geplante Fahrzeit. 20 Minuten Verspätung bei 2 Stunden Fahrzeit sind +17 %. Fahrten mit weniger als {min} Min. geplanter Fahrzeit zählen für die Prozentwerte nicht mit, damit sehr kurze Strecken keine unsinnigen Zahlen liefern.",
+  "method.a.pct": "Die Verspätung geteilt durch die geplante Fahrzeit. 20 Minuten Verspätung bei 2 Stunden Fahrzeit sind +17 %. Fahrten mit weniger als {min} Min. geplanter Fahrzeit sind in den Prozentwerten nicht eingerechnet, damit sehr kurze Fahrten sie nicht verzerren.",
   "method.q.listed": "Welche Züge und Linien stehen im Ranking?",
   "method.a.listed1": "Aufgenommen wird jede Zugnummer mit mindestens {min} gemessenen Fahrten. Das trifft auf {pool} von {units} Zugnummern zu.",
   "method.a.listed2": "Regionalzüge werden nach Linie geführt, zum Beispiel RE 19, weil das der Name am Bahnsteig ist. Bei einer Linie zählen die Fahrten in beide Richtungen zusammen; sie braucht mindestens {minLine} gemessene Fahrten. Das trifft auf {poolReg} von {unitsReg} Linien zu. Manche Nummern gibt es in mehreren Regionen; eine Linie ist hier deshalb die Nummer plus die Bahnhöfe, die sie bedient{twins}.",

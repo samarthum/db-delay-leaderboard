@@ -1,6 +1,6 @@
 export const shell = {
   skip: "Skip to content",
-  brand: "German Punctuality",
+  brand: "Zugmonitor",
   "nav.label": "Main menu",
   "nav.search": "Search",
   "nav.change": "Change trains",
@@ -25,7 +25,7 @@ export const shell = {
   "footer.updated": "Data refreshed weekly · last updated {date}",
   "footer.recap": "Yearly recap",
   "share.x": "Share on X",
-  "share.copied": "Copied! Link is on your clipboard.",
+  "share.copied": "Link copied.",
   "share.copyThis": "Copy this link: {url}",
   "back.search": "Search",
   "rule.ours": "Our count",

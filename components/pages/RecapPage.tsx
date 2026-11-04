@@ -60,7 +60,7 @@ export function RecapPage({ stats, lang }: { stats: Stats; lang: Lang }) {
       </div>
 
       <div className="actions">
-        <ShareButton lang={lang} title={`German Punctuality: ${span}`} text={shareText} url={absoluteUrl(route(lang, "recap"))} label={t("recap.share")} image={ogImagePath(w.lastMonth, "recap-tall", lang)} filename="german-punctuality-recap" />
+        <ShareButton lang={lang} title={`Zugmonitor: ${span}`} text={shareText} url={absoluteUrl(route(lang, "recap"))} label={t("recap.share")} image={ogImagePath(w.lastMonth, "recap-tall", lang)} filename="zugmonitor-recap" />
       </div>
 
       <section className="sec" aria-labelledby="how">

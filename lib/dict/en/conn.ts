@@ -37,7 +37,7 @@ export const conn = {
   "conn.page.title": "Change trains",
   "conn.page.sub": "How often a change between two long-distance trains worked, by station and planned change time.",
   "conn.page.next": "How late is a particular train? Look it up on the search page.",
-  "cx.sub": "Tell us the train you arrive on and the train you take next. We show how often that change really worked, from the real times of both trains.",
+  "cx.sub": "Tell us the train you arrive on and the connecting train you take. We show how often that change worked, from the real times of both trains.",
   "cx.q1": "Which train do you arrive on?",
   "cx.ph": "Train number, e.g. 1541",
   "cx.none": "No long-distance train “{q}” with counted changes. Try the number, e.g. ICE 1541.",

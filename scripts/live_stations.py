@@ -45,7 +45,7 @@ for line in ENV.read_text().splitlines():
     if m:
         env[m.group(1)] = m.group(2).strip("\"'")
 HEAD = {"DB-Client-Id": env["DB_CLIENT_ID"], "DB-Api-Key": env["DB_API_KEY"], "Accept": "application/xml",
-        "User-Agent": "german-punctuality.vercel.app"}
+        "User-Agent": "zugmonitor.de"}
 
 
 def get(path: str) -> ET.Element:

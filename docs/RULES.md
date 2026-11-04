@@ -3,7 +3,8 @@
 These came from the owner over many sessions. Follow them unless he says otherwise.
 
 ## Product
-- One promise ("How late is your train, really?"), one box, one number per view. No clutter.
+- Zugmonitor is THE place people check their train: serious and trustworthy, not a joke or a leaderboard gag.
+  One promise ("How late is your train?"), one box, one number per view. No clutter. Every number comes from the data.
 - Visitors are "normies": no trip counts under names, no jargon. The headline number is the AVERAGE delay in
   minutes; the share 15+ min late is second; DB's own 6-minute rule sits next to the 15-minute figure.
 - Search must land on the destination: one obvious page (route pair, train) -> navigate straight to it; never show a

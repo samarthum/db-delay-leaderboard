@@ -19,7 +19,7 @@ export default function GlobalNotFound() {
         <main className={`container ${styles.main}`}>
           <Link href="/" className={styles.brand}>
             <BrandMark className={styles.mark} />
-            German Punctuality
+            Zugmonitor
           </Link>
           <h1 className={`h1 ${styles.title}`}>{en("notfound.title2")}</h1>
           <p className={styles.text}>{en("notfound.text2")}</p>

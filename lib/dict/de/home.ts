@@ -1,7 +1,7 @@
 import type { home } from "../en/home";
 
 export const homeDe: Record<keyof typeof home, string> = {
-  "home.title": "Wie pünktlich ist dein Zug wirklich?",
+  "home.title": "Wie viel Verspätung hat dein Zug?",
   "home.sub": "Gib einen Zug, eine Linie, einen Bahnhof oder eine Strecke ein, z. B. „Köln nach Berlin“. Dann siehst du, wie oft die Züge mindestens 15 Minuten zu spät ankommen.",
   "home.label": "Zug, Linie, Bahnhof oder Strecke",
   "home.placeholder": "Köln nach Berlin, ICE 1541",

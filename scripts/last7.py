@@ -44,7 +44,7 @@ from lxml import etree
 HF_TREE = "https://huggingface.co/api/datasets/piebro/deutsche-bahn-data/tree/main/"
 HF_FILE = "https://huggingface.co/datasets/piebro/deutsche-bahn-data/resolve/main/"
 EVA_NAMES = "https://raw.githubusercontent.com/piebro/deutsche-bahn-data/main/config/eva_to_station_name.json"
-USER_AGENT = "german-punctuality (https://german-punctuality.vercel.app)"
+USER_AGENT = "zugmonitor (https://zugmonitor.de)"
 BERLIN = ZoneInfo("Europe/Berlin")
 
 # Same list as scripts/compute.py PARAMS["longDistanceTypes"].

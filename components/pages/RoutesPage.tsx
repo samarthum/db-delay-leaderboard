@@ -38,7 +38,7 @@ export function RoutesPage({ lang }: { lang: Lang }) {
         {t("routes.sub", { n: league.length, span })}
       </p>
       <div className="actions">
-        <ShareButton lang={lang} title={`${t("routes.title")} · German Punctuality`} text={shareText} url={absoluteUrl(route(lang, "routes"))} label={t("routes.share")} image={routeImagePath(data.window.lastMonth, "ranking-portrait", lang)} filename="german-punctuality-routes" />
+        <ShareButton lang={lang} title={`${t("routes.title")} · Zugmonitor`} text={shareText} url={absoluteUrl(route(lang, "routes"))} label={t("routes.share")} image={routeImagePath(data.window.lastMonth, "ranking-portrait", lang)} filename="zugmonitor-routes" />
       </div>
 
       <div className="two-col wide">
