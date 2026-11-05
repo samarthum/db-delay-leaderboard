@@ -112,3 +112,19 @@ stop-number data the run-level counts barely move (long-distance measuring stop 
 18.8 min), stops.json now changes 76 per-stop run counts (copies no longer counted twice), connection-pairs 33 trains'
 station order. Published 2 Nov: recompute run 41406932683 on main at 7c32bed (station-id version, commit 2e25776,
 headline 18.8 min), then a second `recompute=true` run after this follow-up reached main.
+
+## First real month-add: gate false alarms (2-5 Nov 2026)
+The scheduled job found October published on 2 Nov and failed on 2, 3 and 4 Nov (runs 41490849594, 41663966073,
+41860608781) at the gate, nothing committed, the site stayed on Nov 2025 - Sep 2026. Pipeline, independent re-check and
+history abroad all passed; October looked normal (31,074 long-distance runs vs a median month of 30,447). Four gate
+checks failed, two causes, both gate bugs found by the first real month-add:
+1. "months both windows hold are unchanged" failed for September (both categories). Runs that start on 30 Sep and end
+   after midnight take their final stop from October's file, which the old window did not have: long-distance Sep runs
+   30,496 -> 30,497, measured 28,489 -> 28,492, average 18.458 -> 18.471 min (57 runs get their final stop from
+   October; reproduced on the two raw Parquet files, same SQL as compute.py). Now allowed for the old window's last month
+   only, within 1% of runs and 0.5 min (`EDGE_MAX_*`); every earlier month must still be identical.
+2. "no field vanished" failed for `window.skipped` in stats.json and monthly.json: October 2025 (partial month, 131
+   stations) is no longer among the 12 published months once October 2026 is added, so its note rightly disappears. Now
+   allowed only when the skipped month has left the published list.
+Tests: `test_monthly.py` +6 checks (tiny shift passes; 1 min, many runs, or any earlier month fails; the note goes only
+when its month left the published list), 44 passed. Then `gh workflow run monthly.yml` for the real October refresh.

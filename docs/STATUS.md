@@ -123,7 +123,7 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   published and `data/stats.json` does not cover it; then it downloads the window (~4.5 GB), runs compute -> stops ->
   routes -> connections -> compensation, re-checks every file family against the Parquet (`tests/data/verify_monthly.py`,
   `verify_bins.py`, `check_headline.py`), runs the sanity gate (`monthly.py gate`: window +1 month, row counts, no family
-  shrinking, no field vanishing, sizes) and commits only the history data files to `main` as github-actions[bot]. On
+  shrinking, no field vanishing, sizes; the old window's last month may shift by a hair, see data-pipeline notes) and commits only the history data files to `main` as github-actions[bot]. On
   pull requests touching the pipeline: dry run with a summary and artifact. `gh workflow run monthly.yml -f
   recompute=true` reruns the COMMITTED window after a rule change (gate: same window and runs, figures move a little;
   before/after report `tests/data/compare_last_stop.py` in the job summary). Stop order everywhere: planned time, then

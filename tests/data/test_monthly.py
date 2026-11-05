@@ -181,6 +181,55 @@ def main():
         code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", m)
         ok(code == 1 and "FAIL route lists: 1 rows" in out, "gate refuses a route row running the other way")
 
+        # Adding a month: the old window's last month may shift a little (runs crossing midnight take their final stop from
+        # the new month's file); no earlier month may. Real Oct 2026: runs +1, measured +3, average 18.458 -> 18.471.
+        def shift_month(month, runs=0, measured=0, avg=0.0):
+            def f(d):
+                def g(doc):
+                    for rows in doc["series"].values():
+                        for row in rows:
+                            if row["month"] == month:
+                                row["runs"] += runs
+                                row["measured"] += measured
+                                row["avgDelayMin"] = round(row["avgDelayMin"] + avg, 1)
+                edit(d / "monthly.json", g)
+            return f
+        e = mutated("edge-small", shift_month("2026-09", runs=1, measured=3, avg=0.1))
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", e)
+        ok(code == 0 and "ok   longDistance: 2026-09 (old window's last month) shifted" in out,
+           "gate accepts a tiny shift of the old window's last month" + ("" if code == 0 else "\n" + out[-2500:]))
+        e = mutated("edge-big", shift_month("2026-09", avg=1.0))
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", e)
+        ok(code == 1 and "FAIL longDistance: 2026-09 (old window's last month) shifted" in out,
+           "gate refuses the old window's last month moving 1 min")
+        e = mutated("edge-runs", shift_month("2026-09", runs=400, measured=400))
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", e)
+        ok(code == 1 and "FAIL longDistance: 2026-09 (old window's last month) shifted" in out,
+           "gate refuses the old window's last month gaining many runs")
+        e = mutated("edge-earlier", shift_month("2026-08", avg=0.1))
+        code, out = run("scripts/monthly.py", "gate", "--old", old, "--new", e)
+        ok(code == 1 and "FAIL longDistance: 3 months both windows hold are unchanged (differ: ['2026-08'])" in out,
+           "gate refuses any change to an earlier month")
+
+        # A partial month's note ("skipped") may go once its file has left the published list; not before.
+        def with_skipped(month):
+            def f(d):
+                for name in ("stats.json", "monthly.json"):
+                    edit(d / name, lambda doc: doc["window"].__setitem__(
+                        "skipped", [{"month": month, "reason": "partial month: 131 stations, need 1000", "stations": 131}]))
+            return f
+        o = tmp / "old-skipped"
+        shutil.copytree(old, o)
+        with_skipped("2026-05")(o)  # a month before the fixture's published list
+        code, out = run("scripts/monthly.py", "gate", "--old", o, "--new", new)
+        ok(code == 0 and "stats.json: no field vanished" in out,
+           "gate lets the note on a partial month go once that month left the published list" + ("" if code == 0 else "\n" + out[-2500:]))
+        shutil.rmtree(o)
+        shutil.copytree(old, o)
+        with_skipped("2026-08")(o)  # a month still published, whose note would vanish for no reason
+        code, out = run("scripts/monthly.py", "gate", "--old", o, "--new", new)
+        ok(code == 1 and "FAIL stats.json: no field vanished" in out, "gate refuses the note going while its month is still published")
+
         # 4. verify
         code, out = run("tests/data/verify_monthly.py", "--parquet", pq, "--data", new, "--sample", "1000")
         ok(code == 0 and "0 differences" in out.splitlines()[-1], "verify_monthly: new files agree with the Parquet" + ("" if code == 0 else "\n" + out[-3000:]))

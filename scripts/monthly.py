@@ -42,6 +42,10 @@ MAPS = {"connection-pairs.json": [(), ("*", "s")], "connections-daypart.json": [
 # last-stop fix moves ~4% of long-distance runs' measuring stop; a month moving more than this is a bug, not a fix.
 RECOMPUTE_MAX_AVG_MOVE = 2.0  # minutes
 RECOMPUTE_MAX_MEASURED_MOVE = 0.05  # share
+# Adding a month: how far the OLD window's last month may move (runs crossing midnight into the new month get their final
+# stop from the new month's file). Real October 2026: 0.2% of runs, 0.01 min. Anything bigger is a bug.
+EDGE_MAX_SHARE_MOVE = 0.01  # share of runs / measured runs
+EDGE_MAX_AVG_MOVE = 0.5  # minutes
 # Size bounds: a new file must be within this factor of the committed one and under the absolute cap (bytes).
 SIZE_FACTOR = (0.7, 1.5)
 SIZE_CAP = {"routes.json": 3e6, "stops.json": 2e6, "connection-pairs.json": 7e6, "connections-daypart.json": 1e6,
@@ -215,8 +219,22 @@ def gate(args):
             check(mb <= RECOMPUTE_MAX_MEASURED_MOVE, f"{cat}: measured runs per month moved at most {100 * mb:.2f}% ({mb_m}); "
                   f"limit {100 * RECOMPUTE_MAX_MEASURED_MOVE:.0f}%")
         else:
+            # The old window's last month may shift a little when a month is added: a run that starts on its last evening
+            # and ends after midnight takes its final stop from the NEW month's file, which the old window did not have
+            # (Oct 2026: 57 of ~30,000 long-distance runs, average +0.01 min). Every earlier month must be identical.
+            edge = wo["lastMonth"] if args.expect == "advance" else None
             diff = [m["month"] for m in same if m != old_by[m["month"]]]
-            check(not diff, f"{cat}: {len(same)} months both windows hold are unchanged" + (f" (differ: {diff})" if diff else ""))
+            other = [d for d in diff if d != edge]
+            check(not other, f"{cat}: {len(same) - len(diff)} months both windows hold are unchanged" + (f" (differ: {other})" if other else ""))
+            if edge in diff:
+                o, n = old_by[edge], next(m for m in same if m["month"] == edge)
+                runs_move = abs(n["runs"] - o["runs"]) / max(o["runs"], 1)
+                meas_move = abs(n["measured"] - o["measured"]) / max(o["measured"], 1)
+                avg_move = abs((n["avgDelayMin"] or 0) - (o["avgDelayMin"] or 0))
+                check(runs_move <= EDGE_MAX_SHARE_MOVE and meas_move <= EDGE_MAX_SHARE_MOVE and avg_move <= EDGE_MAX_AVG_MOVE,
+                      f"{cat}: {edge} (old window's last month) shifted by runs crossing midnight: runs {o['runs']:,} -> {n['runs']:,}, "
+                      f"measured {o['measured']:,} -> {n['measured']:,}, average {o['avgDelayMin']} -> {n['avgDelayMin']} min "
+                      f"(limits {100 * EDGE_MAX_SHARE_MOVE:.0f}% and {EDGE_MAX_AVG_MOVE} min)")
         runs = sorted(m["runs"] for m in mn["series"][cat][:-1]) or [mn["series"][cat][-1]["runs"]]
         med = runs[len(runs) // 2]
         last = mn["series"][cat][-1]
@@ -276,13 +294,18 @@ def gate(args):
     check(set(comp["routes"]) == {r["slug"] for r in rn["routes"]}, "compensation.json routes = route pages")
     check(comp["monthly"][-1]["month"] == wn["lastMonth"], f"compensation.json monthly ends {comp['monthly'][-1]['month']}")
 
-    # Fields: no key path of a committed file vanished.
+    # Fields: no key path of a committed file vanished. Except the note on a partial month ("skipped") whose file has dropped
+    # out of the 12 published months the window looks at (Oct 2025 once Oct 2026 is added): nothing left to note.
+    still_listed = {p["month"] for p in wn.get("published", [])}
+    slid = all(s["month"] not in still_listed for s in wo.get("skipped", []))
     for name in OUTPUTS + ["search/index.json"]:
         a, b = load(old, name), load(new, name)
         if a is None:
             continue
         maps = MAPS.get(name, [])
         lost = shape(a, (), maps) - shape(b, (), maps)
+        if slid:
+            lost = {p for p in lost if p[:3] != ("window", "skipped", "[]")}
         check(not lost, f"{name}: no field vanished" + (f" (gone: {sorted(lost)[:5]})" if lost else ""))
     for folder, label in (("trains", "train pages"), ("lines", "line pages")):
         so_, sn_ = set(), set()

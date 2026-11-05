@@ -46,7 +46,11 @@ Source: monthly Parquet in `$GP_PARQUET` (piebro/deutsche-bahn-data, CC BY 4.0),
   5%. `tests/data/compare_last_stop.py` writes the before/after into the job summary. Pull-request dry runs without a
   new month use the same `recompute` expectation (a PR may change a rule).
 - Gate (`monthly.py gate --old <copy of data/>`): window contiguous and end +1 month (start same or +1, 12 at most);
-  every file names the same window; months both windows hold and whose source file has the same size are unchanged;
+  every file names the same window; months both windows hold and whose source file has the same size are unchanged,
+  except the OLD window's last month, which may shift a little (runs that start on its last evening and end after
+  midnight take their final stop from the new month's file; Oct 2026: 57 of 30,497 long-distance runs, average
+  18.458 -> 18.471 min): at most 1% of runs and measured runs and 0.5 min, `EDGE_MAX_*` in `monthly.py`; the note on a
+  partial month (`window.skipped`) may disappear once that month's file has left the 12 published months;
   the new month's runs within 0.75-1.33x the median month, 80%+ measured; route pages, train/line pages, search units
   per kind, stops.json trains, connection stations and arriving trains, stations: at most 10-60% gone (per family)
   and not shrunk; no route row backwards; median route trips new/old 0.8-1.3; sizes 0.7-1.5x and under caps. It prints
