@@ -6,7 +6,7 @@ A mobile-first static site that shows how late Deutsche Bahn trains are and rank
 long-distance trains and regional lines over the last ~12 months.
 
 The repo is called `db-delay-leaderboard`. The site is branded **Zugmonitor** and lives at
-`https://zugmonitor.de` (formerly "German Punctuality" on `german-punctuality.vercel.app`).
+`https://zugmonitor.de` (formerly "German Punctuality" on `german-punctuality.vercel.app`, which now redirects there with a 308).
 
 - A headline from the last three months: the average delay of a long-distance and a regional trip, and how the trips split by lateness.
 - A monthly chart, with a long-distance/regional switch.

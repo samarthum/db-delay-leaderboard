@@ -27,7 +27,7 @@
 - When a new table lands above an existing one on a page, scope test selectors to their section (`section[aria-labelledby=trains] table.tt`): a bare `table.tt` silently starts reading the new table.
 - Dictionary files: EN files end `} as const;`, DE files end `};`. A script that inserts keys before `} as const;` silently skips every DE file; check-dict catches it. Insert before the file's actual closing line.
 - Don't chain `kill <pid> && ... git push`: if the server already exited, kill fails and the push silently never runs. Kill on its own line, then verify `git ls-remote origin refs/heads/main` equals HEAD.
-- Verify production with (local scratch) (all route URLs and images) plus the browser scripts flow.mjs, hamburg.mjs, sharebtn.mjs with BASE=https://german-punctuality.vercel.app.
+- Verify production with (local scratch) (all route URLs and images) plus the browser scripts flow.mjs, hamburg.mjs, sharebtn.mjs with BASE=https://zugmonitor.de.
 
 
 ## Voice search (branch voice-search, not live until ELEVENLABS_API_KEY is set on Vercel)

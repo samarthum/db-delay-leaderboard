@@ -48,7 +48,7 @@ These came from the owner over many sessions. Follow them unless he says otherwi
   final round is the go. Rollback (force-push) also needs his word.
 - Before saying what is live, `git fetch` and compare: other agents may push to `main`.
 - After a push, poll a marker only the new build serves (a new URL or file), then run the relevant e2e suite once
-  with `BASE=https://german-punctuality.vercel.app`. Do not run full production sweeps repeatedly: Vercel's bot
+  with `BASE=https://zugmonitor.de` (the old `german-punctuality.vercel.app` redirects there). Do not run full production sweeps repeatedly: Vercel's bot
   protection blocked the server IP after many sweeps.
 - Run `tests/tools/secretscan.py` before any change to history or visibility.
 - Updates to the owner: plain language, one decision at a time, say what is live vs branch vs preview, list what to

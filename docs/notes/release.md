@@ -41,7 +41,7 @@ Publishing = fast-forwarding `main` (Vercel deploys on push). Ask the user first
 
 ## Production sweeps are rate-limited
 - Vercel's bot protection challenged the VPS IP (403, `x-vercel-mitigated: challenge`, "Failed to verify your browser") on every page, for curl and real Chromium alike, after a day of repeated full sweeps (prod_check over ~3,400 URLs plus ~10 browser suites, several times). Run the full sweep once per release, not once per fix; test fixes against the local server.
-- For the deploy marker, poll the direct URL with a browser User-Agent every ~45 s in a background process with notify, and fall back to the outside reader only on 403 (the block can lift on its own). When blocked, do not hammer it. Check through an outside reader: `https://r.jina.ai/https://german-punctuality.vercel.app/<path>` returns the real page and data files. Report "site fine, VPS blocked" and ask the owner to open the page on his phone if a visual check is needed.
+- For the deploy marker, poll the direct URL with a browser User-Agent every ~45 s in a background process with notify, and fall back to the outside reader only on 403 (the block can lift on its own). When blocked, do not hammer it. Check through an outside reader: `https://r.jina.ai/https://zugmonitor.de/<path>` returns the real page and data files. Report "site fine, VPS blocked" and ask the owner to open the page on his phone if a visual check is needed.
 
 ## Report hygiene
 - Never state the result of a visual check that returned no answer (an image check sometimes returns only the image). Re-measure in the browser, and if a claim was made before it was verified, say so.

@@ -8,7 +8,7 @@ Zugmonitor (formerly German Punctuality): the place to check your train. A mobil
 Deutsche Bahn reports it and how late each train has run before, in English and German.
 History from open data (11 months), live status from DB's own API, cross-border trains via Transitous.
 
-- Live: https://german-punctuality.vercel.app (Vercel project `german-punctuality`, deploys every push to `main`).
+- Live: https://zugmonitor.de (Vercel project `german-punctuality`, deploys every push to `main`). The project's own address `german-punctuality.vercel.app` cannot be removed, so `vercel.json` redirects it (308, every path) to zugmonitor.de; preview deployments are unaffected.
   Canonical domain from the rebrand on: https://zugmonitor.de (apex; www redirects to it). Canonical URLs, the
   sitemap and share cards use it as soon as the rebrand is on `main`, so the domain must resolve before that push.
 - Repo: https://github.com/samarthum/db-delay-leaderboard (public, MIT; data keeps its source licences, see README).

@@ -27,7 +27,8 @@ number), one `<h1>` per page, `lang` on `<html>`, trailing-slash URLs.
 ## Not done / owner's steps
 - Google Search Console and Bing Webmaster Tools: add the domain (DNS TXT at Porkbun), submit `/sitemap.xml`. These are
   account steps, so they stay the owner's.
-- `german-punctuality.vercel.app` still answers 200 with canonicals pointing at zugmonitor.de. A host-based 308 redirect
-  in `vercel.json` would consolidate it for good; not added without the owner's yes.
+- `german-punctuality.vercel.app` (the project's own address, which Vercel never lets you delete) redirects to
+  zugmonitor.de with a host-based 308 in `vercel.json`, so only one address is indexed. Search Console's "Change of
+  address" tool is for moving a verified site and is not needed: the old host was never a Search Console property.
 - No `SearchAction` (sitelinks search box): the search box is client-side with no `?q=` result page worth indexing.
 - No per-route `Dataset` or `Place` markup: 1,500 near-identical datasets add noise, not signal.

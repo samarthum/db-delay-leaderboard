@@ -1,3 +1,11 @@
 {
-  "regions": ["fra1"]
+  "regions": ["fra1"],
+  "redirects": [
+    {
+      "source": "/:path(.*)",
+      "has": [{ "type": "host", "value": "german-punctuality.vercel.app" }],
+      "destination": "https://zugmonitor.de/:path",
+      "permanent": true
+    }
+  ]
 }
