@@ -150,18 +150,19 @@ export function unitMetadata(u: UnitSummary & { histogram?: { lo: number | null;
     lang,
     title,
     socialTitle: title,
-    description: t("seo.unit.desc", {
+    // A trip too short for a % figure has no "x% of the trip time": the sentence goes without it.
+    description: t(u.percent.avg === null ? "seo.unit.descNoPct" : "seo.unit.desc", {
       rank: rank ? `${rank} ` : "",
       name: u.name,
       route: routeOf(u),
       avg: fmt1(u.minutes.avg, lang),
-      rel: fmtPct(u.percent.avg, lang),
+      rel: u.percent.avg === null ? "" : fmtPct(u.percent.avg, lang),
       span: windowSpan(lang),
       n: fmtInt(u.measured, lang),
     }),
     path: unitHref(u, lang),
     image: u.slug,
-    imageAlt: t("seo.unit.alt", { name: u.name, route: routeOf(u), avg: fmtMin(u.minutes.avg), rel: fmtPct(u.percent.avg, lang) }),
+    imageAlt: t(u.percent.avg === null ? "seo.unit.altNoPct" : "seo.unit.alt", { name: u.name, route: routeOf(u), avg: fmtMin(u.minutes.avg), rel: u.percent.avg === null ? "" : fmtPct(u.percent.avg, lang) }),
   });
 }
 

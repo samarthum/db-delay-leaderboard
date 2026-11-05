@@ -84,6 +84,9 @@ export interface Dist {
   p90: number;
 }
 
+/** Same four figures, all null when no run was long enough for a % figure (a trip under minScheduledMinutesForPct). */
+export type PctDist = Dist | { avg: null; sd: null; median: null; p90: null };
+
 export interface Overall {
   /** All runs of the category in the window (including fully cancelled ones). */
   runs: number;
@@ -125,9 +128,9 @@ export interface UnitSummary {
   /** Runs also long enough (>= minScheduledMinutesForPct) to count in the % stats. */
   measuredPct: number;
   minutes: Dist;
-  percent: Dist;
-  /** Mean scheduled journey time in minutes (first departure to the measured final arrival). */
-  avgScheduledMin: number;
+  percent: PctDist;
+  /** Mean scheduled journey time in minutes (first departure to the measured final arrival); null when nothing was measured long enough. */
+  avgScheduledMin: number | null;
   fullCancelPct: number;
   partialCancelPct: number;
   /** 1-based rank in each ranking of its category, or null when outside the stored top lists. */

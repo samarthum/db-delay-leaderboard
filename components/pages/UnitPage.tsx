@@ -4,7 +4,7 @@ import { monthLong } from "@/lib/format";
 import { LATEST_MONTH_MIN_RUNS } from "@/lib/searchCore";
 import { getLatePct, hasConnectionsFrom, hasLiveTrain, isForeignStation, getMonthly, getRoutes, getStats, getUnit } from "@/lib/data";
 import { lateShareColor, delayColor, LATE } from "@/lib/colors";
-import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
+import { fmt1, fmtDate, fmtDuration, fmtInt, fmtPct, fmtSigned1, fmtStat, orDash, fmtShare, fmtShare1, monthLabel, monthShort, spanLabel } from "@/lib/format";
 import { route, type Lang } from "@/lib/i18n";
 import { absoluteUrl, portraitPath, unitHref } from "@/lib/site";
 import { rankSentence } from "@/lib/seo";
@@ -115,10 +115,10 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
     {
       title: tr("unit.g.percent"),
       rows: [
-        [tr("unit.r.avg"), fmtPct(t.percent.avg, lang)],
-        [tr("unit.r.medianShort"), `${fmtStat(t.percent.median, lang)}${lang === "de" ? "\u00a0%" : "%"}`],
-        [tr("unit.r.p90Short"), `${fmtStat(t.percent.p90, lang)}${lang === "de" ? "\u00a0%" : "%"}`],
-        [tr("unit.r.sdShort"), tr("unit.r.pts", { x: fmt1(t.percent.sd, lang) })],
+        [tr("unit.r.avg"), orDash(t.percent.avg, (v) => fmtPct(v, lang))],
+        [tr("unit.r.medianShort"), orDash(t.percent.median, (v) => `${fmtStat(v, lang)}${lang === "de" ? "\u00a0%" : "%"}`)],
+        [tr("unit.r.p90Short"), orDash(t.percent.p90, (v) => `${fmtStat(v, lang)}${lang === "de" ? "\u00a0%" : "%"}`)],
+        [tr("unit.r.sdShort"), orDash(t.percent.sd, (v) => tr("unit.r.pts", { x: fmt1(v, lang) }))],
       ],
     },
     {
@@ -127,7 +127,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
         [tr("unit.r.runs"), fmtInt(t.runs, lang)],
         [tr("unit.r.measured"), fmtInt(t.measured, lang)],
         [tr("unit.r.measuredPct"), fmtInt(t.measuredPct, lang)],
-        [tr("unit.r.planned"), fmtDuration(t.avgScheduledMin, lang)],
+        [tr("unit.r.planned"), orDash(t.avgScheduledMin, (v) => fmtDuration(v, lang))],
         [tr("unit.r.canc"), fmtShare1(t.fullCancelPct, lang)],
         [tr("unit.r.partial"), fmtShare1(t.partialCancelPct, lang)],
       ],
@@ -166,7 +166,7 @@ export function UnitPage({ category, slug, lang }: { category: Category; slug: s
             ) : (
               <>
                 <RouteName from={shortStation(isLine ? t.origin : shownOrigin(t.name, t.origin))} to={shortStation(t.dest)} word={nameWord} />
-                {endsAbroad || foreignOrigin(t.name) ? null : <>, {fmtDuration(t.avgScheduledMin, lang)}</>}
+                {endsAbroad || foreignOrigin(t.name) || t.avgScheduledMin === null ? null : <>, {fmtDuration(t.avgScheduledMin, lang)}</>}
               </>
             )}
           </p>

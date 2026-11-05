@@ -51,6 +51,14 @@ export function fmtMin(n: number): string {
   return String(Math.round(n));
 }
 
+/** Shown in place of a figure the data does not have (a trip too short for a % figure). */
+export const NO_FIGURE = "\u2013";
+
+/** `f(v)`, or the dash when v is null. */
+export function orDash<T>(v: T | null, f: (v: T) => string): string {
+  return v === null ? NO_FIGURE : f(v);
+}
+
 /** One decimal: 64.14 -> "64.1" / "64,1" */
 export function fmt1(n: number, lang: Lang = "en"): string {
   return n.toFixed(1).replace(".", decimal(lang));

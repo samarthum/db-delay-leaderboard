@@ -1,5 +1,5 @@
 import type { Category, Mode, UnitSummary } from "@/lib/types";
-import { fmt1, fmtPct } from "@/lib/format";
+import { fmt1, fmtPct, orDash } from "@/lib/format";
 import type { Lang } from "@/lib/i18n";
 import { makeT } from "@/lib/t";
 
@@ -9,7 +9,7 @@ export function modeCopy(lang: Lang, mode: Mode): { tab: string; explain: string
   const t = makeT(lang);
   return mode === "minutes"
     ? { tab: t("mode.minutes.tab"), explain: t("mode.minutes.explain"), value: (u) => `${fmt1(u.minutes.avg, lang)} ${t("unit.min")}` }
-    : { tab: t("mode.percent.tab"), explain: t("mode.percent.explain"), value: (u) => fmtPct(u.percent.avg, lang) };
+    : { tab: t("mode.percent.tab"), explain: t("mode.percent.explain"), value: (u) => orDash(u.percent.avg, (v) => fmtPct(v, lang)) };
 }
 
 export const MODE_LIST: Mode[] = ["minutes", "percent"];

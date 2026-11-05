@@ -128,3 +128,14 @@ checks failed, two causes, both gate bugs found by the first real month-add:
    allowed only when the skipped month has left the published list.
 Tests: `test_monthly.py` +6 checks (tiny shift passes; 1 min, many runs, or any earlier month fails; the note goes only
 when its month left the published list), 44 passed. Then `gh workflow run monthly.yml` for the real October refresh.
+
+**Then the deploy failed (5 Nov 2026).** The gate passed (59 of 59), the job committed `fd24177` (window Nov 2025 - Oct
+2026), and the Vercel build of that commit failed: October brought a train page the old data did not have, EC 1216
+(München Ost -> München Hbf, a short trip), whose `percent` block is all null and `avgScheduledMin` null because no run
+was long enough for a % figure (`measuredPct` 0, `minScheduledMinutesForPct` 15). `fmt1(null)` threw while prerendering
+`/de/zug/ec-1216`. The site kept serving the previous deploy, so nothing was broken for visitors, but the October data
+was not live. Fix (same day): `percent` and `avgScheduledMin` are typed nullable (`PctDist`), the unit page shows a dash
+for a missing figure (`orDash`), and the search description / image alt for such a unit leave out "x% of the trip time"
+(`seo.unit.descNoPct`, `seo.unit.altNoPct`). Checked: build (1,729 pages), seo-check 0 problems, EC 1216's page and
+share cards (no null/NaN), e2e 184/0 and 180/0. Lesson: the monthly job's dry run does not build the site; a new
+month can bring a shape the pages never met. The next month-add should be followed by a deploy check (done by hand now).

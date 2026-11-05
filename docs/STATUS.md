@@ -127,7 +127,7 @@ e2e at production; `CHROMIUM=` to pick a browser binary.
   pull requests touching the pipeline: dry run with a summary and artifact. `gh workflow run monthly.yml -f
   recompute=true` reruns the COMMITTED window after a rule change (gate: same window and runs, figures move a little;
   before/after report `tests/data/compare_last_stop.py` in the job summary). Stop order everywhere: planned time, then
-  stop number; a station listed twice at the same planned times counts once (Nov 2026; data-pipeline notes). Replaced `refresh.yml` (Nov 2026). Rules:
+  stop number; a station listed twice at the same planned times counts once (Nov 2026; data-pipeline notes). Replaced `refresh.yml` (Nov 2026). A trip too short for a % figure (e.g. EC 1216) has null `percent` and `avgScheduledMin`; pages show a dash. Rules:
   `docs/notes/data-pipeline.md` ("Monthly refresh"); log: `docs/notes/monthly-log.md`.
 - Stops abroad weekly (GitHub Actions, `.github/workflows/abroad.yml`, Wednesday 05:17 UTC, also `workflow_dispatch`;
   no keys): `scripts/foreign_stops.mjs` reads Transitous (light use, ~1,000 calls 1.5 s apart) and commits only
