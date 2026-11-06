@@ -126,7 +126,15 @@ export function siteLd(lang: Lang) {
         license: CC_BY,
         isAccessibleForFree: true,
         creator: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
-        isBasedOn: { "@type": "Dataset", name: "deutsche-bahn-data", url: DATA_SOURCE_URL, license: CC_BY },
+        isBasedOn: {
+          "@type": "Dataset",
+          name: "deutsche-bahn-data",
+          description:
+            "Deutsche Bahn's published train timetable and actual-time records for Germany, processed into monthly Parquet files by the open-source deutsche-bahn-data project. The source for the delay statistics on this site.",
+          url: DATA_SOURCE_URL,
+          license: CC_BY,
+          creator: { "@type": "Person", name: "piebro", url: "https://github.com/piebro" },
+        },
         temporalCoverage: `${first}/${last}`,
         spatialCoverage: { "@type": "Place", name: "Germany" },
         inLanguage: ["en", "de"],
