@@ -3,18 +3,18 @@ the usual first station (EVA), planned departure there, last station, planned ar
 
   ~/gp-search/venv-dir/v/bin/python scripts/live_trains.py --data-dir ~/gp-search/parquet
 
-Writes data/live-trains.json: { "ICE 1541": [oEva, oName, "HH:MM", dEva, dName, "HH:MM", weekdayBits, minutes] }.
+Writes data/live-trains.json: { "ICE 1541": [oEva, oName, "HH:MM", dEva, dName, "HH:MM", weekdayBits, minutes, [more variants]] }.
 api/live.js reads it to find today's run of a train in DB's Timetables API (plan of the origin station for that hour).
-Only patterns seen on at least MIN_SHARE of a train's recent runs are kept, so a number reused for two services keeps
-its main one.
+A train number keeps every variant (origin, destination, departure time, weekdays) seen on MIN_RUNS+ runs; see build().
 """
 import argparse, glob, json, os
+from collections import Counter
 
 import duckdb
 
 LONG = ("ICE", "IC", "EC", "ECE", "RJ", "RJX", "TGV", "FLX")
-MIN_RUNS = 8
-MIN_SHARE = 0.5
+MIN_RUNS = 3  # runs in the last two months for a variant to count
+MERGE_MIN = 10  # departure times this close (same stations) are one variant
 
 
 def main():
@@ -53,24 +53,72 @@ def main():
         min(dp) filter (where dp is not null) odp,
         arg_max(eva, seq) filter (where ap is not null) de, arg_max(name, seq) filter (where ap is not null) dnm,
         max(ap) dap
-      from s group by 1, 2, 3),
-    r2 as (select tt, num, oe, onm, strftime(odp, '%H:%M') dep, de, dnm, strftime(dap, '%H:%M') arr,
-                  isodow(odp) wd, date_diff('minute', odp, dap) mins from r where dap > odp and oe is not null and de is not null),
-    g as (select tt, num, oe, de, any_value(onm) onm, any_value(dnm) dnm, mode(dep) dep, mode(arr) arr, count(*) n,
-                 bit_or(1 << (wd - 1)) wdays, median(mins) mins, sum(count(*)) over (partition by tt, num) tot
-          from r2 group by tt, num, oe, de)
-    select tt, num, oe, onm, dep, de, dnm, arr, wdays, mins, n, tot from g
-    qualify row_number() over (partition by tt, num order by n desc) = 1
+      from s group by 1, 2, 3)
+    select tt, num, oe, onm, strftime(odp, '%H:%M') dep, de, dnm, strftime(dap, '%H:%M') arr,
+           isodow(odp) wd, date_diff('minute', odp, dap) mins
+    from r where dap > odp and oe is not null and de is not null
     """).fetchall()
-    out = {}
-    for tt, num, oe, onm, dep, de, dnm, arr, days, mins, n, tot in rows:
-        if n < MIN_RUNS or n < MIN_SHARE * tot:
-            continue
-        out[f"{tt} {num}"] = [oe, onm, dep, de, dnm, arr, int(days), int(mins)]
+    out = build(rows)
+    # Trains from abroad: data/abroad-trips.json measured its gap against the main variant's time, so that variant stays
+    # first (abroad_trips.mjs reads item 2 of the main variant).
+    old = json.load(open(a.out)) if os.path.exists(a.out) else {}
+    abroad = json.load(open("data/abroad-trips.json"))
+    for k in abroad:
+        if k in out and k in old:
+            vs = [out[k][:8]] + (out[k][8] if len(out[k]) > 8 else [])
+            i = next((i for i, v in enumerate(vs) if v[0] == old[k][0] and v[2] == old[k][2]), None)
+            if i:
+                vs.insert(0, vs.pop(i))
+                out[k] = vs[0] + ([vs[1:]] if len(vs) > 1 else [])
     with open(a.out, "w") as fh:
         json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
         fh.write("\n")
-    print(f"live trains: {len(out)} of {len(rows)} numbers -> {a.out} ({os.path.getsize(a.out) / 1e3:.0f} kB)")
+    extra = sum(len(v[8]) for v in out.values() if len(v) > 8)
+    print(f"live trains: {len(out)} numbers, {extra} extra variants -> {a.out} ({os.path.getsize(a.out) / 1e3:.0f} kB)")
+
+
+def minutes(hhmm):
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def build(rows):
+    """rows: (type, number, oEva, oName, dep, dEva, dName, arr, isodow, minutes), one per run.
+
+    Per train number every variant seen on at least MIN_RUNS runs, most common first: a number often runs different
+    routes on different weekdays or in different weeks (ICE 624 ends in Düsseldorf, Köln or Essen), so keeping one
+    pattern left every other day without live times. Departure times of one origin+destination within MERGE_MIN
+    minutes are one variant (timetable versions shift times by a few minutes); its time is the most common one.
+    Value: the main variant [oEva, oName, dep, dEva, dName, arr, weekdayBits, minutes] plus, as item 8, a list of
+    the other variants in the same shape (item 8 absent when there are none).
+    """
+    by = {}
+    for tt, num, oe, onm, dep, de, dnm, arr, wd, mins in rows:
+        by.setdefault((tt, num, oe, de), []).append((dep, onm, dnm, arr, wd, mins))
+    per = {}
+    for (tt, num, oe, de), runs in by.items():
+        counts = Counter(r[0] for r in runs)
+        anchors = []
+        for dep, _ in counts.most_common():
+            if all(abs(minutes(dep) - minutes(x)) > MERGE_MIN for x in anchors):
+                anchors.append(dep)
+        for anchor in anchors:
+            grp = [r for r in runs if abs(minutes(r[0]) - minutes(anchor)) <= MERGE_MIN
+                   and min(anchors, key=lambda x: abs(minutes(r[0]) - minutes(x))) == anchor]
+            if len(grp) < MIN_RUNS:
+                continue
+            bits = 0
+            for r in grp:
+                bits |= 1 << (r[4] - 1)
+            arr = Counter(r[3] for r in grp).most_common(1)[0][0]
+            mins = int(sorted(r[5] for r in grp)[len(grp) // 2])
+            per.setdefault(f"{tt} {num}", []).append((len(grp), [oe, grp[0][1], anchor, de, grp[0][2], arr, bits, mins]))
+    out = {}
+    for k, vs in per.items():
+        vs.sort(key=lambda x: -x[0])
+        main = vs[0][1]
+        out[k] = main + ([[v[1] for v in vs[1:]]] if len(vs) > 1 else [])
+    return out
 
 
 if __name__ == "__main__":

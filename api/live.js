@@ -204,32 +204,54 @@ function stampAt(min) {
   return `${String(d.getUTCFullYear()).slice(2)}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}`;
 }
 
-/** Which run of this train (today's or yesterday's start) is on now, if any. `lead`: minutes it runs abroad first. */
-function runNow(entry, nowMin, lead = 0) {
-  const [, , dep, , , , days, mins] = entry;
-  const [h, m] = dep.split(":").map(Number);
+/** All variants of a train number: the main one, then the others (items 0-7 each; see scripts/live_trains.py). */
+const variantsOf = (e) => [e.slice(0, 8), ...(e[8] || [])];
+const weekdayOf = (day) => (new Date(day * 60000).getUTCDay() + 6) % 7; // Monday = 0
+
+/**
+ * The runs of this train number (today's or yesterday's start) that are on now, one per distinct origin + departure
+ * time, nearest to leaving first. A number often runs to different last stations on different days, so the stations
+ * of a run come from DB's own trip (trainNow), not from the variant. `lead`: minutes it runs abroad first.
+ */
+function runsNow(e, nowMin, lead = 0) {
+  const found = new Map();
   const today = Math.floor(nowMin / 1440) * 1440;
-  for (const day of [today, today - 1440]) {
-    const start = day + h * 60 + m;
-    const wd = (new Date(day * 60000).getUTCDay() + 6) % 7; // Monday = 0
-    if (!((days >> wd) & 1)) continue;
-    if (nowMin >= start - lead - BEFORE_MIN && nowMin <= start + mins + AFTER_MIN) return { start, end: start + mins };
+  // A train from abroad: `lead` was measured against the main variant's departure, so only that origin and time count.
+  const vs = variantsOf(e).filter((v) => !lead || (v[0] === e[0] && v[2] === e[2]));
+  for (const v of vs) {
+    const [, , dep, , , , days, mins] = v;
+    const [h, m] = dep.split(":").map(Number);
+    for (const day of [today, today - 1440]) {
+      const start = day + h * 60 + m;
+      if (!((days >> weekdayOf(day)) & 1)) continue;
+      if (nowMin >= start - lead - BEFORE_MIN && nowMin <= start + mins + AFTER_MIN) {
+        const k = `${v[0]}|${start}`;
+        const cur = found.get(k);
+        if (!cur) found.set(k, { start, end: start + mins, ends: mins, origin: v });
+        else cur.ends = Math.max(cur.ends, mins);
+      }
+    }
   }
-  return null;
+  return [...found.values()].sort((x, y) => Math.abs(x.start - nowMin) - Math.abs(y.start - nowMin)).map((r) => ({ ...r, end: r.start + r.ends }));
 }
 
 /** The next planned start of this train after now (from the usual timetable; no call to DB), within a week. */
-function nextStart(entry, nowMin, lead = 0) {
-  const [, , dep, , , , days] = entry;
-  const [h, m] = dep.split(":").map(Number);
+function nextStart(e, nowMin, lead = 0) {
   const today = Math.floor(nowMin / 1440) * 1440;
-  for (let k = 0; k < 8; k++) {
-    const day = today + k * 1440;
-    const start = day + h * 60 + m;
-    const wd = (new Date(day * 60000).getUTCDay() + 6) % 7;
-    if ((days >> wd) & 1 && start - lead > nowMin) return { pd: stampAt(start - lead), liveFrom: stampAt(start - lead - BEFORE_MIN) };
+  let best = null;
+  for (const v of variantsOf(e).filter((v) => !lead || (v[0] === e[0] && v[2] === e[2]))) {
+    const [, , dep, , , , days] = v;
+    const [h, m] = dep.split(":").map(Number);
+    for (let k = 0; k < 8; k++) {
+      const day = today + k * 1440;
+      const start = day + h * 60 + m;
+      if ((days >> weekdayOf(day)) & 1 && start - lead > nowMin) {
+        if (!best || start < best.start) best = { start, from: v[1], pd: stampAt(start - lead), liveFrom: stampAt(start - lead - BEFORE_MIN) };
+        break;
+      }
+    }
   }
-  return null;
+  return best;
 }
 
 /** Berlin wall-clock stamp (yyMMddHHmm) of an ISO time. */
@@ -288,17 +310,50 @@ async function trainNow(name) {
   const e = TRAINS[name];
   const nowMin = minutesOf(stampOf(Date.now()));
   const lead = ABROAD[name] ? ABROAD[name][1] : 0;
-  const run = runNow(e, nowMin, lead);
-  if (!run) return { run: null, next: nextStart(e, nowMin, lead), nextFrom: lead && ORIGINS[name] ? ORIGINS[name][0] : null };
-  const abroadP = lead ? abroadNow(name, run.start) : Promise.resolve(null);
-  const [tt, num] = name.split(" ");
-  const depStamp = stampAt(run.start);
-  const [oPlan, oChg] = await Promise.all([plan(e[0], depStamp), changes(e[0])]);
-  const s = oPlan.find((x) => x.tl && x.tl.c === tt && x.tl.n === num && x.dp && x.dp.pt);
-  if (!s) {
-    const ab = await abroadP;
-    return ab ? { run: { found: true, state: "soon", pd: depStamp, late: null, canc: false, plat: null, platChanged: false, pa: null, lateArr: null, arrCanc: false, asOf: stampOf(Date.now()), abroad: ab, borderUnknown: true } } : { run: { found: false, pd: depStamp } };
+  const runs = runsNow(e, nowMin, lead);
+  if (!runs.length) {
+    const nx = nextStart(e, nowMin, lead);
+    return { run: null, next: nx && { pd: nx.pd, liveFrom: nx.liveFrom }, from: lead && ORIGINS[name] ? ORIGINS[name][0] : nx ? nx.from : e[1] };
   }
+  // The usual origin and time of each candidate; the first one DB has a trip for wins (a train that runs from two
+  // origins on different days has only one of them today).
+  const [tt, num] = name.split(" ");
+  let first = null;
+  for (const run of runs.slice(0, 3)) {
+    const o = run.origin;
+    const depStamp = stampAt(run.start);
+    const [oPlan, oChg] = await Promise.all([plan(o[0], depStamp), changes(o[0])]);
+    const s = oPlan.find((x) => x.tl && x.tl.c === tt && x.tl.n === num && x.dp && x.dp.pt && Math.abs(minutesOf(x.dp.pt) - run.start) <= 60);
+    if (s) return await runFound(name, e, run, s, oChg, lead);
+    first = first || { run, depStamp };
+  }
+  const { run, depStamp } = first;
+  const ab = lead ? await abroadNow(name, run.start) : null;
+  const fail = ab ? { run: { found: true, state: "soon", pd: depStamp, late: null, canc: false, plat: null, platChanged: false, pa: null, lateArr: null, arrCanc: false, asOf: stampOf(Date.now()), abroad: ab, borderUnknown: true } } : { run: { found: false, pd: depStamp } };
+  return { ...fail, from: run.origin[1], border: run.origin[1], to: run.origin[4] };
+}
+
+/**
+ * The last station of today's trip, from DB's planned path at the origin (ppth). Of the stations the usual runs of
+ * this number end at (with an arrival time), the last one the trip passes: ICE 624 ends in Düsseldorf, Köln or Essen
+ * on different days, and DB's path says which today. null when none of them is on the path.
+ */
+function destOf(e, o, ppth) {
+  const stops = (ppth || "").split("|").map(norm);
+  const cands = variantsOf(e).filter((v) => v[0] === o[0] && v[2] === o[2]);
+  let best = null;
+  for (const v of cands) {
+    const st = STATIONS[v[4]];
+    const i = st ? stops.lastIndexOf(norm(st.name)) : -1;
+    if (i >= 0 && (!best || i > best.i)) best = { i, v };
+  }
+  return best ? best.v : null;
+}
+
+async function runFound(name, e, run, s, oChg, lead) {
+  const o = run.origin;
+  const nowMin = minutesOf(stampOf(Date.now()));
+  const abroadP = lead ? abroadNow(name, run.start) : Promise.resolve(null);
   const key = tripKey(s.id);
   const cf = oChg.find((x) => tripKey(x.id) === key);
   const pd = s.dp.pt;
@@ -306,11 +361,12 @@ async function trainNow(name) {
   const canc = Boolean((cf && cf.dp && cf.dp.cs === "c") || s.dp.cs === "c");
   // Planned arrival at the last station: its timetable for the hour the usual arrival falls in (and the next one when it
   // is close to the hour), joined on the same trip.
-  const arrMin = run.end + (minutesOf(pd) - run.start);
+  const dv = destOf(e, o, s.dp.ppth) || variantsOf(e).find((v) => v[0] === o[0] && v[2] === o[2]) || o;
+  const arrMin = run.start + dv[7] + (minutesOf(pd) - run.start);
   const hours = new Set([stampAt(arrMin)]);
   if (arrMin % 60 >= 45) hours.add(stampAt(arrMin + 20));
   if (arrMin % 60 <= 15) hours.add(stampAt(arrMin - 20));
-  const [dPlans, dChg] = await Promise.all([Promise.all([...hours].map((hh) => plan(e[3], hh))), changes(e[3])]);
+  const [dPlans, dChg] = await Promise.all([Promise.all([...hours].map((hh) => plan(dv[3], hh))), changes(dv[3])]);
   const d = dPlans.flat().find((x) => tripKey(x.id) === key && x.ar && x.ar.pt);
   const ct = dChg.find((x) => tripKey(x.id) === key);
   const pa = d ? d.ar.pt : null;
@@ -323,6 +379,9 @@ async function trainNow(name) {
   const arrives = pa ? minutesOf(ca || pa) : null;
   const state = canc ? "cancelled" : nowMin < leaves ? "soon" : arrives !== null && nowMin > arrives ? "arrived" : "running";
   return {
+    from: o[1],
+    border: o[1],
+    to: dv[4],
     run: {
       found: true,
       state,
@@ -606,9 +665,7 @@ module.exports = async function handler(req, res) {
     if (!TRAINS[train]) return send(res, 200, { ok: false, error: "unknown" }, "public, s-maxage=86400");
     try {
       const out = await trainNow(train);
-      const from = out.nextFrom || TRAINS[train][1];
-      delete out.nextFrom;
-      return send(res, 200, { ok: true, train, from, border: TRAINS[train][1], to: TRAINS[train][4], ...out }, "public, s-maxage=45");
+      return send(res, 200, { ok: true, train, border: out.from, to: TRAINS[train][4], ...out }, "public, s-maxage=45");
     } catch (e) {
       return send(res, 200, { ok: false, error: e && e.message === "busy" ? "busy" : "upstream" }, "public, s-maxage=15");
     }

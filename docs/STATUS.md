@@ -43,7 +43,7 @@ The live-feed collector service (`docs/notes/live-and-international.md`) is stop
 ## Data at a glance (as committed)
 - History window: Nov 2025 - Sep 2026 (`data/stats.json`), source piebro/deutsche-bahn-data (CC BY 4.0), German
   stations only. 687 route pages (76 ranked), 50 train pages, 44 line pages, 1,574 sitemap URLs.
-- Live lookups: 897 trains (`data/live-trains.json`), 96 stations (`data/live-stations.json`).
+- Live lookups: 1,158 train numbers incl. variants per number (`data/live-trains.json`, rebuilt 6 Nov from Sep+Oct data; rerun `scripts/live_trains.py` after each month-add, it is not in the monthly job), 96 stations (`data/live-stations.json`).
 - Trains from abroad: 134 real origins (`data/foreign-origins.json`), 109 matched in Transitous
   (`data/abroad-trips.json`); refreshed weekly (below).
 - Stops abroad: `data/foreign-stops.json` (Transitous; weekly, GitHub Actions `abroad.yml`). History at stops abroad:
